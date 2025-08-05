@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TheMorenosBand | Local Music Experience</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Add this right after <body> -->
+<div class="luxe-scroll-track">
+  <div class="luxe-progress-ribbon"></div>
+</div>
+    <!-- Replace your existing <nav> section with this updated version -->
+<nav class="navbar">
+    <div class="container">
+        <a href="#" class="logo">
+            <img src="images/Transparent MORENO.png" alt="The Morenos Band" class="logo-img">
+        </a>
+        
+        <!-- Hamburger menu button -->
+        <div class="hamburger" id="hamburger">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        
+        <!-- Navigation overlay for mobile -->
+        <div class="nav-overlay" id="nav-overlay"></div>
+        
+        <ul class="nav-links" id="nav-links">
+            <li><a href="#home">Home</a></li>
+            <li><a href="#videos">Preformances</a></li>
+            <li><a href="#testimonials">Testimonials</a></li>
+            <li><a href="#tour">Upcomming Gigs</a></li>
+            <li><a href="#merch">Merch</a></li>
+            <li><a href="#contact">Book Now</a></li>
+        </ul>
+    </div>
+</nav>
+
+   <header class="hero" id="home">
+    <!-- Video background element -->
+<video class="hero-video" autoplay loop muted playsinline>
+    <source src="images/hero-background.mp4" type="video/mp4">
+</video>
+
+<div class="hero-content">
+    <h1 class="hero-title">
+        <span class="title-line">THE</span>
+        <span class="title-line">MORENOS</span>
+        <span class="title-line">BAND</span>
+    </h1>
+    <p class="hero-subtitle">Live Music for Your Venue or Event</p>
+</div>
+<div class="scroll-indicator">
+    <span>Scroll</span>
+    <div class="arrow-down"></div>
+</div>
+</header>
+
+<!-- Video Gallery -->
+<section id="videos" class="section videos-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">Live Performances</h2>
+        </div>
+        <div class="video-grid">
+            <!-- Video 1 -->
+            <div class="video-item">
+                <div class="video-wrapper">
+                    <video class="autoplay-video" muted playsinline loop width="100%">
+                        <source src="images/july.mp4" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div class="video-info">
+                    <h3>Fourth of July Event</h3>
+                    <p>Selma CA • 2025</p>
+                </div>
+            </div>
+            
+            <!-- Video 2 -->
+            <div class="video-item">
+                <div class="video-wrapper">
+                    <video class="autoplay-video" muted playsinline loop width="100%">
+                        <source src="images/fm.mp4" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div class="video-info">
+                    <h3>Farmers Market</h3>
+                    <p>Hanford CA • 2024</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+                </div>
+            </div>
+        </div>
+    </section>
+
+   <!-- Testimonials Section -->
+<section id="testimonials" class="section testimonials-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">Client Testimonials</h2>
+        </div>
+        <div class="testimonials-grid">
+            <!-- Card 1 - Lucy's -->
+            <div class="testimonial-card">
+                <div class="testimonial-logo logo-lucys">
+                    <img src="images/Lucy.png" alt="Lucy's Bar Logo">
+                </div>
+                <p class="testimonial-text">"TheMorenosBand had our entire bar dancing all night! Professional, talented, and easy to work with. We've booked them for monthly gigs."</p>
+                <div class="client-info">
+                    <p class="client-name">Earny Rodriguez</p>
+                    <p class="client-venue">Owner, Lucy's</p>
+                </div>
+            </div>
+
+            <!-- Card 2 - Cru Winery -->
+            <div class="testimonial-card">
+                <div class="testimonial-logo logo-cru">
+                    <img src="images/Cru.png" alt="Cru Winery Logo">
+                </div>
+                    <p class="testimonial-text">"TheMorenosBand brought the perfect vibe to our winery’s summer event! Their mix of classic and modern tunes had guests clapping along all night—we’ll definitely book them again."</p>
+                <div class="client-info">
+                    <p class="client-name">Kelly Balentine</p>
+                    <p class="client-venue">Owner, Cru Winery</p>
+                </div>
+            </div>
+
+            <!-- Card 3 - Morenos -->
+            <div class="testimonial-card">
+                <div class="testimonial-logo logo-morenos">
+                    <img src="images/testimonialsplaceholder.jpg" alt="TheMorenosBand Logo">
+                </div>
+                    <p class="testimonial-text">"We hired TheMorenosBand for a private birthday party, and they made it unforgettable. Easy to work with, took requests, and kept the dance floor packed. 10/10!"</p>
+                <div class="client-info">
+                    <p class="client-name">Jocy Aguilar</p>
+                    <p class="client-venue">Private Event</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Tour Dates Section -->
+<div id="tour" class="tour-section">
+    <h2 class="section-title">Where to find us</h2>
+    <div class="tour-grid">
+        <!-- Tour Date 1 (Highlighted) -->
+        <article class="tour-date">
+            <div class="date" aria-label="July 31">
+                <time datetime="2025-08-01">
+                    <span class="month">AUG</span>
+                    <span class="day">1</span>
+                </time>
+            </div>
+            
+            <div class="info">
+                <div class="venue-header">
+                    <h3>School House</h3>
+                    <span class="venue-promo">Restaurant & Tavern</span>
+                </div>
+                <p class="venue-desc"> Enjoy some great food!</p>
+                <div class="event-meta">
+                    <span class="event-time">7:00PM - 10:00PM</span>
+                    <span class="event-age">All Ages</span>
+                </div>
+                <address class="venue-address">1018 S Frankwood Ave, Sanger</address>
+                
+                <div class="venue-map-container">
+    <iframe loading="lazy" 
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3197.093104097319!2d-119.45057992426812!3d36.71962497227001!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8094fe45c380ad37%3A0xf26f96d9e9286007!2sSchool%20House%20Restaurant%20%26%20Tavern!5e0!3m2!1sen!2sus!4v1719529371239!5m2!1sen!2sus" 
+            aria-label="Map location of School House Restaurant & Tavern"
+            style="border:0" allowfullscreen></iframe>
+</div>
+            </div>
+
+        </article>
+        <!-- Tour Date 2 -->
+         <article class="tour-date">
+            <div class="date" aria-label="July 25">
+                <time datetime="2025-08-02">
+                    <span class="month">AUG</span>
+                    <span class="day">2</span>
+                </time>
+            </div>
+            
+            <div class="info">
+            <div class="venue-header">
+                <h3>Station 48</h3>
+                <span class="venue-promo">Restaurant & Bar</span>
+            </div>
+            <p class="venue-desc"> Transformed from an old volunteer fire station into a pub</p>
+            <div class="event-meta">
+                <span class="event-time">7:00PM - 9:00PM</span>
+                <span class="event-age">All Ages</span>
+            </div>
+            <address class="venue-address">1279 N Wishon Ave, Fresno</address>
+            
+            <div class="venue-map-container">
+                <iframe loading="lazy" 
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3197.093104097319!2d-119.45057992426812!3d36.71962497227001!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8094f11d4930edf5%3A0x31b25aa2cbb059e9!2sRileys%20Brewing%20Taproom!5e0!3m2!1sen!2sus!4v1719529371239!5m2!1sen!2sus" 
+                        aria-label="Map location of Rileys Brewing Taproom"
+                        style="border:0" allowfullscreen></iframe>
+            </div>
+        </div>
+        </article>
+
+        <!-- Tour Date 3 -->
+        <article class="tour-date">
+            <div class="date" aria-label="July 25">
+                <time datetime="2025-08-06">
+                    <span class="month">AUG</span>
+                    <span class="day">6</span>
+                </time>
+            </div>
+            
+            <div class="info">
+            <div class="venue-header">
+                <h3>Rileys Brewing Taproom</h3>
+                <span class="venue-promo">Restaurant & Bar</span>
+            </div>
+            <p class="venue-desc">45 beers on tap & a lineup of live music.</p>
+            <div class="event-meta">
+                <span class="event-time">6:30PM - 8:30PM</span>
+                <span class="event-age">All Ages</span>
+            </div>
+            <address class="venue-address">2940 McCall Ave STE 112, Selma</address>
+            
+            <div class="venue-map-container">
+                <iframe loading="lazy" 
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3197.093104097319!2d-119.45057992426812!3d36.71962497227001!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8094f11d4930edf5%3A0x31b25aa2cbb059e9!2sRileys%20Brewing%20Taproom!5e0!3m2!1sen!2sus!4v1719529371239!5m2!1sen!2sus" 
+                        aria-label="Map location of Rileys Brewing Taproom"
+                        style="border:0" allowfullscreen></iframe>
+            </div>
+        </div>
+        </article>
+
+       <!-- Tour Date 4 -->
+<article class="tour-date">
+    <div class="date" aria-label="July 26">
+        <time datetime="2025-08-08">
+            <span class="month">AUG</span>
+            <span class="day">8</span>
+        </time>
+    </div>
+    
+    <div class="info">
+        <div class="venue-header">
+            <h3>Howlin Wolf</h3>
+            <span class="venue-promo">Bar & Lounge</span>
+        </div>
+        <p class="venue-desc">Visit the nicest bar in tower</p>
+        <div class="event-meta">
+            <span class="event-time">9:00PM - 11:00PM</span>
+            <span class="event-age">21+</span>
+        </div>
+        <address class="venue-address">920 E Olive Ave, Fresno</address>
+        
+        <div class="venue-map-container">
+            <iframe loading="lazy" 
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3195.469246341038!2d-119.8024274!3d36.7572347!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80946713cb56fcb9%3A0xfbfcadc49a354757!2sHowlin%20Wolf!5e0!3m2!1sen!2sus!4v1719529371239!5m2!1sen!2sus" 
+                    aria-label="Map location of Howlin Wolf"
+                    style="border:0" allowfullscreen></iframe>
+        </div>
+    </div>
+</article>
+
+        <!-- Tour Date 5 -->
+<article class="tour-date">
+    <div class="date" aria-label="Date">
+        <time datetime="2025-08-14">
+            <span class="month">AUG</span>
+            <span class="day">14</span>
+        </time>
+    </div>
+    
+    <div class="info">
+        <div class="venue-header">
+            <h3>School House</h3>
+            <span class="venue-promo">Restaurant & Tavern</span>
+        </div>
+        <p class="venue-desc">Have a beer and eat some food</p>
+        <div class="event-meta">
+            <span class="event-time">5:00PM - 7:00PM</span>
+            <span class="event-age">All Ages</span>
+        </div>
+        <address class="venue-address">1018 S Frankwood Ave, Sanger</address>
+        
+        <div class="venue-map-container">
+    <iframe loading="lazy" 
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3197.373315168003!2d-119.4505746!3d36.719625!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8094fe45c380ad37%3A0xf26f96d9e9286007!2sSchool%20House%20Restaurant%20%26%20Tavern!5e0!3m2!1sen!2sus!4v1719791234567!5m2!1sen!2sus" 
+            aria-label="Map location of School House Restaurant & Tavern"
+            style="border:0" allowfullscreen></iframe>
+</div>
+    </div>
+</article>
+
+<!-- Tour Date 6 -->
+<article class="tour-date">
+    <div class="date" aria-label="Date">
+        <time datetime="2025-08-15">
+            <span class="month">AUG</span>
+            <span class="day">15</span>
+        </time>
+    </div>
+    
+    <div class="info">
+        <div class="venue-header">
+            <h3>Lush Fine Wines</h3>
+            <span class="venue-promo">Wine bar and lounge</span>
+        </div>
+        <p class="venue-desc">Premiere wine and beer destination</p>
+        <div class="event-meta">
+            <span class="event-time">8:00PM - 10:00PM</span>
+            <span class="event-age">21+</span>
+        </div>
+        <address class="venue-address">202 W Lacey Blvd, Hanford</address>
+        
+        <div class="venue-map-container">
+    <iframe loading="lazy" 
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3204.072422944247!2d-119.6480048!3d36.3281407!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8094c378f0be37b5%3A0xa42f8f372f65ab74!2sLush%20Fine%20Wines!5e0!3m2!1sen!2sus!4v1719791234567!5m2!1sen!2sus" 
+            aria-label="Map location of Lush Fine Wines"
+            style="border:0" allowfullscreen></iframe>
+        </div>
+    </div>
+</article>
+
+<!-- Tour Date 7 -->
+<article class="tour-date">
+    <div class="date" aria-label="Date">
+        <time datetime="2025-08-16">
+            <span class="month">AUG</span>
+            <span class="day">16</span>
+        </time>
+    </div>
+    
+    <div class="info">
+        <div class="venue-header">
+            <h3>YFC Blackstone</h3>
+            <span class="venue-promo">Restaurant & Dinner</span>
+        </div>
+        <p class="venue-desc">Serving steak, seafood & sandwiches </p>
+        <div class="event-meta">
+            <span class="event-time">8:30PM - 11:15PM</span>
+            <span class="event-age">All Ages</span>
+        </div>
+        <address class="venue-address">5123 N Blackstone Ave, Fresno</address>
+        
+        <div class="venue-map-container">
+    <iframe loading="lazy" 
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3197.123389042784!2d-119.7908477!3d36.8105163!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8094678a4087a765%3A0xfa2e1092252670f1!2sYosemite%20Falls%20Cafe%20-%20Blackstone!5e0!3m2!1sen!2sus!4v1711920000000!5m2!1sen!2sus" 
+            aria-label="Map location of Yosemite Falls Cafe"
+            style="border:0" allowfullscreen></iframe>
+</div>
+    </div>
+</article>
+
+<!-- Tour Date 8 -->
+<article class="tour-date">
+    <div class="date" aria-label="Date">
+        <time datetime="2025-08-17">
+            <span class="month">AUG</span>
+            <span class="day">17</span>
+        </time>
+    </div>
+    
+    <div class="info">
+        <div class="venue-header">
+            <h3>Lucy's</h3>
+            <span class="venue-promo">Cocktail Lounge</span>
+        </div>
+        <p class="venue-desc">Handcrafted cocktails</p>
+        <div class="event-meta">
+            <span class="event-time">3:30PM - 6:30PM</span>
+            <span class="event-age">21+</span>
+        </div>
+        <address class="venue-address">733 E Olive Ave, Fresno</address>
+        
+        <div class="venue-map-container">
+        <iframe loading="lazy" 
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3198.902658050146!2d-119.8052759!3d36.7578575!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8094674e658456e7%3A0x75d88bb50740ff08!2sLucy%27s%20Lounge!5e0!3m2!1sen!2sus!4v1711920000000!5m2!1sen!2sus" 
+                aria-label="Map location of Lucy's Lounge"
+                style="border:0" allowfullscreen></iframe>
+    </div>
+    </div>
+</article>
+
+<!-- Tour Date 9 -->
+<article class="tour-date">
+    <div class="date" aria-label="Date">
+        <time datetime="2025-08-27">
+            <span class="month">AUG</span>
+            <span class="day">27</span>
+        </time>
+    </div>
+    
+    <div class="info">
+        <div class="venue-header">
+            <h3>Fowler Farmers Market</h3>
+            <span class="venue-promo">Local Flavors Market</span>
+        </div>
+        <p class="venue-desc">Stop by and get some food</p>
+        <div class="event-meta">
+            <span class="event-time">1:00AM - 9:00PM</span>
+            <span class="event-age">All Ages</span>
+        </div>
+        <address class="venue-address"> 500 E. Merced St., Fowler</address>
+        
+        <div class="venue-map-container">
+    <iframe loading="lazy" 
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3193.908721968595!2d-119.6781983!3d36.6334367!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8094f6b5cc0d26b3%3A0x495a005fe8f26db1!2sPanzak%20Park!5e0!3m2!1sen!2sus!4v1711920000000!5m2!1sen!2sus" 
+            aria-label="Map location of Panzak Park"
+            style="border:0" allowfullscreen></iframe>
+</div>
+    </div>
+</article>
+
+    </div>
+</div>
+
+<!-- Merchandise Section -->
+<section id="merch" class="section merch-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">Band Merch</h2>
+        </div>
+        
+        <div class="merch-grid">
+            <!-- Merch Item 1 - T-Shirt (now with front/back) -->
+            <div class="merch-item">
+                <div class="merch-image-container">
+                    <!-- Front View -->
+                    <img src="images/Mshirtnew.png" alt="TheMorenosBand T-Shirt Front" class="merch-image merch-front">
+                    <!-- Back View (hidden by default) -->
+                    <img src="images/Mshirtnewb.png" alt="TheMorenosBand T-Shirt Back" class="merch-image merch-back">
+                </div>
+                <div class="merch-info">
+                    <h3>T-Shirt</h3>
+                    <div class="merch-price">$25.00</div>
+                    <div class="merch-actions">
+                        <select class="merch-size">
+                            <option value="" disabled selected>Size</option>
+                            <option value="S">Small</option>
+                            <option value="M">Medium</option>
+                            <option value="L">Large</option>
+                            <option value="XL">XL</option>
+                            <option value="XXL">XXL</option>
+                        </select>
+                        <button class="btn btn-cart">Add to Cart</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Merch Item 2 - Hoodie (now with front/back) -->
+            <div class="merch-item">
+                <div class="merch-image-container">
+                    <!-- Front View -->
+                    <img src="images/Sweater Front.png" alt="TheMorenosBand Hoodie Front" class="merch-image merch-front">
+                    <!-- Back View (hidden by default) -->
+                    <img src="images/Sweater Back.jpg" alt="TheMorenosBand Hoodie Back" class="merch-image merch-back">
+                </div>
+                <div class="merch-info">
+                    <h3>Premium Hoodie</h3>
+                    <div class="merch-price">$45.00</div>
+                    <div class="merch-actions">
+                        <select class="merch-size">
+                            <option value="" disabled selected>Size</option>
+                            <option value="S">Small</option>
+                            <option value="M">Medium</option>
+                            <option value="L">Large</option>
+                            <option value="XL">XL</option>
+                            <option value="XXL">XXL</option>
+                        </select>
+                        <button class="btn btn-cart">Add to Cart</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Merch Item 3 - Hat (single view) -->
+            <div class="merch-item">
+                <div class="merch-image-container">
+                    <img src="images/Hat.jpg" alt="TheMorenosBand Snapback Hat" class="merch-image">
+                </div>
+                <div class="merch-info">
+                    <h3>Snapback Hat</h3>
+                    <div class="merch-price">$22.00</div>
+                    <div class="merch-actions">
+                        <button class="btn btn-cart">Add to Cart</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Merch Item 4 - Tote Bag (single view) -->
+            <div class="merch-item">
+                <div class="merch-image-container">
+                    <img src="images/Tote Bag.jpg" alt="TheMorenosBand Tote Bag" class="merch-image">
+                </div>
+                <div class="merch-info">
+                    <h3>Tote Bag</h3>
+                    <div class="merch-price">$30.00</div>
+                    <div class="merch-actions">
+                        <button class="btn btn-cart">Add to Cart</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+</section>
+
+ <section id="contact" class="section contact-section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Book The Band</h2>
+            </div>
+            <div class="form-embed-container">
+                <iframe 
+                    src="https://forms.fillout.com/t/kvPTtsL2Z7us" 
+                    frameborder="0" 
+                    id="booking-iframe"
+                    scrolling="no"
+                    loading="eager"
+                ></iframe>
+            </div>
+        </div>
+    </section>
+
+<!-- Shopping Cart Button -->
+<div class="cart-btn" id="cart-btn">
+    <i class="fas fa-shopping-bag"></i>
+    <span class="cart-count" id="cart-count">0</span>
+</div>
+
+<!-- Cart Overlay -->
+<div class="cart-overlay" id="cart-overlay"></div>
+
+<div class="cart-sidebar" id="cart-sidebar">
+    <div class="cart-header">
+        <h3>Your Cart</h3>
+        <button class="close-cart" id="close-cart">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <div class="cart-items" id="cart-items">
+        <!-- Empty cart state by default -->
+        <div class="empty-cart">
+            <i class="fas fa-shopping-bag"></i>
+            <p>Your cart is empty</p>
+        </div>
+    </div>
+    
+<!-- Main Container -->
+<div class="checkout-flow">
+    <!-- Checkout Form (visible by default) -->
+    <div id="checkout-form" class="checkout-form">
+        <div class="form-container">
+            <h4 class="checkout-header">Complete Your Order</h4>
+            
+            <div class="form-grid">
+                <!-- Contact Info Row -->
+                <div class="form-group email">
+                    <label for="checkout-email">Email</label>
+                    <input type="email" id="checkout-email" name="email" required>
+                </div>
+                <div class="form-group phone">
+                    <label for="checkout-phone">Phone</label>
+                    <input type="tel" id="checkout-phone" name="phone" required>
+                </div>
+                
+                <!-- Shipping Address Section -->
+                <div class="form-group full-name full-width">
+                    <label for="shipping-name">Full Name</label>
+                    <input type="text" id="shipping-name" name="shipping-name" required>
+                </div>
+                
+                <div class="form-group address1">
+                    <label for="shipping-address1">Address</label>
+                    <input type="text" id="shipping-address1" name="shipping-address1" required>
+                </div>
+                
+                <div class="form-group address2">
+                    <label for="shipping-address2">Apt/Suite <span class="optional">(Optional)</span></label>
+                    <input type="text" id="shipping-address2" name="shipping-address2">
+                </div>
+                
+                <!-- City/State/ZIP Row -->
+                <div class="form-group city">
+                    <label for="shipping-city">City</label>
+                    <input type="text" id="shipping-city" name="shipping-city" required>
+                </div>
+                <div class="form-group state">
+                    <label for="shipping-state">State</label>
+                    <input type="text" id="shipping-state" name="shipping-state" required>
+                </div>
+                <div class="form-group zip">
+                    <label for="shipping-zip">ZIP</label>
+                    <input type="text" id="shipping-zip" name="shipping-zip" required>
+                </div>
+                
+                <div class="form-group country full-width">
+                    <label for="shipping-country">Country</label>
+                    <select id="shipping-country" name="shipping-country" required>
+                        <option value="US">United States</option>
+                        <option value="CA">Canada</option>
+                        <option value="UK">Mexico</option>
+                        <option value="UK">United Kingdom</option>
+
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="cancel-checkout">Cancel</button>
+                <button type="button" class="btn btn-primary" id="complete-order">Continue to Payment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Credit Card Form (hidden initially) -->
+    <div id="credit-card-form" class="credit-card-form" style="display: none;">
+        <div class="payment-header">
+            <button type="button" class="back-to-shipping" id="back-to-shipping">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <h3>Payment Information</h3>
+            <div class="security-badge">
+                <i class="fas fa-shield-alt"></i>
+                <span>Secure Checkout</span>
+            </div>
+        </div>
+        
+        <!-- Credit Card Form -->
+<div class="payment-content" id="card-content">
+    <form id="payment-form" novalidate>
+        <div class="card-preview">
+            <div class="card-front">
+                <div class="card-brand">
+                    <i class="fab fa-cc-visa card-icon" id="card-brand-icon"></i>
+                </div>
+                <div class="card-number-display" id="card-number-display">•••• •••• •••• ••••</div>
+                <div class="card-details">
+                    <div class="card-holder" id="card-holder-display">CARDHOLDER NAME</div>
+                    <div class="card-expiry" id="card-expiry-display">MM/YY</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-grid">
+            <!-- Row 1 -->
+            <div class="form-group card-number-group">
+                <label for="card-number">Card Number *</label>
+                <div class="input-wrapper">
+                    <input type="text" 
+                           id="card-number" 
+                           name="cardNumber"
+                           placeholder="1234 5678 9012 3456"
+                           maxlength="19"
+                           autocomplete="cc-number"
+                           inputmode="numeric"
+                           required>
+                    <div class="card-brand-indicator">
+                        <i class="fab fa-cc-visa" id="input-brand-icon"></i>
+                    </div>
+                </div>
+                <div class="error-message" id="card-number-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="cardholder-name">Cardholder Name *</label>
+                <input type="text" 
+                       id="cardholder-name" 
+                       name="cardholderName"
+                       placeholder="James Doe"
+                       autocomplete="cc-name"
+                       required>
+                <div class="error-message" id="cardholder-name-error"></div>
+            </div>
+
+            <!-- Row 2 -->
+            <div class="form-group">
+                <label for="card-expiry">Expiry Date *</label>
+                <input type="text" 
+                       id="card-expiry" 
+                       name="cardExpiry"
+                       placeholder="MM/YY"
+                       maxlength="5"
+                       autocomplete="cc-exp"
+                       inputmode="numeric"
+                       required>
+                <div class="error-message" id="card-expiry-error"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="card-cvc">CVC *</label>
+                <div class="input-wrapper">
+                    <input type="text" 
+                           id="card-cvc" 
+                           name="cardCvc"
+                           placeholder="123"
+                           maxlength="4"
+                           autocomplete="cc-csc"
+                           inputmode="numeric"
+                           required>
+                    <div class="cvc-tooltip">
+                        <i class="fas fa-question-circle"></i>
+                        <div class="tooltip-content">
+                            <p>3 digits on back of card</p>
+                            <p>4 digits on front for Amex</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="error-message" id="card-cvc-error"></div>
+            </div>
+        </div>
+<!-- Add this HTML where you want the billing address form to appear -->
+<div class="billing-address-form" style="display: none;">
+    <div class="checkout-header">
+        <h3>Billing Address</h3>
+    </div>
+    
+    <div class="form-grid">
+        <div class="form-group full-name">
+            <label for="billing-full-name">Full Name</label>
+            <input type="text" id="billing-full-name" name="billing-full-name" required>
+        </div>
+        
+        <div class="form-group address1">
+            <label for="billing-address1">Address Line 1</label>
+            <input type="text" id="billing-address1" name="billing-address1" required>
+        </div>
+        
+        <div class="form-group address2">
+            <label for="billing-address2">Unit (Apt, Suite, etc.)</label>
+            <input type="text" id="billing-address2" name="billing-address2">
+        </div>
+        
+        <div class="form-group city">
+            <label for="billing-city">City</label>
+            <input type="text" id="billing-city" name="billing-city" required>
+        </div>
+        
+        <div class="form-group state">
+            <label for="billing-state">State/Province</label>
+            <input type="text" id="billing-state" name="billing-state" required>
+        </div>
+        
+        <div class="form-group zip">
+            <label for="billing-zip">ZIP/Postal Code</label>
+            <input type="text" id="billing-zip" name="billing-zip" required>
+        </div>
+        
+        <div class="form-group country">
+            <label for="billing-country">Country</label>
+            <select id="billing-country" name="billing-country" required>
+                <option value="">Select Country</option>
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
+                <option value="UK">United Kingdom</option>
+                <!-- Add more countries as needed -->
+            </select>
+        </div>
+    </div>
+</div>
+                    <div class="billing-section">
+                        <div class="billing-header">
+                            <h4>Billing Address</h4>
+                            <label class="checkbox-wrapper">
+                                <input type="checkbox" id="same-as-shipping" checked>
+                                <span class="checkmark"></span>
+                                Same as shipping address
+                            </label>
+                        </div>
+
+                        <div class="billing-fields" id="billing-fields" style="display: none;">
+                            <!-- Billing address fields here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="back-to-checkout">Back</button>
+                    <button type="submit" class="btn btn-primary" id="process-payment">Complete Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cart Footer -->
+ <div class="cart-footer">
+        <div class="cart-total">
+            <span>Total:</span>
+            <span class="total-price" id="total-price">$0.00</span>
+        </div>
+        <button class="btn btn-checkout" id="checkout-btn">Proceed to Checkout</button>
+    </div>
+</div> <!-- Close cart-sidebar -->
+</div>
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-about">
+                    <h3>TheMorenosBand</h3>
+                    <p>Live music for bars, restaurants, and special events in the Anytown area.</p>
+                </div>
+                <div class="footer-links">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="#home">Home</a></li>
+                        <li><a href="#videos">Preformances</a></li>
+                        <li><a href="#testimonials">Testimonials</a></li>
+                        <li><a href="#tour">Upcomming Gigs</a></li>
+                        <li><a href="#merch">Merch</a></li>
+                        <li><a href="#contact">Book Now</a></li>
+                    </ul>
+                </div>
+                <div class="footer-contact">
+                    <h3>Contact</h3>
+                    <p><i class="fas fa-phone"></i> <a href="tel:5594486128">(559) 448-6128</a></p>
+                    <p><i class="fas fa-envelope"></i> <a href="mailto:themorenosbandfresno@gmail.com">themorenosbandfresno@gmail.com</a></p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="social-links">
+                    <a href="https://www.facebook.com/TheMorenos/" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    aria-label="The Moreno's Band on Facebook">
+                        <i class="fab fa-facebook-f"></i>
+                    </a>
+                    <a href="https://www.instagram.com/themorenosbandfresno/?hl=en" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    aria-label="The Moreno's Band on Instagram">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.youtube.com/user/morenochepe/videos" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    aria-label="The Moreno's Band on YouTube">
+                        <i class="fab fa-youtube"></i>
+                    </a>
+                </div>
+                <p class="copyright">&copy; <span id="year"></span> TheMorenosBand. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
