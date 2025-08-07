@@ -865,7 +865,8 @@ a {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
     position: relative;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    margin-top: 1.5rem;
     cursor: pointer;
 }
 
@@ -1024,7 +1025,7 @@ a {
     top: 1.3rem;
     right: 1.7rem;
     padding: 8px 16px;
-    min-width: 70px;
+    min-width: 50px;
     
     /* Modern glass morphism background */
     background: 
@@ -1047,7 +1048,7 @@ a {
     /* Rounded modern style */
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.25);
-    z-index: 20;
+    z-index: 9999; /* Increased to ensure it shows above other elements */
     
     /* Subtle shadow with red glow */
     box-shadow: 
@@ -1066,10 +1067,17 @@ a {
     transform: translateZ(0);
     
     /* Flex for perfect centering */
-    display: flex;
+    display: flex !important; /* Added !important to ensure display */
     align-items: center;
     justify-content: center;
     gap: 4px;
+}
+
+/* Mobile-specific z-index boost */
+@media (max-width: 768px) {
+    .tour-date.currently-playing::after {
+        z-index: 9999;
+    }
 }
 
 @keyframes live-indicator-pulse {

@@ -321,7 +321,7 @@ window.addEventListener('load', function() {
             this.dotsContainer.style.display = 'none';
             this.dotsContainer.style.justifyContent = 'center';
             this.dotsContainer.style.alignItems = 'center';
-            this.dotsContainer.style.marginTop = '5px';
+            this.dotsContainer.style.marginTop = '.5rem';
             this.dotsContainer.style.padding = '0 0px';
             
             // Create dots
