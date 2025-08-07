@@ -823,7 +823,6 @@ a {
         flex-direction: row;
         grid-template-columns: none;
         gap: 1.5rem;
-        padding: 0 calc(50vw - 180px); /* Updated for wider cards */
         overflow-x: auto;
         overflow-y: visible;
         scroll-snap-type: x mandatory;
@@ -866,7 +865,7 @@ a {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
     position: relative;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1rem;
     cursor: pointer;
 }
 
@@ -878,7 +877,6 @@ a {
         max-width: 360px;
         height: auto;
         scroll-snap-align: center;
-        margin-bottom: 0;
     }
 }
 
@@ -950,6 +948,341 @@ a {
     transition: 
         transform 0.2s ease,
         box-shadow 0.2s ease;
+}
+
+/* ===== ENHANCED CURRENTLY PLAYING CARD ===== */
+.tour-date.currently-playing {
+    /* Enhanced background with better lighting */
+    background: 
+        linear-gradient(145deg, 
+            rgba(20, 20, 20, 0.98) 0%,
+            rgba(35, 35, 35, 0.98) 50%,
+            rgba(25, 25, 25, 0.98) 100%
+        ),
+        radial-gradient(
+            circle at 35% 45%,
+            rgba(195, 169, 111, 0.25) 0%,
+            rgba(195, 169, 111, 0.1) 40%,
+            transparent 70%
+        );
+    
+    /* Enhanced shadow system */
+    box-shadow: 
+        0 10px 35px rgba(0, 0, 0, 0.6),
+        0 5px 15px rgba(0, 0, 0, 0.4),
+        0 0 50px rgba(195, 169, 111, 0.3),
+        0 0 100px rgba(195, 169, 111, 0.15),
+        inset 0 1px 3px rgba(255, 255, 255, 0.08),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+    
+    /* Enhanced border with glow */
+    border: 1px solid rgba(195, 169, 111, 0.4);
+    position: relative;
+    z-index: 10;
+    
+    /* Stable transform for smooth animation */
+    transform: translateZ(0);
+    will-change: transform, box-shadow;
+    backface-visibility: hidden;
+    
+    /* Gentle breathing animation */
+    animation: live-card-breathe 5s ease-in-out infinite alternate;
+    
+    /* Prevent text blur */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+@keyframes live-card-breathe {
+    0% { 
+        transform: translateZ(0) scale(1);
+        box-shadow: 
+            0 10px 35px rgba(0, 0, 0, 0.6),
+            0 5px 15px rgba(0, 0, 0, 0.4),
+            0 0 50px rgba(195, 169, 111, 0.3),
+            0 0 100px rgba(195, 169, 111, 0.15),
+            inset 0 1px 3px rgba(255, 255, 255, 0.08),
+            inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+    }
+    100% { 
+        transform: translateZ(0) scale(1.015);
+        box-shadow: 
+            0 15px 50px rgba(0, 0, 0, 0.7),
+            0 8px 25px rgba(0, 0, 0, 0.5),
+            0 0 70px rgba(195, 169, 111, 0.45),
+            0 0 140px rgba(195, 169, 111, 0.25),
+            inset 0 2px 5px rgba(255, 255, 255, 0.12),
+            inset 0 -3px 6px rgba(0, 0, 0, 0.4);
+    }
+}
+
+/* ===== REDESIGNED "LIVE NOW" BADGE ===== */
+.tour-date.currently-playing::after {
+    content: '● LIVE';
+    position: absolute;
+    top: 1.3rem;
+    right: 1.7rem;
+    padding: 8px 16px;
+    min-width: 70px;
+    
+    /* Modern glass morphism background */
+    background: 
+        linear-gradient(135deg, 
+            rgba(255, 50, 50, 0.95) 0%,
+            rgba(220, 20, 60, 0.98) 50%,
+            rgba(180, 20, 50, 1) 100%
+        );
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    
+    /* White text with subtle shadow */
+    color: rgba(255, 255, 255, 0.98);
+    font-size: 0.9rem;
+    font-weight: 550;
+    text-transform: uppercase;
+    letter-spacing: 3.5px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    
+    /* Rounded modern style */
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    z-index: 20;
+    
+    /* Subtle shadow with red glow */
+    box-shadow: 
+        0 4px 15px rgba(0, 0, 0, 0.4),
+        0 2px 8px rgba(220, 20, 60, 0.5),
+        0 0 25px rgba(255, 50, 50, 0.4),
+        inset 0 1px 2px rgba(255, 255, 255, 0.3),
+        inset 0 -1px 3px rgba(0, 0, 0, 0.2);
+    
+    /* Pulsing live indicator animation */
+    animation: live-indicator-pulse 2.5s ease-in-out infinite;
+    
+    /* Crisp text rendering */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transform: translateZ(0);
+    
+    /* Flex for perfect centering */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+@keyframes live-indicator-pulse {
+    0%, 100% { 
+        opacity: 1;
+        transform: translateZ(0) scale(1);
+        box-shadow: 
+            0 4px 15px rgba(0, 0, 0, 0.4),
+            0 2px 8px rgba(220, 20, 60, 0.5),
+            0 0 25px rgba(255, 50, 50, 0.4),
+            inset 0 1px 2px rgba(255, 255, 255, 0.3),
+            inset 0 -1px 3px rgba(0, 0, 0, 0.2);
+    }
+    50% { 
+        opacity: 0.95;
+        transform: translateZ(0) scale(1.03);
+        box-shadow: 
+            0 6px 20px rgba(0, 0, 0, 0.5),
+            0 3px 12px rgba(220, 20, 60, 0.7),
+            0 0 35px rgba(255, 50, 50, 0.6),
+            0 0 60px rgba(255, 50, 50, 0.3),
+            inset 0 2px 4px rgba(255, 255, 255, 0.4),
+            inset 0 -2px 5px rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* ===== INFO SECTION LIGHTING EFFECTS ===== */
+.tour-date.currently-playing .info {
+    position: relative;
+    overflow: hidden;
+}
+
+.tour-date.currently-playing .info::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(
+            circle at 70% 30%,
+            rgba(255, 255, 255, 0.06) 0%,
+            rgba(255, 255, 255, 0.03) 30%,
+            transparent 60%
+        );
+    animation: subtle-glow-pulse 8s ease-in-out infinite alternate;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.8;
+}
+
+.tour-date.currently-playing .info::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(
+            circle at 25% 70%,
+            rgba(195, 169, 111, 0.08) 0%,
+            rgba(195, 169, 111, 0.04) 40%,
+            transparent 70%
+        );
+    animation: ambient-breathe 12s ease-in-out infinite alternate-reverse;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.5;
+}
+
+@keyframes subtle-glow-pulse {
+    0% { 
+        opacity: 0.6;
+        transform: scale(0.95);
+    }
+    100% { 
+        opacity: 1;
+        transform: scale(1.05);
+    }
+}
+
+@keyframes ambient-breathe {
+    0% { 
+        opacity: 0.3;
+        transform: scale(1) rotate(0deg);
+    }
+    100% { 
+        opacity: 0.7;
+        transform: scale(1.1) rotate(2deg);
+    }
+}
+
+/* ===== ENHANCED DATE COMPONENT FOR LIVE CARD ===== */
+.tour-date.currently-playing .date {
+    background: linear-gradient(135deg,
+        #f8e5a0 0%,
+        #f5d47f 25%,
+        #e0c060 50%,
+        #d4b15f 75%,
+        #c3a96f 100%
+    );
+    
+    /* Enhanced 3D metallic effect */
+    box-shadow: 
+        0 3px 12px rgba(0, 0, 0, 0.4),
+        inset 0 2px 6px rgba(255, 255, 255, 0.8),
+        inset 0 -2px 6px rgba(100, 80, 40, 0.5),
+        inset 2px 0 4px rgba(255, 255, 255, 0.4),
+        inset -2px 0 4px rgba(100, 80, 40, 0.3);
+    
+    /* Prevent transform inheritance issues */
+    transform: translateZ(0);
+    position: relative;
+    z-index: 5;
+}
+
+/* ===== STABLE CONTENT RENDERING ===== */
+.tour-date.currently-playing .venue-header,
+.tour-date.currently-playing .venue-header h3,
+.tour-date.currently-playing .venue-promo,
+.tour-date.currently-playing .venue-desc,
+.tour-date.currently-playing .event-meta,
+.tour-date.currently-playing .event-time,
+.tour-date.currently-playing .event-age,
+.tour-date.currently-playing .venue-address,
+.tour-date.currently-playing .venue-map-container,
+.tour-date.currently-playing .date .month,
+.tour-date.currently-playing .date .day {
+    /* Ensure content sits above lighting */
+    position: relative;
+    z-index: 5;
+    
+    /* Prevent text blur from transforms */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    
+    /* Crisp text rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* ===== HOVER ENHANCEMENT FOR LIVE CARD ===== */
+.tour-date.currently-playing:hover {
+    transform: translateY(-8px) translateZ(0) scale(1.02);
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.8),
+        0 10px 30px rgba(0, 0, 0, 0.6),
+        0 0 80px rgba(195, 169, 111, 0.6),
+        0 0 160px rgba(195, 169, 111, 0.35),
+        inset 0 3px 8px rgba(255, 255, 255, 0.15),
+        inset 0 -4px 10px rgba(0, 0, 0, 0.5);
+    
+    border-color: rgba(195, 169, 111, 0.6);
+}
+
+.tour-date.currently-playing:hover .info::before {
+    opacity: 1;
+    animation-duration: 4s;
+}
+
+.tour-date.currently-playing:hover .info::after {
+    opacity: 0.8;
+    animation-duration: 6s;
+}
+
+/* ===== MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 768px) {
+    .tour-date.currently-playing::after {
+        top: 1.5rem;
+        right: 1.5rem;
+        padding: 10px 12px;
+        font-size: 800px;
+        letter-spacing: 1px;
+    }
+    
+    /* Reduce animation intensity on mobile */
+    .tour-date.currently-playing {
+        animation-duration: 7s;
+    }
+    
+    .tour-date.currently-playing .info::before {
+        animation-duration: 12s;
+        opacity: 0.5;
+    }
+    
+    .tour-date.currently-playing .info::after {
+        opacity: 0.3;
+        animation-duration: 18s;
+    }
+    
+    .tour-date.currently-playing:hover {
+        transform: translateY(-4px) translateZ(0) scale(1.01);
+    }
+}
+
+@media (max-width: 480px) {
+    .tour-date.currently-playing::after {
+        padding: 5px 10px;
+        font-size: 0.6rem;
+    }
+}
+
+/* ===== PERFORMANCE OPTIMIZATIONS ===== */
+@media (prefers-reduced-motion: reduce) {
+    .tour-date.currently-playing,
+    .tour-date.currently-playing::after,
+    .tour-date.currently-playing::before {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
 }
 
 /* Hover state - "pushed in" effect */
@@ -1139,6 +1472,7 @@ a {
     -webkit-backdrop-filter: blur(10px);
     border-radius: 0 0 14px 14px;
     overflow: hidden;
+    height: 100%;
 }
 
 /* Mobile Override (e.g. < 768px) */

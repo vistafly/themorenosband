@@ -321,9 +321,8 @@ window.addEventListener('load', function() {
             this.dotsContainer.style.display = 'none';
             this.dotsContainer.style.justifyContent = 'center';
             this.dotsContainer.style.alignItems = 'center';
-            this.dotsContainer.style.gap = '11px';
-            this.dotsContainer.style.marginTop = '20px';
-            this.dotsContainer.style.padding = '0 20px';
+            this.dotsContainer.style.marginTop = '5px';
+            this.dotsContainer.style.padding = '0 0px';
             
             // Create dots
             this.tourCards.forEach((_, index) => {
