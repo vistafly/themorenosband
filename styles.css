@@ -3201,7 +3201,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .card-front {
     width: 100%;
-    height: 100px;
+    height: 150px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 16px;
     padding: 24px;
@@ -3687,39 +3687,6 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     width: 3px;
 }
 
-/* Form Actions */
-.credit-card-form .form-actions {
-    display: flex;
-    gap: 12px;
-    margin-top: 10px;
-    margin-bottom: 10px;
-    align-items: center;
-}
-
-.credit-card-form .btn {
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 600;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    text-transform: none;
-    letter-spacing: 0;
-    position: relative;
-    overflow: hidden;
-}
-
-.credit-card-form .btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--light);
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    flex: 0 0 auto;
-}
-
 .credit-card-form .btn-secondary:hover {
     background: rgba(255, 255, 255, 0.15);
     border-color: rgba(255, 255, 255, 0.3);
@@ -3807,18 +3774,6 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     .security-badges {
         flex-direction: column;
         gap: 12px;
-    }
-    
-    .credit-card-form .form-actions {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-        width: 100%;
-    }
-    
-    .credit-card-form .btn-secondary,
-    .payment-btn {
-        width: 100%;
     }
     
     .payment-header {
@@ -3933,6 +3888,52 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.65);
     font-size: 0.65rem;
     font-weight: 500;
+}
+
+/* Add/modify these styles to your existing CSS */
+.form-actions-container {
+    position: sticky;
+    bottom: 0;
+    background: var(--dark);
+    padding: 5px;
+    z-index: 100;
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.form-actions {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.form-actions-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 15px; /* Maintains spacing between buttons */
+}
+
+/* Keep all your existing button styles */
+.btn-secondary {
+    margin-right: auto; /* Pushes to the left */
+}
+
+.btn-primary {
+    margin-left: auto; /* Pushes to the right */
+}
+
+/* Keep all your existing billing section styles exactly as they are */
+.billing-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 5px;
+}
+
+.billing-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    margin-top: 8px;
 }
 
 /* Animation for showing/hiding the form */

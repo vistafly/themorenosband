@@ -686,6 +686,23 @@ window.addEventListener('load', function() {
         }
     }
 
+    // When showing the credit card form
+function showCreditCardForm() {
+    document.getElementById('credit-card-form').style.display = 'block';
+    document.getElementById('credit-card-form').classList.add('active');
+    
+    // On mobile, ensure buttons are visible
+    if (window.innerWidth <= 768) {
+        document.querySelector('.form-actions').style.display = 'grid';
+    }
+}
+
+// When hiding the credit card form
+function hideCreditCardForm() {
+    document.getElementById('credit-card-form').style.display = 'none';
+    document.getElementById('credit-card-form').classList.remove('active');
+}
+
    // DEBUG MODE - set to true to bypass validation
 const DEBUG_MODE = true;
 
