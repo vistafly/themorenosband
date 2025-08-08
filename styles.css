@@ -837,6 +837,44 @@ a {
     }
 }
 
+@media (max-width: 768px) {
+  /* Show form actions on mobile */
+  .form-actions {
+    display: flex !important;
+    position: fixed;
+    bottom: 70px;
+    left: 0;
+    right: 0;
+    padding: 15px;
+    background: var(--dark);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    z-index: 950;
+    gap: 15px;
+  }
+  
+  /* Show cart footer on mobile */
+  .cart-footer {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 15px;
+    background: var(--dark);
+    border-top: 1px solid rgba(255,255,255,0.2);
+    z-index: 1000;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  /* Ensure payment form is scrollable */
+  .payment-content {
+    padding-bottom: 180px; /* Space for fixed buttons */
+    overflow-y: auto;
+    max-height: calc(100vh - 180px);
+  }
+}
+
 /* Extra small mobile */
 @media (max-width: 480px) {
     .tour-section {
@@ -2914,31 +2952,6 @@ body {
     box-shadow: 0 5px 15px rgba(195, 169, 111, 0.6);
 }
 
-@media (max-width: 768px) {
-  .cart-footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 15px;
-    background: var(--dark);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    z-index: 900;
-  }
-  
-  .cart-total {
-    font-size: 1rem;
-  }
-  
-  #checkout-btn {
-    padding: 10px 20px;
-    font-size: 0.9rem;
-  }
-}
-
 /* Cart Item Animation */
 @keyframes slideIn {
     from {
@@ -3564,25 +3577,6 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         max-height: 500px;
         transform: translateY(0);
     }
-}
-
-@media (max-width: 768px) {
-  .billing-section {
-    display: block !important; /* Force show on mobile */
-    margin-top: 20px;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
-  }
-  
-  #billing-fields {
-    display: block !important; /* Show fields when needed */
-    margin-top: 15px;
-  }
-  
-  .checkbox-wrapper {
-    font-size: 0.8rem; /* Better fit for mobile */
-  }
 }
 
 /* Security Info */

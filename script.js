@@ -685,71 +685,81 @@ window.addEventListener('load', function() {
             toggleSummaryBtn.addEventListener('click', toggleOrderSummary);
         }
     }
- // Validate shipping form before proceeding to payment
-    function validateShippingForm() {
-        const email = document.getElementById('checkout-email')?.value;
-        const phone = document.getElementById('checkout-phone')?.value;
-        const shippingName = document.getElementById('shipping-name')?.value;
-        const shippingAddress1 = document.getElementById('shipping-address1')?.value;
-        const shippingCity = document.getElementById('shipping-city')?.value;
-        const shippingState = document.getElementById('shipping-state')?.value;
-        const shippingZip = document.getElementById('shipping-zip')?.value;
-        const shippingCountry = document.getElementById('shipping-country')?.value;
 
-        const requiredFields = [
-            { value: email, name: 'Email' },
-            { value: phone, name: 'Phone' },
-            { value: shippingName, name: 'Full Name' },
-            { value: shippingAddress1, name: 'Address' },
-            { value: shippingCity, name: 'City' },
-            { value: shippingState, name: 'State' },
-            { value: shippingZip, name: 'ZIP' },
-            { value: shippingCountry, name: 'Country' }
-        ];
+   // DEBUG MODE - set to true to bypass validation
+const DEBUG_MODE = true;
 
-        for (const field of requiredFields) {
-            if (!field.value) {
-                alert(`Please fill in the ${field.name} field`);
-                return false;
-            }
-        }
+// Validate shipping form before proceeding to payment
+function validateShippingForm() {
+    if (DEBUG_MODE) {
+        console.warn('DEBUG MODE: Bypassing shipping form validation');
+        return true; // Always return true in debug mode
+    }
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            alert('Please enter a valid email address');
+    const email = document.getElementById('checkout-email')?.value;
+    const phone = document.getElementById('checkout-phone')?.value;
+    const shippingName = document.getElementById('shipping-name')?.value;
+    const shippingAddress1 = document.getElementById('shipping-address1')?.value;
+    const shippingCity = document.getElementById('shipping-city')?.value;
+    const shippingState = document.getElementById('shipping-state')?.value;
+    const shippingZip = document.getElementById('shipping-zip')?.value;
+    const shippingCountry = document.getElementById('shipping-country')?.value;
+
+    const requiredFields = [
+        { value: email, name: 'Email' },
+        { value: phone, name: 'Phone' },
+        { value: shippingName, name: 'Full Name' },
+        { value: shippingAddress1, name: 'Address' },
+        { value: shippingCity, name: 'City' },
+        { value: shippingState, name: 'State' },
+        { value: shippingZip, name: 'ZIP' },
+        { value: shippingCountry, name: 'Country' }
+    ];
+
+    for (const field of requiredFields) {
+        if (!field.value) {
+            alert(`Please fill in the ${field.name} field`);
             return false;
         }
-
-        return true;
     }
 
-    function showCreditCardForm() {
-        if (creditCardForm && checkoutForm) {
-            checkoutForm.style.display = 'none';
-            creditCardForm.style.display = 'block';
-            creditCardForm.classList.add('active');
-            
-            // Update order summary
-            updateOrderSummary();
-            
-            // Focus first input
-            setTimeout(() => {
-                if (cardNumberInput) {
-                    cardNumberInput.focus();
-                }
-            }, 300);
-        }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        alert('Please enter a valid email address');
+        return false;
     }
 
-    function hideCreditCardForm() {
-        if (creditCardForm && checkoutForm) {
-            creditCardForm.classList.remove('active');
-            setTimeout(() => {
-                creditCardForm.style.display = 'none';
-                checkoutForm.style.display = 'block';
-            }, 300);
-        }
+    return true;
+}
+
+// Rest of your code remains the same...
+function showCreditCardForm() {
+    if (creditCardForm && checkoutForm) {
+        checkoutForm.style.display = 'none';
+        creditCardForm.style.display = 'block';
+        creditCardForm.classList.add('active');
+        
+        // Update order summary
+        updateOrderSummary();
+        
+        // Focus first input
+        setTimeout(() => {
+            if (cardNumberInput) {
+                cardNumberInput.focus();
+            }
+        }, 300);
     }
+}
+
+function hideCreditCardForm() {
+    if (creditCardForm && checkoutForm) {
+        creditCardForm.classList.remove('active');
+        setTimeout(() => {
+            creditCardForm.style.display = 'none';
+            checkoutForm.style.display = 'block';
+        }, 300);
+    }
+}
 
     function setupCardValidation() {
         // Card number formatting and validation
