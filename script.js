@@ -685,8 +685,7 @@ window.addEventListener('load', function() {
             toggleSummaryBtn.addEventListener('click', toggleOrderSummary);
         }
     }
-
-    // Validate shipping form before proceeding to payment
+ // Validate shipping form before proceeding to payment
     function validateShippingForm() {
         const email = document.getElementById('checkout-email')?.value;
         const phone = document.getElementById('checkout-phone')?.value;
