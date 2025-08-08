@@ -3138,10 +3138,11 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .payment-header {
     display: flex;
     align-items: center;
-    justify-content: space-evenly;
+    justify-content: space-between; /* Distribute space between items */
     padding: 0 0 0px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     margin-bottom: 8px;
+    position: relative; /* Optional: Helps with absolute positioning if needed */
 }
 
 .back-to-shipping {
@@ -3154,10 +3155,11 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     border-radius: 50%;
     transition: all 0.3s ease;
     display: flex;
-    align-items: center;
-    justify-content: center;
     width: 40px;
     height: 40px;
+    justify-content: center; /* Center icon inside the button */
+    align-items: center;
+    margin-right: auto; /* Push the button to the right */
 }
 
 .back-to-shipping:hover {
@@ -3165,13 +3167,18 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     transform: translateX(-2px);
 }
 
+/* Ensure the title stays centered */
 .payment-header h3 {
+    position: absolute; /* Take it out of flex flow */
+    left: 50%; /* Center horizontally */
+    transform: translateX(-50%); /* Fine-tune centering */
     margin: 0;
     font-size: 1.3rem;
     color: var(--light);
     font-family: var(--font-heading);
     text-transform: uppercase;
     letter-spacing: 1px;
+    padding-top: 22px;
 }
 
 .security-badge {
@@ -3186,7 +3193,6 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .security-badge i {
     color: #4CAF50;
 }
-
 /* Card Preview */
 .card-preview {
     margin-bottom: 15px;
@@ -3286,7 +3292,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .credit-card-form .form-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0px;
 }
 
 .credit-card-form .form-group label {
@@ -3309,7 +3315,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.95);
     border: 2px solid rgba(255, 255, 255, 0.2);
     border-radius: 12px;
-    color: #2c3e50;
+    color: #2c3e50; /* Default: dark text */
     font-size: 1rem;
     font-family: var(--font-main);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -3323,19 +3329,33 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 1);
     box-shadow: 0 0 0 4px rgba(255, 77, 77, 0.1);
     transform: translateY(-1px);
+    color: #2c3e50; /* Dark text on focus (normal state) */
 }
 
+/* Error state - white text (even on focus) */
 .credit-card-form input.error,
 .credit-card-form select.error {
     border-color: #e74c3c;
     background-color: rgba(231, 76, 60, 0.05);
+    color: white !important; /* Force white text */
 }
 
+.credit-card-form input.error:focus,
+.credit-card-form select.error:focus {
+    color: white !important; /* Keep white on focus */
+    border-color: #e74c3c; /* Keep red border */
+    background-color: rgba(231, 76, 60, 0.1); /* Slightly darker red */
+    box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.1); /* Red glow */
+}
+
+/* Valid state (optional - adjust if needed) */
 .credit-card-form input.valid,
 .credit-card-form select.valid {
-    border-color: #27ae60;
-    background-color: rgba(39, 174, 96, 0.05);
-}
+    color: white !important; /* Keep white on focus */
+    border-color: #3ce750; /* Keep red border */
+    background-color: #3ce75022; /* Slightly darker red */
+    box-shadow: 0 0 0 4px #3ce7502a; /* Red glow */
+}    
 
 /* Card Number Input */
 .card-number-group .input-wrapper {
@@ -3414,13 +3434,14 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     color: #e74c3c;
     font-size: 0.8rem;
     font-weight: 500;
-    min-height: 15px;
+    max-height: 10px;
     display: flex;
     align-items: center;
     gap: 6px;
     opacity: 0;
     transform: translateY(-5px);
     transition: all 0.3s ease;
+    padding-top: 5px;
 }
 
 .error-message.show {
@@ -3675,7 +3696,6 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .credit-card-form .btn {
-    padding: 16px 24px;
     border-radius: 12px;
     font-size: 1rem;
     font-weight: 600;
@@ -3838,7 +3858,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     
     .credit-card-form input,
     .credit-card-form select {
-        padding: 14px;
+        padding: 5px;
         font-size: 0.95rem;
     }
     
