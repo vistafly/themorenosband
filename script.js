@@ -686,7 +686,7 @@ window.addEventListener('load', function() {
         }
     }
 
-   // Validate shipping form before proceeding to payment
+  // Validate shipping form before proceeding to payment
     function validateShippingForm() {
         const email = document.getElementById('checkout-email')?.value;
         const phone = document.getElementById('checkout-phone')?.value;
@@ -896,13 +896,23 @@ window.addEventListener('load', function() {
     }
 
     function validateCardNumber(number, showError = false) {
-    // Remove all non-digit characters before validation
     const cleanNumber = number.replace(/\D/g, '');
-    const isValid = cleanNumber.length > 0 && luhnCheck(cleanNumber) && cleanNumber.length >= 13 && cleanNumber.length <= 19;
+    const isValidLength = cleanNumber.length >= 13 && cleanNumber.length <= 19;
+    const isValidLuhn = cleanNumber.length > 0 ? luhnCheck(cleanNumber) : false;
+    const isValid = cleanNumber.length > 0 && isValidLength && isValidLuhn;
     
-    // Only show error if showError is true AND the number is invalid AND not empty
-    const shouldShowError = showError && !isValid && cleanNumber.length > 0;
-    updateFieldValidation('card-number', isValid, shouldShowError ? 'Enter a valid card number' : '');
+    let errorMsg = '';
+    if (showError) {
+        if (cleanNumber.length === 0) {
+            errorMsg = 'Card number is required';
+        } else if (!isValidLength) {
+            errorMsg = 'Input must be 13-19 digits';
+        } else if (!isValidLuhn) {
+            errorMsg = 'Invalid card number';
+        }
+    }
+    
+    updateFieldValidation('card-number', isValid, errorMsg);
     return isValid;
 }
 
@@ -932,7 +942,7 @@ window.addEventListener('load', function() {
         const expectedLength = cardType === 'amex' ? 4 : 3;
         const isValid = cvc.length === expectedLength && /^\d+$/.test(cvc);
         
-        const errorMsg = !isValid && showError ? `Please enter a valid ${expectedLength}-digit CVC` : '';
+        const errorMsg = !isValid && showError ? `Enter a valid ${expectedLength}-digit CVC` : '';
         updateFieldValidation('card-cvc', isValid, errorMsg);
         return isValid;
     }

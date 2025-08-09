@@ -1924,10 +1924,10 @@ animation: butteryFlow 16s ease-in-out infinite;
 
 .btn {
     padding: 0.6rem 1rem;
-    border-radius: 6px;
+    border-radius: 50px;
     text-align: center;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     transition: all 0.2s ease;
     white-space: nowrap;
     flex: 1;
@@ -2010,7 +2010,7 @@ animation: butteryFlow 16s ease-in-out infinite;
 /* Labels with glass styling */
 .form-group label {
     display: block;
-    margin-bottom: 0.5rem;
+    margin-bottom: 3px;
     color: rgba(255, 255, 255, 0.95);
     font-weight: 500;
     font-size: 0.95rem;
@@ -2875,15 +2875,17 @@ body {
 
 .cart-footer {
     padding: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 2px solid rgba(255, 255, 255, 0.1);
+
 }
 
 .cart-total {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 10px;
+    padding: 5px;
     font-size: 1.2rem;
     font-weight: 700;
+    padding-top: 10px;
 }
 
 .total-price {
@@ -2892,7 +2894,6 @@ body {
 
 .btn-checkout {
     width: 100%;
-    padding: 15px;
     background: var(--primary);
     color: white;
     border: none;
@@ -3025,7 +3026,6 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     padding: 7px 10px;
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 4px;
     color: var(--light); /* Default text color */
     font-size: 0.75rem;
     height: 34px;
@@ -3136,8 +3136,6 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     align-items: center;
     justify-content: space-between; /* Distribute space between items */
     padding: 0 0 0px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    margin-bottom: 8px;
     position: relative; /* Optional: Helps with absolute positioning if needed */
 }
 
@@ -3189,6 +3187,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .security-badge i {
     color: #4CAF50;
 }
+
 /* Card Preview */
 .card-preview {
     margin-bottom: 15px;
@@ -3279,7 +3278,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 5px;
+    gap: 15px;
     margin-top: 20px;
 }
 
@@ -3292,7 +3291,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .credit-card-form .form-group label {
     color: rgba(255, 255, 255, 0.9);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 600;
 }
 
@@ -3362,12 +3361,19 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     position: absolute;
     right: 16px;
     top: 50%;
-    transform: translateY(-50%);
+    transform: translateY(-160%);
     font-size: 1.5rem;
     opacity: 0.7;
     pointer-events: none;
     transition: all 0.3s ease;
 }
+
+@media (max-width: 768px) {
+    .card-brand-indicator {
+    transform: translateY(-140%);
+
+    }
+}    
 
 .card-brand-indicator.visible {
     opacity: 1;
@@ -3774,7 +3780,6 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     
     .payment-header {
         flex-wrap: wrap;
-        gap: 0 px;
     }
     
     .security-badge {
