@@ -2609,10 +2609,6 @@ body {
     .merch-cta p {
         font-size: 1rem;
     }
-    
-    .btn-primary {
-        padding: 12px 30px;
-    }
 }
 
 /* ======================
@@ -2878,7 +2874,7 @@ body {
 }
 
 .cart-footer {
-    padding: 15px;
+    padding: 10px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -3201,7 +3197,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .card-front {
     width: 100%;
-    height: 150px;
+    height: 160px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 16px;
     padding: 24px;
@@ -3226,7 +3222,6 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .card-brand {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: 32px;
 }
 
 .card-icon {
@@ -3442,7 +3437,8 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     opacity: 0;
     transform: translateY(-5px);
     transition: all 0.3s ease;
-    padding-top: 5px;
+    padding-top: 10px;
+    padding-bottom: 10px;
 }
 
 .error-message.show {
@@ -3803,13 +3799,13 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     }
     
     .card-front {
-        height: 160px;
+        height: 120px;
         padding: 16px;
     }
     
     .card-number-display {
         font-size: 1.3rem;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
     }
     
     .credit-card-form input,
