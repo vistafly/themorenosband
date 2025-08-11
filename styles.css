@@ -3119,6 +3119,45 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     animation: slideInRight 0.3s ease-out;
 }
 
+/* Desktop Payment Header Fix - Make it match mobile exactly */
+@media (min-width: 769px) {
+    .payment-header {
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 5px;
+        position: relative;
+        gap: 0;
+        min-height: 50px;
+    }
+    
+    /* Security badge on top */
+    .security-badge {
+        order: 1;
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* Title centered below security badge */
+    .payment-header h3 {
+        position: static;
+        transform: none;
+        left: auto;
+        order: 2;
+        margin: 0;
+        padding-top: 0;
+        text-align: center;
+    }
+    
+    /* Back button in top-left corner */
+    .back-to-shipping {
+        position: absolute;
+        top: 5px;
+        left: 5px;
+        margin: 0;
+    }
+}
+
 @keyframes slideInRight {
     from {
         opacity: 0;
