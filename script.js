@@ -72,24 +72,30 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Smooth scrolling for navigation links
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function(e) {
-            e.preventDefault();
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function(e) {
+        const targetId = this.getAttribute('href');
+        
+        // Skip if href is just "#" or empty
+        if (targetId === '#' || targetId.length <= 1) {
+            return;
+        }
+        
+        e.preventDefault();
+        
+        const targetElement = document.querySelector(targetId);
+        
+        if (targetElement) {
+            const offset = 80; // Navbar height
+            const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - offset;
             
-            const targetId = this.getAttribute('href');
-            const targetElement = document.querySelector(targetId);
-            
-            if (targetElement) {
-                const offset = 80; // Navbar height
-                const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - offset;
-                
-                window.scrollTo({
-                    top: targetPosition,
-                    behavior: 'smooth'
-                });
-            }
-        });
+            window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
+            });
+        }
     });
+});
 
     function highlightUpcomingDates() {
     const now = new Date();
