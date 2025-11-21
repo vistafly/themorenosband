@@ -48,11 +48,7 @@ a {
     margin: 0 auto;
     padding: 0 5px;
 }
-.merch-container {
-    width: 90%;
-    margin: 0 auto;
-    padding: 0 100px;
-}
+
 .section {
     padding: var(--section-padding) 0;
 }
@@ -628,28 +624,86 @@ a {
     padding: 6px;
     filter: brightness(1.05);
     margin-top: 30px;
-
 }
 
 .logo-morenos img {
     transform: scale(2);
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.1));
     margin-top: 30px;
-
 }
 
-/* Hover Effects */
-.testimonial-card:hover .testimonial-logo img {
-    opacity: 1;
+/* Mobile Logo Adjustments - Smaller sizes */
+@media (max-width: 768px) {
+    .logo-lucys img {
+        transform: scale(1.8);
+        margin-top: 15px;
+    }
+    
+    .logo-cru img {
+        transform: scale(1.5);
+        margin-top: 20px;
+    }
+    
+    .logo-morenos img {
+        transform: scale(1.4);
+        margin-top: 20px;
+    }
+    
+    /* Mobile hover effects */
+    .testimonial-card:hover .logo-lucys img {
+        transform: scale(2.0);
+    }
+    .testimonial-card:hover .logo-cru img {
+        transform: scale(1.7);
+    }
+    .testimonial-card:hover .logo-morenos img {
+        transform: scale(1.6);
+    }
 }
-.testimonial-card:hover .logo-lucys img {
-    transform: scale(2.9);
+
+/* Extra small mobile */
+@media (max-width: 480px) {
+    .logo-lucys img {
+        transform: scale(1.6);
+        margin-top: 10px;
+    }
+    
+    .logo-cru img {
+        transform: scale(1.3);
+        margin-top: 15px;
+    }
+    
+    .logo-morenos img {
+        transform: scale(1.2);
+        margin-top: 15px;
+    }
+    
+    /* Extra small mobile hover effects */
+    .testimonial-card:hover .logo-lucys img {
+        transform: scale(1.8);
+    }
+    .testimonial-card:hover .logo-cru img {
+        transform: scale(1.5);
+    }
+    .testimonial-card:hover .logo-morenos img {
+        transform: scale(1.4);
+    }
 }
-.testimonial-card:hover .logo-cru img {
-    transform: scale(2.4);
-}
-.testimonial-card:hover .logo-morenos img {
-    transform: scale(2.2);
+
+/* Desktop Hover Effects (unchanged) */
+@media (min-width: 769px) {
+    .testimonial-card:hover .testimonial-logo img {
+        opacity: 1;
+    }
+    .testimonial-card:hover .logo-lucys img {
+        transform: scale(2.9);
+    }
+    .testimonial-card:hover .logo-cru img {
+        transform: scale(2.4);
+    }
+    .testimonial-card:hover .logo-morenos img {
+        transform: scale(2.2);
+    }
 }
 
 /* Existing Styles (unchanged) */
@@ -913,8 +967,8 @@ a {
 .tour-date.highlight::after {
     content: 'NEXT SHOW';
     position: absolute;
-    top: 1.75rem;
-    right: 1.75rem;
+    top: 1.35rem;
+    right: 2.5rem;
     background: linear-gradient(
         135deg,
         rgba(175, 135, 95, 0.98),    /* Deep toffee (darker base) */
@@ -4016,20 +4070,10 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .footer-about h3 {
     font-size: 1.5rem;
-    margin-bottom: 30px;
+    margin-bottom: 10px;
     color: var(--primary);
     font-weight: 600;
     position: relative;
-}
-
-.footer-about h3::after {
-    content: '';
-    position: absolute;
-    bottom: -5px;
-    left: 0;
-    width: 40px;
-    height: 2px;
-    background: var(--primary);
 }
 
 .footer-about p {
@@ -4170,7 +4214,6 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     opacity: 0.8;
 }
 
-/* Responsive adjustments */
 @media (max-width: 768px) {
     .footer {
         padding: 40px 0 15px;
@@ -4180,6 +4223,53 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         grid-template-columns: 1fr;
         gap: 30px;
         padding: 0 15px;
+        text-align: center;
+    }
+    
+    .footer-section {
+        text-align: center;
+    }
+    
+    /* Center the heading underlines */
+    .footer-about h3::after,
+    .footer-links h3::after,
+    .footer-contact h3::after {
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    
+    /* Center the footer links properly */
+    .footer-links ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: inline-block;
+    }
+    
+    .footer-links li {
+        margin-bottom: 12px;
+        position: relative;
+        padding-left: 0;
+        text-align: center;
+    }
+    
+    .footer-links li::before {
+        display: none;
+    }
+    
+    /* Center the contact info properly */
+    .footer-contact p {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+        text-align: center;
+    }
+    
+    .footer-contact i {
+        margin-right: 12px;
+        width: 20px;
+        text-align: center;
     }
     
     .social-links {
@@ -4351,7 +4441,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 /* Ensure proper spacing for testimonial content */
 .testimonials-carousel .testimonial-text {
     flex-grow: 1;
-    margin: 70px ;
+    margin: 55px 80px 0px ;
     font-style: italic;
     line-height: 2;
     text-align: center;
@@ -4506,7 +4596,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     }
     
     .testimonials-wrapper {
-        margin: 0 -10px; /* Match card margins on small mobile */
+        margin: 0 -20px; /* Match card margins on small mobile */
     }
     
     .testimonials-carousel .testimonial-card {
@@ -4525,4 +4615,68 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .testimonials-track.transitioning {
     transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.merch-section .container {
+    width: 95%;
+    max-width: 1400px;
+    padding: 0 20px;
+}
+
+/* Mobile adjustments for merch */
+@media (max-width: 768px) {
+    .merch-section .container {
+        width: 90%;
+        padding: 0 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .merch-section .container {
+        width: 95%;
+        padding: 0 10px;
+    }
+}
+/* Mobile carousel fixes */
+@media (max-width: 768px) {
+    .testimonials-carousel {
+        padding: 0 60px; /* More space for nav buttons */
+    }
+    
+    .carousel-nav.prev {
+        left: -50px;
+    }
+    
+    .carousel-nav.next {
+        right: -50px;
+    }
+    
+    .testimonials-carousel .testimonial-card {
+        min-height: 200px; /* Taller for mobile content */
+        height: 450px;
+    }
+    
+    .testimonials-carousel .testimonial-text {
+        margin: 30px 0;
+        line-height: 1.6;
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .testimonials-carousel {
+        padding: 0 50px;
+    }
+    
+    .carousel-nav.prev {
+        left: -10px;
+    }
+    
+    .carousel-nav.next {
+        right: -10px;
+    }
+    
+    .testimonials-carousel .testimonial-text {
+        margin: 20px 0;
+        font-size: 0.9rem;
+    }
 }
