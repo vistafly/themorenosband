@@ -48,7 +48,11 @@ a {
     margin: 0 auto;
     padding: 0 5px;
 }
-
+.merch-container {
+    width: 90%;
+    margin: 0 auto;
+    padding: 0 100px;
+}
 .section {
     padding: var(--section-padding) 0;
 }
@@ -483,7 +487,7 @@ a {
 /* Video Section - Expanded Width Version */
 .videos-section {
     background: var(--dark);
-    padding: 60px 0; /* Remove side padding completely */
+    padding: 60px 20px; /* Remove side padding completely */
     border-top: 3px solid var(--primary);
 
 }
@@ -497,7 +501,7 @@ a {
 .video-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Slightly larger min width */
-    gap: 20px; /* Reduced gap for more space utilization */
+    gap: 40px; /* Reduced gap for more space utilization */
     width: 100%; /* Ensure full width */
 }
 
@@ -591,7 +595,6 @@ a {
 }
 
 .testimonial-card:hover {
-    transform: translateY(-5px);
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
 }
 
@@ -615,20 +618,24 @@ a {
 
 /* Individual Logo Adjustments */
 .logo-lucys img {
-    transform: scale(1.8);
+    transform: scale(2.7);
     filter: contrast(1.1) saturate(1.1);
-    margin-top: 3px;
+    margin-top: 20px;
 }
 
 .logo-cru img {
-    transform: scale(1.4);
+    transform: scale(2.2);
     padding: 6px;
     filter: brightness(1.05);
+    margin-top: 30px;
+
 }
 
 .logo-morenos img {
-    transform: scale(1.7);
+    transform: scale(2);
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.1));
+    margin-top: 30px;
+
 }
 
 /* Hover Effects */
@@ -636,13 +643,13 @@ a {
     opacity: 1;
 }
 .testimonial-card:hover .logo-lucys img {
-    transform: scale(2);
+    transform: scale(2.9);
 }
 .testimonial-card:hover .logo-cru img {
-    transform: scale(1.57);
+    transform: scale(2.4);
 }
 .testimonial-card:hover .logo-morenos img {
-    transform: scale(2);
+    transform: scale(2.2);
 }
 
 /* Existing Styles (unchanged) */
@@ -665,7 +672,7 @@ a {
 
 .client-name {
     font-weight: 700;
-    margin-bottom: 5px;
+    margin-bottom: 0px;
 }
 
 .client-venue {
@@ -4223,24 +4230,10 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     transition: transform 1s ease;
 }
 
-.hero-logo:hover {
-    transform: scale(1.1);
-}
-
 .hero-logo-img {
     max-width: 700px;
     width: 100%;
     height: auto;
-}
-
-/* Hide the old text title */
-.hero-title {
-    display: none;
-}
-
-/* Adjust subtitle spacing */
-.hero-subtitle {
-    margin-top: 1rem;
 }
 
 /* Desktop - Large screens (1200px and up) */
@@ -4296,4 +4289,240 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     .hamburger {
         margin-left: auto;
     }
+}
+/* Testimonials Section - Carousel Version */
+.testimonials-section {
+    background: var(--secondary);
+    border-top: 3px solid var(--primary);
+}
+
+/* Testimonials Carousel Container */
+.testimonials-carousel {
+    position: relative;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 120px; /* Add padding for navigation buttons */
+}
+
+.testimonials-wrapper {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    margin: 0 -95px; /* Negative margin to counteract card margins */
+}
+
+.testimonials-track {
+    display: flex;
+    transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Slower transition */
+    will-change: transform;
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.testimonials-carousel .testimonial-card {
+    flex: 0 0 calc(100% - 40px); /* Each card takes full width minus margin space */
+    min-height: 400px; /* Ensure consistent height */
+    height: 500px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 40px;
+    border-radius: 16px;
+    margin: 0 20px; /* Add margins for spacing between cards */
+    transition: all 0.3s ease;
+    position: relative;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+    margin-bottom: 20px;
+}
+
+.testimonials-carousel .testimonial-card:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Ensure proper spacing for testimonial content */
+.testimonials-carousel .testimonial-text {
+    flex-grow: 1;
+    margin: 70px ;
+    font-style: italic;
+    line-height: 2;
+    text-align: center;
+}
+
+.testimonials-carousel .testimonial-logo {
+    margin-bottom: 20px;
+}
+
+.testimonials-carousel .client-info {
+    margin-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 15px;
+}
+
+/* Carousel Navigation */
+.carousel-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--light);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 10;
+}
+
+.carousel-nav:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 4px 20px rgba(195, 169, 111, 0.3);
+}
+
+.carousel-nav:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+.carousel-nav.prev {
+    left: -60px; /* Adjusted for padding */
+}
+
+.carousel-nav.next {
+    right: -60px; /* Adjusted for padding */
+}
+
+/* Carousel Dots */
+.carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 30px;
+}
+
+.carousel-dots .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.carousel-dots .dot:hover {
+    background: rgba(255, 255, 255, 0.5);
+    transform: scale(1.2);
+}
+
+.carousel-dots .dot.active {
+    background: var(--primary);
+    transform: scale(1.3);
+    box-shadow: 0 0 0 3px rgba(195, 169, 111, 0.3);
+}
+
+.carousel-dots .dot.active::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border-radius: 50%;
+    border: 1px solid var(--primary);
+    animation: dotPulse 2s infinite;
+    opacity: 0;
+}
+
+@keyframes dotPulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 0.7;
+    }
+    70% {
+        transform: scale(1.4);
+        opacity: 0;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .testimonials-carousel {
+        padding: 0 50px;
+    }
+    
+    .testimonials-wrapper {
+        margin: 0 -15px; /* Match card margins on mobile */
+    }
+    
+    .testimonials-carousel .testimonial-card {
+        flex: 0 0 calc(100% - 30px); /* Adjust for smaller margins */
+        margin: 0 15px; /* Smaller margins on mobile */
+        padding: 30px 25px;
+        min-height: 320px;
+    }
+    
+    .carousel-nav {
+        width: 45px;
+        height: 45px;
+        font-size: 1rem;
+    }
+    
+    .carousel-dots {
+        margin-top: 25px;
+        gap: 10px;
+    }
+    
+    .carousel-dots .dot {
+        width: 10px;
+        height: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .testimonials-carousel {
+        padding: 0 40px;
+    }
+    
+    .testimonials-wrapper {
+        margin: 0 -10px; /* Match card margins on small mobile */
+    }
+    
+    .testimonials-carousel .testimonial-card {
+        flex: 0 0 calc(100% - 20px); /* Adjust for even smaller margins */
+        margin: 0 10px; /* Even smaller margins on small mobile */
+        padding: 25px 20px;
+        min-height: 300px;
+    }
+    
+    .carousel-nav {
+        width: 40px;
+        height: 40px;
+        font-size: 0.9rem;
+    }
+}
+
+.testimonials-track.transitioning {
+    transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }

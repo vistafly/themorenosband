@@ -77,9 +77,9 @@
     </video>
 
     <div class="hero-content">
-        <a href="#" class="hero-logo">
-            <img src="images/Transparent MORENO.png" alt="The Morenos Band" class="hero-logo-img">
-        </a>
+        <div class="hero-logo">
+    <img src="images/Transparent MORENO.png" alt="The Morenos Band" class="hero-logo-img">
+</div>
     </div>
     <div class="scroll-indicator">
         <span>Scroll</span>
@@ -135,41 +135,62 @@
         <div class="section-header">
             <h2 class="section-title">Client Testimonials</h2>
         </div>
-        <div class="testimonials-grid">
-            <!-- Card 1 - Lucy's -->
-            <div class="testimonial-card">
-                <div class="testimonial-logo logo-lucys">
-                    <img src="images/Lucy.png" alt="Lucy's Bar Logo">
-                </div>
-                <p class="testimonial-text">"TheMorenosBand had our entire bar dancing all night! Professional, talented, and easy to work with. We've booked them for monthly gigs."</p>
-                <div class="client-info">
-                    <p class="client-name">Ernie Rodriguez</p>
-                    <p class="client-venue">Owner, Lucy's</p>
+        
+        <!-- Testimonials Carousel -->
+        <div class="testimonials-carousel">
+            <div class="testimonials-wrapper">
+                <div class="testimonials-track" id="testimonials-track">
+                    <!-- Card 1 - Lucy's -->
+                    <div class="testimonial-card">
+                        <div class="testimonial-logo logo-lucys">
+                            <img src="images/Lucy.png" alt="Lucy's Bar Logo">
+                        </div>
+                        <p class="testimonial-text">"TheMorenosBand had our entire bar dancing all night! Professional, talented, and easy to work with. We've booked them for monthly gigs."</p>
+                        <div class="client-info">
+                            <p class="client-name">Ernie Rodriguez</p>
+                            <p class="client-venue">Owner, Lucy's</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 2 - Cru Winery -->
+                    <div class="testimonial-card">
+                        <div class="testimonial-logo logo-cru">
+                            <img src="images/Cru.png" alt="Cru Winery Logo">
+                        </div>
+                        <p class="testimonial-text">"TheMorenosBand brought the perfect vibe to our winery's summer event! Their mix of classic and modern tunes had guests clapping along all night—we'll definitely book them again."</p>
+                        <div class="client-info">
+                            <p class="client-name">Kelly Balentine</p>
+                            <p class="client-venue">Owner, Cru Winery</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 3 - Morenos -->
+                    <div class="testimonial-card">
+                        <div class="testimonial-logo logo-morenos">
+                            <img src="images/testimonialsplaceholder.jpg" alt="TheMorenosBand Logo">
+                        </div>
+                        <p class="testimonial-text">"We hired TheMorenosBand for a private birthday party, and they made it unforgettable. Easy to work with, took requests, and kept the dance floor packed. 10/10!"</p>
+                        <div class="client-info">
+                            <p class="client-name">Jocy Aguilar</p>
+                            <p class="client-venue">Private Event</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <!-- Card 2 - Cru Winery -->
-            <div class="testimonial-card">
-                <div class="testimonial-logo logo-cru">
-                    <img src="images/Cru.png" alt="Cru Winery Logo">
-                </div>
-                    <p class="testimonial-text">"TheMorenosBand brought the perfect vibe to our winery’s summer event! Their mix of classic and modern tunes had guests clapping along all night—we’ll definitely book them again."</p>
-                <div class="client-info">
-                    <p class="client-name">Kelly Balentine</p>
-                    <p class="client-venue">Owner, Cru Winery</p>
-                </div>
-            </div>
-
-            <!-- Card 3 - Morenos -->
-            <div class="testimonial-card">
-                <div class="testimonial-logo logo-morenos">
-                    <img src="images/testimonialsplaceholder.jpg" alt="TheMorenosBand Logo">
-                </div>
-                    <p class="testimonial-text">"We hired TheMorenosBand for a private birthday party, and they made it unforgettable. Easy to work with, took requests, and kept the dance floor packed. 10/10!"</p>
-                <div class="client-info">
-                    <p class="client-name">Jocy Aguilar</p>
-                    <p class="client-venue">Private Event</p>
-                </div>
+            
+            <!-- Navigation Arrows -->
+            <button class="carousel-nav prev" id="testimonials-prev" aria-label="Previous testimonial">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="carousel-nav next" id="testimonials-next" aria-label="Next testimonial">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+            
+            <!-- Dots Indicator -->
+            <div class="carousel-dots" id="testimonials-dots">
+                <button class="dot active" aria-label="Testimonial 1"></button>
+                <button class="dot" aria-label="Testimonial 2"></button>
+                <button class="dot" aria-label="Testimonial 3"></button>
             </div>
         </div>
     </div>
@@ -401,7 +422,7 @@
 
 <!-- Merchandise Section -->
 <section id="merch" class="section merch-section">
-    <div class="container">
+    <div class="merch-container">
         <div class="section-header">
             <h2 class="section-title">Band Merch</h2>
         </div>

@@ -2166,3 +2166,251 @@ class ProgressBar {
 document.addEventListener('DOMContentLoaded', () => {
   new ProgressBar();
 });
+
+// Initialize testimonials carousel - Fixed version
+function initTestimonialsCarousel() {
+    console.log('Initializing testimonials carousel...');
+    
+    const track = document.getElementById('testimonials-track');
+    const prevBtn = document.getElementById('testimonials-prev');
+    const nextBtn = document.getElementById('testimonials-next');
+    const dotsContainer = document.getElementById('testimonials-dots');
+    
+    console.log('Elements found:', { track, prevBtn, nextBtn, dotsContainer });
+    
+    if (!track || !prevBtn || !nextBtn || !dotsContainer) {
+        console.error('Testimonials carousel elements not found');
+        return;
+    }
+    
+    const cards = track.querySelectorAll('.testimonial-card');
+    const dots = dotsContainer.querySelectorAll('.dot');
+    
+    console.log('Cards found:', cards.length);
+    console.log('Dots found:', dots.length);
+    
+    if (cards.length === 0) {
+        console.error('No testimonial cards found');
+        return;
+    }
+    
+    let currentIndex = 0;
+    let isTransitioning = false;
+    let autoPlayInterval;
+    let touchStartX = 0;
+    let touchEndX = 0;
+    let isDragging = false;
+    
+    // Auto-play settings
+    const autoPlayDelay = 8000; // 8 seconds
+    const transitionDuration = 800; // 0.8 seconds
+    
+    function updateCarousel(index, animate = true) {
+        console.log('Updating carousel to index:', index);
+        
+        if (isTransitioning || index < 0 || index >= cards.length) {
+            console.log('Transition blocked or invalid index');
+            return;
+        }
+        
+        currentIndex = index;
+        
+        if (animate) {
+            isTransitioning = true;
+            track.style.transition = 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        } else {
+            track.style.transition = 'none';
+        }
+        
+        const translateX = -currentIndex * 100;
+        track.style.transform = `translateX(${translateX}%)`;
+        
+        console.log('Applied transform:', `translateX(${translateX}%)`);
+        
+        // Update dots
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === currentIndex);
+        });
+        
+        // Update navigation buttons
+        prevBtn.style.opacity = currentIndex === 0 ? '0.5' : '1';
+        nextBtn.style.opacity = currentIndex === cards.length - 1 ? '0.5' : '1';
+        
+        if (animate) {
+            setTimeout(() => {
+                isTransitioning = false;
+                console.log('Transition complete');
+            }, transitionDuration);
+        }
+    }
+    
+    function goToNext() {
+        console.log('Going to next slide');
+        if (currentIndex < cards.length - 1) {
+            updateCarousel(currentIndex + 1);
+        } else {
+            updateCarousel(0); // Loop to first
+        }
+    }
+    
+    function goToPrev() {
+        console.log('Going to previous slide');
+        if (currentIndex > 0) {
+            updateCarousel(currentIndex - 1);
+        } else {
+            updateCarousel(cards.length - 1); // Loop to last
+        }
+    }
+    
+    function startAutoPlay() {
+        console.log('Starting auto-play');
+        if (autoPlayInterval) {
+            clearInterval(autoPlayInterval);
+        }
+        autoPlayInterval = setInterval(() => {
+            if (!isDragging && !isTransitioning) {
+                console.log('Auto-play: going to next');
+                goToNext();
+            }
+        }, autoPlayDelay);
+    }
+    
+    function stopAutoPlay() {
+        console.log('Stopping auto-play');
+        if (autoPlayInterval) {
+            clearInterval(autoPlayInterval);
+            autoPlayInterval = null;
+        }
+    }
+    
+    function restartAutoPlay() {
+        stopAutoPlay();
+        setTimeout(startAutoPlay, 1000); // Wait 1 second before restarting
+    }
+    
+    // Event listeners
+    nextBtn.addEventListener('click', (e) => {
+        console.log('Next button clicked');
+        e.preventDefault();
+        if (!isTransitioning) {
+            goToNext();
+            restartAutoPlay();
+        }
+    });
+    
+    prevBtn.addEventListener('click', (e) => {
+        console.log('Previous button clicked');
+        e.preventDefault();
+        if (!isTransitioning) {
+            goToPrev();
+            restartAutoPlay();
+        }
+    });
+    
+    // Dot navigation
+    dots.forEach((dot, index) => {
+        dot.addEventListener('click', (e) => {
+            console.log('Dot clicked:', index);
+            e.preventDefault();
+            if (!isTransitioning && index !== currentIndex) {
+                updateCarousel(index);
+                restartAutoPlay();
+            }
+        });
+    });
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.target.closest('.testimonials-carousel') || e.target === document.body) {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (!isTransitioning) {
+                    goToPrev();
+                    restartAutoPlay();
+                }
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (!isTransitioning) {
+                    goToNext();
+                    restartAutoPlay();
+                }
+            }
+        }
+    });
+    
+    // Touch/swipe support
+    track.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        isDragging = true;
+        stopAutoPlay();
+    }, { passive: true });
+    
+    track.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        touchEndX = e.touches[0].clientX;
+    }, { passive: true });
+    
+    track.addEventListener('touchend', () => {
+        if (!isDragging) return;
+        
+        const swipeThreshold = 75;
+        const swipeDistance = touchStartX - touchEndX;
+        
+        if (Math.abs(swipeDistance) > swipeThreshold && !isTransitioning) {
+            if (swipeDistance > 0) {
+                goToNext();
+            } else {
+                goToPrev();
+            }
+        }
+        
+        isDragging = false;
+        restartAutoPlay();
+    });
+    
+    // Mouse events for desktop
+    track.addEventListener('mouseenter', stopAutoPlay);
+    track.addEventListener('mouseleave', () => {
+        if (!isDragging) {
+            startAutoPlay();
+        }
+    });
+    
+    // Pause/resume on visibility change
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopAutoPlay();
+        } else if (!isDragging) {
+            startAutoPlay();
+        }
+    });
+    
+    // Initialize
+    console.log('Initializing carousel at index 0');
+    updateCarousel(0, false);
+    
+    // Start auto-play after a delay
+    setTimeout(() => {
+        console.log('Starting delayed auto-play');
+        startAutoPlay();
+    }, 3000);
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        updateCarousel(currentIndex, false);
+    });
+    
+    console.log('Testimonials carousel initialized successfully');
+}
+
+// Make sure to call this function when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded - initializing carousel');
+    
+    // Wait a bit to ensure all elements are rendered
+    setTimeout(() => {
+        initTestimonialsCarousel();
+    }, 100);
+    
+    // Your other existing initialization code should be here too...
+});
