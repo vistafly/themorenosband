@@ -1,0 +1,25 @@
+# robots.txt for The Moreno's Band website
+# https://themorenosband.com
+
+User-agent: *
+Allow: /
+
+# Disallow cart and checkout pages from indexing
+Disallow: /cart
+Disallow: /checkout
+
+# Sitemap location
+Sitemap: https://themorenosband.com/sitemap.xml
+
+# Common search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
