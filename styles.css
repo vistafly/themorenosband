@@ -1482,7 +1482,7 @@ a {
     display: flex;
     justify-content: center;
     gap: 1rem;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
     padding: 0 1rem;
 }
 
@@ -1523,7 +1523,7 @@ a {
 
 /* Calendar View Container */
 .tour-calendar-view {
-    max-width: 1200px;
+    max-width: 1000px;
     margin: 0 auto;
     padding: 0 2rem;
 }
@@ -1806,6 +1806,7 @@ a {
 @media (max-width: 768px) {
     .tour-view-controls {
         gap: 0.5rem;
+        margin-bottom: 0.8rem;
     }
 
     .view-toggle-btn {
@@ -2444,7 +2445,7 @@ animation: butteryFlow 16s ease-in-out infinite;
 @media (max-width: 480px) {
     .section-title {
         font-size: 1.75rem;
-        margin-bottom: 1.5rem;
+        margin-bottom: 2.7rem;
     }
     
     .info {
