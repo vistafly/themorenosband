@@ -344,6 +344,7 @@ window.addEventListener('load', function() {
         }
 
         checkIfShouldRun() {
+            // Auto-scroll only on mobile (horizontal scrolling works on all sizes)
             const isMobile = window.innerWidth <= 768;
 
             if (isMobile && !this.isActive) {
@@ -2431,14 +2432,18 @@ class TourCalendar {
 
         // Month navigation
         if (this.prevMonthBtn) {
-            this.prevMonthBtn.addEventListener('click', () => {
+            this.prevMonthBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 this.changeMonth(-1);
                 this.closePopup();
             });
         }
 
         if (this.nextMonthBtn) {
-            this.nextMonthBtn.addEventListener('click', () => {
+            this.nextMonthBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 this.changeMonth(1);
                 this.closePopup();
             });

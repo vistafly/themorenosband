@@ -767,67 +767,86 @@ a {
     letter-spacing: 0.5px;
 }
 
-/* Desktop Tour Grid */
+/* Horizontal Scrolling Tour Grid (All Screens) */
 .tour-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); /* Increased from 380px */
+    display: flex;
+    flex-direction: row;
     gap: 2.5rem;
-    padding: 0 2rem;
+    overflow-x: auto;
+    overflow-y: visible;
+    scroll-snap-type: x mandatory;
+    scroll-snap-stop: always;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    padding: 0 2rem 20px 2rem; /* Space for scrollbar */
+
+    /* Modern scrollbar styles for desktop */
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) rgba(255, 255, 255, 0.1);
 }
 
-/* MOBILE AUTO-SCROLL STYLES */
+/* Custom Scrollbar for Webkit browsers (Chrome, Safari, Edge) - All Screens */
+.tour-grid::-webkit-scrollbar {
+    height: 10px;
+}
+
+.tour-grid::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    margin: 0 40px; /* Margins on left and right */
+}
+
+.tour-grid::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+    transition: background 0.3s ease;
+}
+
+.tour-grid::-webkit-scrollbar-thumb:hover {
+    background: #d4b982; /* Lighter gold on hover */
+}
+
+.tour-grid::-webkit-scrollbar-thumb:active {
+    background: #b89a5f; /* Darker gold when dragging */
+}
+
+/* Desktop card sizing */
+.tour-date {
+    flex: 0 0 420px;
+    min-width: 420px;
+    max-width: 420px;
+    scroll-snap-align: center;
+}
+
+/* MOBILE/TABLET ADJUSTMENTS */
 @media (max-width: 768px) {
     .tour-section {
         padding: 2rem 0;
     }
-    
+
     .section-title {
         padding: 0 1rem;
         margin-bottom: 2rem;
         font-size: 2rem;
     }
-    
-    .tour-grid {
-        display: flex;
-        flex-direction: row;
-        grid-template-columns: none;
-        gap: 1.5rem;
-        overflow-x: auto;
-        overflow-y: visible;
-        scroll-snap-type: x mandatory;
-        scroll-snap-stop: always;
-        -webkit-overflow-scrolling: touch;
-        scroll-behavior: smooth;
-        padding-bottom: 20px; /* Space for scrollbar */
 
-        /* Modern scrollbar styles */
-        scrollbar-width: thin;
-        scrollbar-color: var(--primary) rgba(255, 255, 255, 0.1);
+    .tour-grid {
+        gap: 1.5rem;
+        padding: 0 1.5rem 20px 1.5rem;
     }
 
-    /* Custom Scrollbar for Webkit browsers (Chrome, Safari, Edge) */
     .tour-grid::-webkit-scrollbar {
         height: 8px;
     }
 
     .tour-grid::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        margin: 0 20px; /* Add margins on left and right */
+        margin: 0 20px;
     }
 
-    .tour-grid::-webkit-scrollbar-thumb {
-        background: var(--primary);
-        border-radius: 10px;
-        transition: background 0.3s ease;
-    }
-
-    .tour-grid::-webkit-scrollbar-thumb:hover {
-        background: #d4b982; /* Lighter gold on hover */
-    }
-
-    .tour-grid::-webkit-scrollbar-thumb:active {
-        background: #b89a5f; /* Darker gold when dragging */
+    .tour-date {
+        flex: 0 0 360px;
+        min-width: 360px;
+        max-width: 360px;
     }
 }
 
@@ -853,30 +872,20 @@ a {
     display: flex;
     flex-direction: column;
     background: rgba(133, 133, 133, 0.151);
-    border-radius: 14px; /* Applies to all corners */
-    overflow: hidden; /* Ensures child elements respect the border radius */
+    border-radius: 14px;
+    overflow: hidden;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
     position: relative;
     margin-bottom: 1.5rem;
     margin-top: 1.5rem;
     cursor: pointer;
-}
-
-/* Mobile-specific card sizing */
-@media (max-width: 768px) {
-    .tour-date {
-        flex: 0 0 360px; /* Increased from 300px */
-        min-width: 360px;
-        max-width: 360px;
-        height: auto;
-        scroll-snap-align: center;
-    }
+    height: auto;
 }
 
 @media (max-width: 480px) {
     .tour-date {
-        flex: 0 0 340px; /* Increased from 280px */
+        flex: 0 0 340px;
         min-width: 340px;
         max-width: 340px;
     }
