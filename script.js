@@ -281,146 +281,69 @@ window.addEventListener('load', function() {
             this.tourGrid = document.querySelector('.tour-grid');
             this.tourSection = document.querySelector('.tour-section');
             this.tourCards = [];
-            this.dotsContainer = null;
-            this.dots = [];
             this.isActive = false;
             this.intervalId = null;
             this.currentIndex = 0;
             this.isPaused = false;
             this.lastUserAction = 0;
             this.hasInteracted = false;
-            
+
             // Settings
             this.scrollSpeed = 3000; // 3 seconds
             this.pauseTime = 4000; // 4 seconds after user interaction
-            
+
+            // Performance optimization: throttle timers
+            this.resizeTimeout = null;
+            this.scrollTimeout = null;
+
             this.init();
+        }
+
+        // Throttle helper for performance
+        throttle(func, delay) {
+            let timeoutId;
+            let lastRan;
+            return function(...args) {
+                if (!lastRan) {
+                    func.apply(this, args);
+                    lastRan = Date.now();
+                } else {
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => {
+                        if ((Date.now() - lastRan) >= delay) {
+                            func.apply(this, args);
+                            lastRan = Date.now();
+                        }
+                    }, delay - (Date.now() - lastRan));
+                }
+            };
         }
 
         init() {
             // Find tour cards
             this.tourCards = Array.from(document.querySelectorAll('.tour-date'));
-            
+
             if (!this.tourGrid || this.tourCards.length === 0) {
                 return;
             }
-            
-            // Create dots container
-            this.createDots();
-            
+
             // Start on mobile only
             this.checkIfShouldRun();
-            
-            // Listen for resize
-            window.addEventListener('resize', this.checkIfShouldRun.bind(this));
-            
+
+            // Listen for resize (throttled for performance)
+            const throttledResize = this.throttle(this.checkIfShouldRun.bind(this), 250);
+            window.addEventListener('resize', throttledResize);
+
             // Add interaction listeners
             this.addTourListeners();
         }
 
-        createDots() {
-            // Create dots container
-            this.dotsContainer = document.createElement('div');
-            this.dotsContainer.className = 'tour-dots';
-            
-            // Style the dots container (mobile only)
-            this.dotsContainer.style.display = 'none';
-            this.dotsContainer.style.justifyContent = 'center';
-            this.dotsContainer.style.alignItems = 'center';
-            this.dotsContainer.style.marginTop = '.5rem';
-            this.dotsContainer.style.padding = '0 0px';
-            
-            // Create dots
-            this.tourCards.forEach((_, index) => {
-                const dot = document.createElement('button');
-                dot.className = 'tour-dot';
-                dot.setAttribute('aria-label', `Go to card ${index + 1}`);
-                
-                // Style the dots
-                dot.style.width = '10px';
-                dot.style.height = '10px';
-                dot.style.borderRadius = '50%';
-                dot.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
-                dot.style.border = 'none';
-                dot.style.cursor = 'pointer';
-                dot.style.padding = '0';
-                dot.style.transition = 'background-color 0.3s ease';
-                
-                dot.addEventListener('click', () => {
-                    this.goToCard(index);
-                });
-                
-                this.dotsContainer.appendChild(dot);
-                this.dots.push(dot);
-            });
-            
-            // Add dots container to the tour section
-            if (this.tourSection) {
-                this.tourSection.appendChild(this.dotsContainer);
-            }
-            
-            // Update dot visibility based on screen size
-            this.updateDotsVisibility();
-        }
-
-        updateDotsVisibility() {
-            const isMobile = window.innerWidth <= 768;
-            if (this.dotsContainer) {
-                this.dotsContainer.style.display = isMobile ? 'flex' : 'none';
-            }
-        }
-
-        updateActiveDot() {
-            this.dots.forEach((dot, index) => {
-                if (index === this.currentIndex) {
-                    dot.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
-                    dot.style.transform = 'scale(1.2)';
-                } else {
-                    dot.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
-                    dot.style.transform = 'scale(1)';
-                }
-            });
-        }
-
-        goToCard(index) {
-            if (index < 0 || index >= this.tourCards.length) return;
-            
-            this.currentIndex = index;
-            const targetCard = this.tourCards[this.currentIndex];
-            
-            if (!targetCard) return;
-            
-            // Scroll to center the card
-            const cardCenter = targetCard.offsetLeft + (targetCard.offsetWidth / 2);
-            const gridCenter = this.tourGrid.offsetWidth / 2;
-            const scrollTo = cardCenter - gridCenter;
-            
-            this.tourGrid.scrollTo({
-                left: Math.max(0, scrollTo),
-                behavior: 'smooth'
-            });
-            
-            // Update interaction state
-            this.lastUserAction = Date.now();
-            this.hasInteracted = true;
-            if (this.tourSection) {
-                this.tourSection.classList.add('user-interacted');
-            }
-            
-            // Update active dot
-            this.updateActiveDot();
-        }
-
         checkIfShouldRun() {
-            const isMobile = window.innerWidth <= 768;
-            
-            if (isMobile && !this.isActive) {
-                this.start();
-            } else if (!isMobile && this.isActive) {
+            // Auto-scroll disabled - users navigate manually with scrollbar
+            // Stop any existing auto-scroll
+            if (this.isActive) {
                 this.stop();
             }
-            
-            this.updateDotsVisibility();
         }
 
         start() {
@@ -472,9 +395,6 @@ window.addEventListener('load', function() {
                 left: Math.max(0, scrollTo),
                 behavior: 'smooth'
             });
-            
-            // Update active dot
-            this.updateActiveDot();
         }
 
         addTourListeners() {
@@ -482,24 +402,37 @@ window.addEventListener('load', function() {
 
             const handleInteraction = () => {
                 this.lastUserAction = Date.now();
-                
+
                 if (!this.hasInteracted && this.tourSection) {
                     this.hasInteracted = true;
                     this.tourSection.classList.add('user-interacted');
                 }
-                
-                // When user interacts, find the current visible card
-                this.updateCurrentIndex();
+
+                // When user interacts, find the current visible card (throttled)
+                this.updateCurrentIndexThrottled();
             };
 
+            // Throttled version of updateCurrentIndex for scroll events
+            const throttledScroll = this.throttle(handleInteraction, 150);
+
             this.tourGrid.addEventListener('touchstart', handleInteraction, { passive: true });
-            this.tourGrid.addEventListener('touchmove', handleInteraction, { passive: true });
-            this.tourGrid.addEventListener('scroll', handleInteraction, { passive: true });
+            this.tourGrid.addEventListener('touchmove', throttledScroll, { passive: true });
+            this.tourGrid.addEventListener('scroll', throttledScroll, { passive: true });
             this.tourGrid.addEventListener('mousedown', handleInteraction);
 
             this.tourCards.forEach(card => {
                 card.addEventListener('click', handleInteraction);
             });
+        }
+
+        // Throttled wrapper for updateCurrentIndex
+        updateCurrentIndexThrottled() {
+            if (this.scrollTimeout) return;
+
+            this.scrollTimeout = setTimeout(() => {
+                this.updateCurrentIndex();
+                this.scrollTimeout = null;
+            }, 100);
         }
 
         updateCurrentIndex() {
@@ -522,7 +455,6 @@ window.addEventListener('load', function() {
             });
             
             this.currentIndex = closestCardIndex;
-            this.updateActiveDot();
         }
 
         pause() {
@@ -2414,6 +2346,60 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize tour calendar
     initTourCalendar();
+
+    // =============================================
+    // OPTIMIZED IFRAME LAZY LOADING
+    // =============================================
+    // This prevents all 26 Google Maps iframes from loading at once
+    // improving page load performance significantly on mobile devices
+    function initOptimizedIframeLoading() {
+        const iframes = document.querySelectorAll('.venue-map-container iframe');
+
+        // Don't do anything if no iframes found
+        if (iframes.length === 0) return;
+
+        // Move src to data-src and remove src to prevent loading
+        iframes.forEach(iframe => {
+            if (iframe.src && !iframe.dataset.src) {
+                iframe.dataset.src = iframe.src;
+                iframe.removeAttribute('src');
+                iframe.classList.add('lazy-iframe');
+            }
+        });
+
+        // Create an Intersection Observer to load iframes when near viewport
+        const iframeObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const iframe = entry.target;
+
+                    // Load the iframe
+                    if (iframe.dataset.src && !iframe.src) {
+                        iframe.src = iframe.dataset.src;
+                        iframe.classList.remove('lazy-iframe');
+                        iframe.classList.add('loaded');
+                    }
+
+                    // Stop observing this iframe
+                    observer.unobserve(iframe);
+                }
+            });
+        }, {
+            // Load iframes when they're 200px from entering viewport
+            rootMargin: '200px',
+            threshold: 0.01
+        });
+
+        // Observe all iframes
+        iframes.forEach(iframe => {
+            iframeObserver.observe(iframe);
+        });
+
+        console.log(`Optimized loading for ${iframes.length} map iframes`);
+    }
+
+    // Initialize iframe lazy loading
+    initOptimizedIframeLoading();
 });
 
 // =============================================
@@ -2644,7 +2630,7 @@ class TourCalendar {
         dayNumber.textContent = day;
         dayDiv.appendChild(dayNumber);
 
-        // Event count and click handler
+        // Event count and interaction handlers
         if (events.length > 0) {
             const eventCount = document.createElement('div');
             eventCount.className = 'calendar-day-events';
@@ -2657,6 +2643,10 @@ class TourCalendar {
             // Click/tap to show popup
             dayDiv.addEventListener('click', (e) => {
                 e.stopPropagation();
+                // On mobile, close previous popup if clicking a different day
+                if (window.innerWidth <= 768 && this.activeDay && this.activeDay !== dayDiv) {
+                    this.closePopup();
+                }
                 this.showPopup(dayDiv, events);
             });
 
@@ -2673,6 +2663,12 @@ class TourCalendar {
                 if (window.innerWidth > 768) {
                     this.schedulePopupClose();
                 }
+            });
+        } else {
+            // For dates without events, clicking should close any open popup
+            dayDiv.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.closePopup();
             });
         }
 

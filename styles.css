@@ -753,6 +753,11 @@ a {
     position: relative;
 }
 
+/* Hide tour-dots when calendar view is active */
+.tour-calendar-view[style*="display: block"] ~ .tour-dots {
+    display: none !important;
+}
+
 @media (max-width: 768px) {
     .tour-dots {
         display: flex;
@@ -888,13 +893,58 @@ a {
         scroll-snap-type: x mandatory;
         scroll-snap-stop: always;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
         scroll-behavior: smooth;
+
+        /* Show scrollbar on mobile with custom styling */
+        scrollbar-width: auto;
+        scrollbar-color: rgba(180, 180, 180, 0.8) rgba(60, 60, 60, 0.3);
+
+        /* Performance optimizations for smooth scrolling */
+        will-change: scroll-position;
+        contain: layout style paint;
+        transform: translateZ(0);
+
+        /* Add padding at bottom for scrollbar space */
+        padding-bottom: 2rem;
     }
-    
+
+    /* Custom webkit scrollbar styling - Touch-friendly */
     .tour-grid::-webkit-scrollbar {
-        display: none;
+        height: 14px; /* Larger for better touch target */
+    }
+
+    .tour-grid::-webkit-scrollbar-track {
+        background: rgba(60, 60, 60, 0.3);
+        border-radius: 8px;
+        margin: 0 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .tour-grid::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg,
+            rgba(200, 200, 200, 0.7) 0%,
+            rgba(180, 180, 180, 0.8) 50%,
+            rgba(160, 160, 160, 0.7) 100%);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        transition: all 0.3s ease;
+        min-width: 60px; /* Ensure draggable area */
+    }
+
+    .tour-grid::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg,
+            rgba(220, 220, 220, 0.9) 0%,
+            rgba(200, 200, 200, 0.95) 50%,
+            rgba(180, 180, 180, 0.9) 100%);
+        border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .tour-grid::-webkit-scrollbar-thumb:active {
+        background: linear-gradient(180deg,
+            rgba(240, 240, 240, 1) 0%,
+            rgba(220, 220, 220, 1) 50%,
+            rgba(200, 200, 200, 1) 100%);
+        border-color: rgba(255, 255, 255, 0.35);
     }
 }
 
@@ -903,15 +953,25 @@ a {
     .tour-section {
         padding: 1.5rem 0;
     }
-    
+
     .section-title {
         font-size: 1.8rem;
         margin-bottom: 1.5rem;
     }
-    
+
     .tour-grid {
         gap: 1rem;
         padding: 0 calc(50vw - 170px); /* Updated for wider cards */
+        padding-bottom: 1.75rem; /* Slightly less padding on small screens */
+    }
+
+    /* Slightly larger scrollbar on small screens for easier touch */
+    .tour-grid::-webkit-scrollbar {
+        height: 16px;
+    }
+
+    .tour-grid::-webkit-scrollbar-thumb {
+        min-width: 80px; /* Larger minimum draggable area */
     }
 }
 
@@ -928,6 +988,12 @@ a {
     margin-bottom: 1.5rem;
     margin-top: 1.5rem;
     cursor: pointer;
+
+    /* Performance optimizations */
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-font-smoothing: subpixel-antialiased;
 }
 
 /* Mobile-specific card sizing */
@@ -1540,7 +1606,7 @@ a {
     display: flex;
     justify-content: center;
     gap: 1rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
     padding: 0 1rem;
 }
 
@@ -1628,7 +1694,7 @@ a {
     background: rgba(133, 133, 133, 0.1);
     border-radius: 14px;
     padding: 1.5rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
     overflow: hidden;
     max-width: 100%;
 }
@@ -1664,7 +1730,7 @@ a {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 0.75rem;
+    padding: 0.5rem;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 8px;
     border: 2px solid transparent;
@@ -1705,8 +1771,8 @@ a {
 .calendar-day.has-event::after {
     content: '';
     position: absolute;
-    bottom: 4px;
-    left: 50%;
+    top: 8%;
+    left: 13%;
     transform: translateX(-50%);
     width: 6px;
     height: 6px;
@@ -1715,10 +1781,10 @@ a {
 }
 
 .calendar-day-number {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--light);
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.2rem;
 }
 
 .calendar-day.has-event .calendar-day-number {
@@ -1727,7 +1793,7 @@ a {
 }
 
 .calendar-day-events {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--primary);
     font-weight: 600;
 }
@@ -1873,7 +1939,7 @@ a {
 
     .calendar-header {
         padding: 0.75rem 1rem;
-        margin-bottom: 1.5rem;
+        margin-bottom: .8rem;
     }
 
     .calendar-month-year {
@@ -1887,7 +1953,7 @@ a {
     }
 
     .calendar-grid {
-        padding: 0.75rem;
+        padding: 1rem;
         gap: 0.25rem;
     }
 
