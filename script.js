@@ -2406,11 +2406,413 @@ function initTestimonialsCarousel() {
 // Make sure to call this function when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM Content Loaded - initializing carousel');
-    
+
     // Wait a bit to ensure all elements are rendered
     setTimeout(() => {
         initTestimonialsCarousel();
     }, 100);
-    
-    // Your other existing initialization code should be here too...
+
+    // Initialize tour calendar
+    initTourCalendar();
 });
+
+// =============================================
+// TOUR CALENDAR FUNCTIONALITY
+// =============================================
+
+class TourCalendar {
+    constructor() {
+        this.currentDate = new Date();
+        this.tourDates = [];
+        this.calendarView = document.querySelector('.tour-calendar-view');
+        this.listView = document.querySelector('.tour-grid');
+        this.monthYearElement = document.querySelector('.calendar-month-year');
+        this.calendarDaysElement = document.querySelector('.calendar-days');
+        this.prevMonthBtn = document.querySelector('.prev-month');
+        this.nextMonthBtn = document.querySelector('.next-month');
+        this.viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
+        this.popup = document.getElementById('calendar-popup');
+        this.activeDay = null;
+        this.closeTimer = null;
+
+        this.init();
+    }
+
+    init() {
+        if (!this.calendarView || !this.listView) {
+            console.error('Calendar or list view elements not found');
+            return;
+        }
+
+        // Extract tour dates from the DOM
+        this.extractTourDates();
+
+        // Set up event listeners
+        this.setupEventListeners();
+
+        // Render initial calendar (but keep it hidden)
+        this.renderCalendar();
+    }
+
+    extractTourDates() {
+        const tourDateCards = document.querySelectorAll('.tour-date');
+        this.tourDates = [];
+
+        tourDateCards.forEach(card => {
+            const timeElement = card.querySelector('time');
+            const venueElement = card.querySelector('.venue-header h3');
+            const venuePromoElement = card.querySelector('.venue-promo');
+            const venueDescElement = card.querySelector('.venue-desc');
+            const eventTimeElement = card.querySelector('.event-time');
+            const eventAgeElement = card.querySelector('.event-age');
+            const addressElement = card.querySelector('.venue-address');
+
+            if (timeElement && venueElement) {
+                const datetime = timeElement.getAttribute('datetime');
+                const venue = venueElement.textContent.trim();
+                const venuePromo = venuePromoElement ? venuePromoElement.textContent.trim() : '';
+                const venueDesc = venueDescElement ? venueDescElement.textContent.trim() : '';
+                const time = eventTimeElement ? eventTimeElement.textContent.trim() : 'TBD';
+                const age = eventAgeElement ? eventAgeElement.textContent.trim() : '';
+                const address = addressElement ? addressElement.textContent.trim() : '';
+
+                if (datetime) {
+                    this.tourDates.push({
+                        date: new Date(datetime + 'T00:00:00'),
+                        venue: venue,
+                        venuePromo: venuePromo,
+                        venueDesc: venueDesc,
+                        time: time,
+                        age: age,
+                        address: address,
+                        element: card
+                    });
+                }
+            }
+        });
+
+        console.log('Extracted tour dates:', this.tourDates);
+    }
+
+    setupEventListeners() {
+        // View toggle buttons
+        this.viewToggleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.getAttribute('data-view');
+                this.switchView(view);
+            });
+        });
+
+        // Month navigation
+        if (this.prevMonthBtn) {
+            this.prevMonthBtn.addEventListener('click', () => {
+                this.changeMonth(-1);
+                this.closePopup();
+            });
+        }
+
+        if (this.nextMonthBtn) {
+            this.nextMonthBtn.addEventListener('click', () => {
+                this.changeMonth(1);
+                this.closePopup();
+            });
+        }
+
+        // Close popup when clicking outside calendar days or popup
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.calendar-day') && !e.target.closest('.calendar-event-popup')) {
+                this.closePopup();
+            }
+        });
+
+        // Allow closing popup by clicking on calendar background/grid
+        if (this.calendarView) {
+            this.calendarView.addEventListener('click', (e) => {
+                // Close if clicking on calendar background, but not on days or popup
+                if (e.target === this.calendarView ||
+                    e.target.classList.contains('calendar-grid') ||
+                    e.target.classList.contains('calendar-days') ||
+                    e.target.classList.contains('calendar-weekdays')) {
+                    this.closePopup();
+                }
+            });
+        }
+
+        // Close popup with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closePopup();
+            }
+        });
+    }
+
+    switchView(view) {
+        // Update button states
+        this.viewToggleBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-view') === view);
+        });
+
+        // Show/hide views
+        if (view === 'calendar') {
+            this.calendarView.style.display = 'block';
+            this.listView.style.display = 'none';
+            this.renderCalendar();
+        } else {
+            this.calendarView.style.display = 'none';
+            // Restore list view - remove inline style to use CSS defaults
+            this.listView.style.display = '';
+        }
+    }
+
+    changeMonth(delta) {
+        this.currentDate.setMonth(this.currentDate.getMonth() + delta);
+        this.renderCalendar();
+    }
+
+    renderCalendar() {
+        if (!this.monthYearElement || !this.calendarDaysElement) return;
+
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth();
+
+        // Update header
+        const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        this.monthYearElement.textContent = `${monthNames[month]} ${year}`;
+
+        // Clear previous days
+        this.calendarDaysElement.innerHTML = '';
+
+        // Get first day of month and number of days
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Add previous month's trailing days
+        for (let i = firstDay - 1; i >= 0; i--) {
+            const day = daysInPrevMonth - i;
+            const dayElement = this.createDayElement(day, true);
+            this.calendarDaysElement.appendChild(dayElement);
+        }
+
+        // Add current month's days
+        for (let day = 1; day <= daysInMonth; day++) {
+            const currentDate = new Date(year, month, day);
+            currentDate.setHours(0, 0, 0, 0);
+
+            const isToday = currentDate.getTime() === today.getTime();
+            const events = this.getEventsForDate(currentDate);
+
+            const dayElement = this.createDayElement(day, false, isToday, events);
+            this.calendarDaysElement.appendChild(dayElement);
+        }
+
+        // Add next month's leading days
+        const totalCells = this.calendarDaysElement.children.length;
+        const remainingCells = 42 - totalCells; // 6 weeks * 7 days
+
+        for (let day = 1; day <= remainingCells; day++) {
+            const dayElement = this.createDayElement(day, true);
+            this.calendarDaysElement.appendChild(dayElement);
+        }
+    }
+
+    createDayElement(day, isOtherMonth = false, isToday = false, events = []) {
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'calendar-day';
+
+        if (isOtherMonth) {
+            dayDiv.classList.add('other-month');
+        }
+
+        if (isToday) {
+            dayDiv.classList.add('today');
+        }
+
+        if (events.length > 0) {
+            dayDiv.classList.add('has-event');
+        }
+
+        // Day number
+        const dayNumber = document.createElement('div');
+        dayNumber.className = 'calendar-day-number';
+        dayNumber.textContent = day;
+        dayDiv.appendChild(dayNumber);
+
+        // Event count and click handler
+        if (events.length > 0) {
+            const eventCount = document.createElement('div');
+            eventCount.className = 'calendar-day-events';
+            eventCount.textContent = events.length === 1 ? '1 show' : `${events.length} shows`;
+            dayDiv.appendChild(eventCount);
+
+            // Store events data
+            dayDiv.dataset.events = JSON.stringify(events);
+
+            // Click/tap to show popup
+            dayDiv.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showPopup(dayDiv, events);
+            });
+
+            // Desktop hover to show popup
+            dayDiv.addEventListener('mouseenter', () => {
+                if (window.innerWidth > 768) {
+                    this.cancelPopupClose();
+                    this.showPopup(dayDiv, events);
+                }
+            });
+
+            // Desktop mouse leave to schedule close
+            dayDiv.addEventListener('mouseleave', () => {
+                if (window.innerWidth > 768) {
+                    this.schedulePopupClose();
+                }
+            });
+        }
+
+        return dayDiv;
+    }
+
+    getEventsForDate(date) {
+        return this.tourDates.filter(event => {
+            const eventDate = new Date(event.date);
+            eventDate.setHours(0, 0, 0, 0);
+            return eventDate.getTime() === date.getTime();
+        });
+    }
+
+    showPopup(dayElement, events) {
+        if (!this.popup || events.length === 0) return;
+
+        // Clear previous content
+        this.popup.innerHTML = '';
+
+        // Build popup content
+        events.forEach(event => {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'popup-event';
+
+            // Venue name
+            const venue = document.createElement('div');
+            venue.className = 'popup-venue';
+            venue.textContent = event.venue;
+            eventDiv.appendChild(venue);
+
+            // Event time and age on same line
+            const timeAge = document.createElement('div');
+            timeAge.className = 'popup-time-age';
+            timeAge.innerHTML = `<i class="fas fa-clock"></i> ${event.time}`;
+            if (event.age) {
+                timeAge.innerHTML += ` <span class="popup-age-inline">${event.age}</span>`;
+            }
+            eventDiv.appendChild(timeAge);
+
+            // Address (compact)
+            if (event.address) {
+                const address = document.createElement('div');
+                address.className = 'popup-address';
+                address.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${event.address}`;
+                eventDiv.appendChild(address);
+            }
+
+            this.popup.appendChild(eventDiv);
+        });
+
+        // Position and show popup
+        this.positionAndShowPopup(dayElement);
+        this.activeDay = dayElement;
+
+        // Setup popup hover listeners (keep popup open when hovering over it)
+        if (!this.popup.hasAttribute('data-listeners-added')) {
+            this.popup.addEventListener('mouseenter', () => {
+                this.cancelPopupClose();
+            });
+
+            this.popup.addEventListener('mouseleave', () => {
+                if (window.innerWidth > 768) {
+                    this.schedulePopupClose();
+                }
+            });
+
+            this.popup.setAttribute('data-listeners-added', 'true');
+        }
+    }
+
+    positionAndShowPopup(dayElement) {
+        const dayRect = dayElement.getBoundingClientRect();
+        const padding = 10;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Show popup to measure
+        this.popup.style.visibility = 'visible';
+        this.popup.style.opacity = '1';
+
+        // Get popup dimensions
+        const popupRect = this.popup.getBoundingClientRect();
+        const popupWidth = popupRect.width;
+        const popupHeight = popupRect.height;
+
+        // Calculate horizontal position (centered on day)
+        let left = dayRect.left + (dayRect.width / 2) - (popupWidth / 2);
+
+        // Keep within horizontal bounds
+        if (left < padding) {
+            left = padding;
+        } else if (left + popupWidth > viewportWidth - padding) {
+            left = viewportWidth - popupWidth - padding;
+        }
+
+        // Calculate vertical position (try above first)
+        let top = dayRect.top - popupHeight - padding;
+
+        // If doesn't fit above, position below
+        if (top < padding) {
+            top = dayRect.bottom + padding;
+        }
+
+        // Apply position
+        this.popup.style.left = `${Math.max(padding, left)}px`;
+        this.popup.style.top = `${Math.max(padding, top)}px`;
+    }
+
+    schedulePopupClose() {
+        this.cancelPopupClose();
+        this.closeTimer = setTimeout(() => {
+            this.closePopup();
+        }, 200); // Small delay to allow moving to popup
+    }
+
+    cancelPopupClose() {
+        if (this.closeTimer) {
+            clearTimeout(this.closeTimer);
+            this.closeTimer = null;
+        }
+    }
+
+    closePopup() {
+        if (!this.popup) return;
+
+        this.cancelPopupClose();
+        this.popup.style.visibility = 'hidden';
+        this.popup.style.opacity = '0';
+        this.activeDay = null;
+    }
+}
+
+// Initialize tour calendar
+function initTourCalendar() {
+    // Wait for tour dates to be loaded
+    if (document.querySelectorAll('.tour-date').length > 0) {
+        new TourCalendar();
+    } else {
+        // Retry after a short delay if tour dates aren't loaded yet
+        setTimeout(initTourCalendar, 500);
+    }
+}

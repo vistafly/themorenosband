@@ -253,6 +253,54 @@
 <!-- Tour Dates Section -->
 <div id="tour" class="tour-section">
     <h2 class="section-title">Where to find us</h2>
+
+    <!-- View Toggle Controls -->
+    <div class="tour-view-controls">
+        <button class="view-toggle-btn active" data-view="list">
+            <i class="fas fa-list"></i> List View
+        </button>
+        <button class="view-toggle-btn" data-view="calendar">
+            <i class="fas fa-calendar-alt"></i> Calendar View
+        </button>
+    </div>
+
+    <!-- Calendar View (hidden by default) -->
+    <div class="tour-calendar-view" style="display: none;">
+        <div class="calendar-header">
+            <button class="calendar-nav-btn prev-month">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <h3 class="calendar-month-year"></h3>
+            <button class="calendar-nav-btn next-month">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="calendar-grid">
+            <div class="calendar-weekdays">
+                <div class="weekday">Sun</div>
+                <div class="weekday">Mon</div>
+                <div class="weekday">Tue</div>
+                <div class="weekday">Wed</div>
+                <div class="weekday">Thu</div>
+                <div class="weekday">Fri</div>
+                <div class="weekday">Sat</div>
+            </div>
+            <div class="calendar-days"></div>
+        </div>
+        <div class="calendar-legend">
+            <div class="legend-item">
+                <span class="legend-color has-event"></span> Has Shows
+            </div>
+            <div class="legend-item">
+                <span class="legend-color current-day"></span> Today
+            </div>
+        </div>
+
+        <!-- Shared Popup -->
+        <div class="calendar-event-popup" id="calendar-popup"></div>
+    </div>
+
+    <!-- List View (default) -->
     <div class="tour-grid">
 
 <!-- Tour Date 14 -->
