@@ -2027,7 +2027,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     box-shadow:
         0 1px 3px rgba(0, 0, 0, 0.08),
         0 0 0 1px rgba(255, 255, 255, 0.04);
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     position: relative;
     overflow: hidden; /* Crucial for containment */
     display: inline-block; /* Better boundary control */
@@ -2046,7 +2046,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
         transparent 0%,
         rgba(255, 255, 255, 0.1) 50%,
         transparent 100%);
-    transition: all 0.7s cubic-bezier(0.19, 1, 0.22, 1);
+    transition: transform 0.7s cubic-bezier(0.19, 1, 0.22, 1);
     pointer-events: none;
     transform: skewX(-20deg);
     z-index: 1;
@@ -2221,7 +2221,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: all 0.3s ease;
+    transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
     position: relative;
     overflow: hidden;
     justify-content: center;
@@ -2247,11 +2247,11 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     border-radius: 12px;
     overflow: hidden;
     height: 160px;
-    box-shadow: 
+    box-shadow:
         0 4px 20px rgba(0, 0, 0, 0.25),
         0 0 0 1px rgba(255, 255, 255, 0.05);
     position: relative;
-    transition: all 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .venue-map-container::before {
@@ -2287,7 +2287,31 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     width: 100%;
     height: 100%;
     border: none;
-    transition: all 0.3s ease;
+}
+
+/* Map placeholder while loading */
+.lazy-map:not([src]) {
+    background: linear-gradient(135deg,
+        rgba(30, 30, 30, 0.9) 0%,
+        rgba(50, 50, 50, 0.7) 100%);
+}
+
+/* Loading indicator for maps */
+.venue-map-container::after {
+    content: 'Loading map...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Hide loading text when map is loaded */
+.venue-map-container:has(iframe[src])::after {
+    display: none;
 }
 
 /* Responsive Enhancements */

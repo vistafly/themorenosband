@@ -466,6 +466,58 @@ window.addEventListener('load', function() {
         window.tourScroller = new TourAutoScroll();
     }
 
+    // =============================================
+    // MAP LAZY LOADER - Performance optimization
+    // =============================================
+    class MapLazyLoader {
+        constructor() {
+            this.maps = document.querySelectorAll('.lazy-map');
+            this.loadedMaps = new Set();
+            this.init();
+        }
+
+        init() {
+            if (this.maps.length === 0) return;
+
+            if ('IntersectionObserver' in window) {
+                const options = {
+                    root: document.querySelector('.tour-grid'),
+                    rootMargin: '200px', // Load 200px before visible
+                    threshold: 0
+                };
+
+                this.observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            this.loadMap(entry.target);
+                        }
+                    });
+                }, options);
+
+                this.maps.forEach(map => this.observer.observe(map));
+            } else {
+                // Fallback: load all maps immediately
+                this.maps.forEach(map => this.loadMap(map));
+            }
+        }
+
+        loadMap(iframe) {
+            if (this.loadedMaps.has(iframe)) return;
+
+            const src = iframe.dataset.src;
+            if (src) {
+                iframe.src = src;
+                this.loadedMaps.add(iframe);
+                if (this.observer) {
+                    this.observer.unobserve(iframe);
+                }
+            }
+        }
+    }
+
+    // Initialize map lazy loader
+    new MapLazyLoader();
+
     // Video autoplay functionality
     const videos = document.querySelectorAll('.autoplay-video');
     
