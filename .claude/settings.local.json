@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c copy \"C:\\\\Git Uploads\\\\themorenosband\\\\logonew.JPEG\" \"C:\\\\Git Uploads\\\\themorenosband\\\\images\\\\web-app-manifest-512x512.png\")",
+      "Bash(powershell:*)"
+    ]
+  }
+}

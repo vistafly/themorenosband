@@ -1,10 +1,10 @@
 /* Modern CSS for Local Band */
 :root {
-    --primary: #c3a96f;        /* Gold/Tan from logo text */
+    --primary: #9B7BB8;        /* Purple from logo */
     --secondary: #000000;      /* Background black */
     --dark: #1a1a1a;           /* Slightly lighter black for contrast */
     --light: #ffffff;          /* White */
-    --accent: #c3a96f;         /* Matching logo accent */
+    --accent: #9B7BB8;         /* Matching logo accent */
     --highlight: #ffffff;      /* White as highlight in text */
 
     --font-main: 'Montserrat', sans-serif;
@@ -124,13 +124,13 @@ a {
   width: 0;
   background: linear-gradient(90deg,
     transparent 0%,
-    rgba(210, 180, 140, 0.8) 10%,  /* Warm nude */
-    rgba(230, 200, 150, 0.9) 25%,  /* Champagne */
-    rgba(240, 210, 160, 1) 40%,    /* Light gold */
-    rgba(255, 225, 180, 1) 50%,    /* Bright gold */
-    rgba(240, 210, 160, 1) 60%,    /* Light gold */
-    rgba(230, 200, 150, 0.9) 75%,  /* Champagne */
-    rgba(210, 180, 140, 0.8) 90%,  /* Warm nude */
+    rgba(155, 123, 184, 0.8) 10%,  /* Light purple */
+    rgba(170, 140, 200, 0.9) 25%,  /* Medium purple */
+    rgba(180, 155, 204, 1) 40%,    /* Light purple */
+    rgba(190, 165, 215, 1) 50%,    /* Bright purple */
+    rgba(180, 155, 204, 1) 60%,    /* Light purple */
+    rgba(170, 140, 200, 0.9) 75%,  /* Medium purple */
+    rgba(155, 123, 184, 0.8) 90%,  /* Light purple */
     transparent 100%);
   transition: width 0.2s cubic-bezier(0.12, 0.65, 0.35, 1); /* Smooth ease-out */
   position: relative;
@@ -803,11 +803,11 @@ a {
 }
 
 .tour-grid::-webkit-scrollbar-thumb:hover {
-    background: #d4b982; /* Lighter gold on hover */
+    background: #B49BCC; /* Lighter purple on hover */
 }
 
 .tour-grid::-webkit-scrollbar-thumb:active {
-    background: #b89a5f; /* Darker gold when dragging */
+    background: #7A5A99; /* Darker purple when dragging */
 }
 
 /* Desktop card sizing */
@@ -895,11 +895,11 @@ a {
 .tour-date.highlight {
     border-left: 5px solid var(--highlight); /* Keep this dynamic */
     background: linear-gradient(90deg, 
-        rgba(210, 180, 140, 0.15) 0%, /* Warm tan (linen) */
+        rgba(155, 123, 184, 0.15) 0%, /* Light purple */
         rgba(250, 240, 230, 0.05) 100% /* Soft ivory */
     );
     box-shadow: 
-        0 6px 16px rgba(210, 180, 140, 0.25), /* Outer glow */
+        0 6px 16px rgba(155, 123, 184, 0.25), /* Outer glow */
         inset 0 0 12px rgba(255, 245, 235, 0.4); /* Inner glow */
     position: relative;
     z-index: 1;
@@ -964,8 +964,8 @@ a {
         ),
         radial-gradient(
             circle at 35% 45%,
-            rgba(195, 169, 111, 0.25) 0%,
-            rgba(195, 169, 111, 0.1) 40%,
+            rgba(155, 123, 184, 0.25) 0%,
+            rgba(155, 123, 184, 0.1) 40%,
             transparent 70%
         );
     
@@ -973,22 +973,21 @@ a {
     box-shadow: 
         0 10px 35px rgba(0, 0, 0, 0.6),
         0 5px 15px rgba(0, 0, 0, 0.4),
-        0 0 50px rgba(195, 169, 111, 0.3),
-        0 0 100px rgba(195, 169, 111, 0.15),
+        0 0 50px rgba(155, 123, 184, 0.3),
+        0 0 100px rgba(155, 123, 184, 0.15),
         inset 0 1px 3px rgba(255, 255, 255, 0.08),
         inset 0 -2px 4px rgba(0, 0, 0, 0.3);
     
     /* Enhanced border with glow */
-    border: 1px solid rgba(195, 169, 111, 0.4);
+    border: 1px solid rgba(155, 123, 184, 0.4);
     position: relative;
     z-index: 10;
     
     /* Stable transform for smooth animation */
     transform: translateZ(0);
-    will-change: transform, box-shadow;
     backface-visibility: hidden;
-    
-    /* Gentle breathing animation */
+
+    /* Gentle breathing animation - GPU optimized */
     animation: live-card-breathe 5s ease-in-out infinite alternate;
     
     /* Prevent text blur */
@@ -998,25 +997,13 @@ a {
 }
 
 @keyframes live-card-breathe {
-    0% { 
-        transform: translateZ(0) scale(1);
-        box-shadow: 
-            0 10px 35px rgba(0, 0, 0, 0.6),
-            0 5px 15px rgba(0, 0, 0, 0.4),
-            0 0 50px rgba(195, 169, 111, 0.3),
-            0 0 100px rgba(195, 169, 111, 0.15),
-            inset 0 1px 3px rgba(255, 255, 255, 0.08),
-            inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+    0% {
+        transform: scale(1);
+        opacity: 1;
     }
-    100% { 
-        transform: translateZ(0) scale(1.015);
-        box-shadow: 
-            0 15px 50px rgba(0, 0, 0, 0.7),
-            0 8px 25px rgba(0, 0, 0, 0.5),
-            0 0 70px rgba(195, 169, 111, 0.45),
-            0 0 140px rgba(195, 169, 111, 0.25),
-            inset 0 2px 5px rgba(255, 255, 255, 0.12),
-            inset 0 -3px 6px rgba(0, 0, 0, 0.4);
+    100% {
+        transform: scale(1.012);
+        opacity: 0.97;
     }
 }
 
@@ -1083,26 +1070,13 @@ a {
 }
 
 @keyframes live-indicator-pulse {
-    0%, 100% { 
+    0%, 100% {
+        transform: scale(1);
         opacity: 1;
-        transform: translateZ(0) scale(1);
-        box-shadow: 
-            0 4px 15px rgba(0, 0, 0, 0.4),
-            0 2px 8px rgba(220, 20, 60, 0.5),
-            0 0 25px rgba(255, 50, 50, 0.4),
-            inset 0 1px 2px rgba(255, 255, 255, 0.3),
-            inset 0 -1px 3px rgba(0, 0, 0, 0.2);
     }
-    50% { 
-        opacity: 0.95;
-        transform: translateZ(0) scale(1.03);
-        box-shadow: 
-            0 6px 20px rgba(0, 0, 0, 0.5),
-            0 3px 12px rgba(220, 20, 60, 0.7),
-            0 0 35px rgba(255, 50, 50, 0.6),
-            0 0 60px rgba(255, 50, 50, 0.3),
-            inset 0 2px 4px rgba(255, 255, 255, 0.4),
-            inset 0 -2px 5px rgba(0, 0, 0, 0.3);
+    50% {
+        transform: scale(1.05);
+        opacity: 0.9;
     }
 }
 
@@ -1142,8 +1116,8 @@ a {
     background: 
         radial-gradient(
             circle at 25% 70%,
-            rgba(195, 169, 111, 0.08) 0%,
-            rgba(195, 169, 111, 0.04) 40%,
+            rgba(155, 123, 184, 0.08) 0%,
+            rgba(155, 123, 184, 0.04) 40%,
             transparent 70%
         );
     animation: ambient-breathe 12s ease-in-out infinite alternate-reverse;
@@ -1153,44 +1127,40 @@ a {
 }
 
 @keyframes subtle-glow-pulse {
-    0% { 
+    0% {
         opacity: 0.6;
-        transform: scale(0.95);
     }
-    100% { 
+    100% {
         opacity: 1;
-        transform: scale(1.05);
     }
 }
 
 @keyframes ambient-breathe {
-    0% { 
+    0% {
         opacity: 0.3;
-        transform: scale(1) rotate(0deg);
     }
-    100% { 
+    100% {
         opacity: 0.7;
-        transform: scale(1.1) rotate(2deg);
     }
 }
 
 /* ===== ENHANCED DATE COMPONENT FOR LIVE CARD ===== */
 .tour-date.currently-playing .date {
     background: linear-gradient(135deg,
-        #f8e5a0 0%,
-        #f5d47f 25%,
-        #e0c060 50%,
-        #d4b15f 75%,
-        #c3a96f 100%
+        #D4C4E8 0%,
+        #C4B0DC 25%,
+        #B49BCC 50%,
+        #A88BC0 75%,
+        #9B7BB8 100%
     );
-    
+
     /* Enhanced 3D metallic effect */
-    box-shadow: 
+    box-shadow:
         0 3px 12px rgba(0, 0, 0, 0.4),
         inset 0 2px 6px rgba(255, 255, 255, 0.8),
-        inset 0 -2px 6px rgba(100, 80, 40, 0.5),
+        inset 0 -2px 6px rgba(80, 50, 100, 0.5),
         inset 2px 0 4px rgba(255, 255, 255, 0.4),
-        inset -2px 0 4px rgba(100, 80, 40, 0.3);
+        inset -2px 0 4px rgba(80, 50, 100, 0.3);
     
     /* Prevent transform inheritance issues */
     transform: translateZ(0);
@@ -1230,12 +1200,12 @@ a {
     box-shadow: 
         0 20px 60px rgba(0, 0, 0, 0.8),
         0 10px 30px rgba(0, 0, 0, 0.6),
-        0 0 80px rgba(195, 169, 111, 0.6),
-        0 0 160px rgba(195, 169, 111, 0.35),
+        0 0 80px rgba(155, 123, 184, 0.6),
+        0 0 160px rgba(155, 123, 184, 0.35),
         inset 0 3px 8px rgba(255, 255, 255, 0.15),
         inset 0 -4px 10px rgba(0, 0, 0, 0.5);
     
-    border-color: rgba(195, 169, 111, 0.6);
+    border-color: rgba(155, 123, 184, 0.6);
 }
 
 .tour-date.currently-playing:hover .info::before {
@@ -1320,7 +1290,7 @@ a {
     .tour-date.highlight {
         border-left: 4px solid var(--highlight);
         box-shadow: 
-            0 4px 12px rgba(210, 180, 140, 0.2),
+            0 4px 12px rgba(155, 123, 184, 0.2),
             inset 0 0 8px rgba(255, 245, 235, 0.3);
     }
     
@@ -1338,7 +1308,7 @@ a {
     .tour-date.highlight {
         border-left: 3px solid var(--highlight);
         box-shadow: 
-            0 3px 8px rgba(210, 180, 140, 0.15),
+            0 3px 8px rgba(155, 123, 184, 0.15),
             inset 0 0 6px rgba(255, 245, 235, 0.2);
     }
     
@@ -1354,12 +1324,12 @@ a {
 /* Hover effects */
 .tour-date:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(210, 180, 140, 0.3);
+    box-shadow: 0 8px 20px rgba(155, 123, 184, 0.3);
 }
 
 @media (max-width: 768px) {
     .tour-date {
-        -webkit-tap-highlight-color: rgba(210, 180, 140, 0.15);
+        -webkit-tap-highlight-color: rgba(155, 123, 184, 0.15);
     }
     
     .tour-date:hover {
@@ -1514,7 +1484,7 @@ a {
     background: var(--primary);
     color: var(--dark);
     border-color: var(--primary);
-    box-shadow: 0 4px 12px rgba(210, 180, 140, 0.4);
+    box-shadow: 0 4px 12px rgba(155, 123, 184, 0.4);
 }
 
 .view-toggle-btn i {
@@ -1549,7 +1519,7 @@ a {
 }
 
 .calendar-nav-btn {
-    background: rgba(210, 180, 140, 0.2);
+    background: rgba(155, 123, 184, 0.2);
     border: 2px solid var(--primary);
     border-radius: 50%;
     width: 45px;
@@ -1641,12 +1611,12 @@ a {
 
 .calendar-day.today {
     border-color: var(--primary);
-    background: rgba(210, 180, 140, 0.15);
+    background: rgba(155, 123, 184, 0.15);
 }
 
 .calendar-day.has-event {
     background: linear-gradient(135deg,
-        rgba(210, 180, 140, 0.3) 0%,
+        rgba(155, 123, 184, 0.3) 0%,
         rgba(250, 240, 230, 0.1) 100%
     );
     border-color: var(--primary);
@@ -1702,7 +1672,7 @@ a {
 
 .popup-event {
     padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(210, 180, 140, 0.2);
+    border-bottom: 1px solid rgba(155, 123, 184, 0.2);
 }
 
 .popup-event:last-child {
@@ -1740,7 +1710,7 @@ a {
 .popup-age-inline {
     display: inline-block;
     padding: 0.15rem 0.4rem;
-    background: rgba(210, 180, 140, 0.25);
+    background: rgba(155, 123, 184, 0.25);
     border-radius: 3px;
     font-size: 0.75rem;
     font-weight: 600;
@@ -1793,13 +1763,13 @@ a {
 
 .legend-color.has-event {
     background: linear-gradient(135deg,
-        rgba(210, 180, 140, 0.3) 0%,
+        rgba(155, 123, 184, 0.3) 0%,
         rgba(250, 240, 230, 0.1) 100%
     );
 }
 
 .legend-color.current-day {
-    background: rgba(210, 180, 140, 0.15);
+    background: rgba(155, 123, 184, 0.15);
 }
 
 /* Mobile Responsive */
@@ -1973,8 +1943,8 @@ a {
     right: 0;
     bottom: 0;
     background: 
-    radial-gradient(circle at 20% 20%, rgba(210, 180, 140, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(230, 200, 170, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 20% 20%, rgba(155, 123, 184, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(180, 155, 204, 0.03) 0%, transparent 50%),
     radial-gradient(circle at 40% 60%, rgba(250, 240, 230, 0.02) 0%, transparent 50%);
 animation: subtleGlow 8s ease-in-out infinite alternate;
     pointer-events: none;
@@ -2045,16 +2015,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 /* Base venue-promo styles */
 .venue-promo {
     font-size: 0.75rem;
-    background: linear-gradient(
-    135deg,
-    rgba(245, 225, 195, 0.7) 0%,      /* Creamy beige */
-    rgba(230, 200, 170, 0.6) 25%,     /* Soft caramel */
-    rgba(220, 190, 160, 0.5) 50%,     /* Warm latte */
-    rgba(230, 200, 170, 0.6) 75%,     /* Soft caramel */
-    rgba(245, 225, 195, 0.7) 100%     /* Creamy beige */
-);
-background-size: 200% 200%;
-animation: butteryFlow 16s ease-in-out infinite;
+    background: rgba(255, 255, 255, 0.06);
     color: white;
     padding: 0.4rem 0.8rem;
     border-radius: 20px;
@@ -2063,9 +2024,9 @@ animation: butteryFlow 16s ease-in-out infinite;
     margin-left: auto;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    box-shadow: 
-        0 2px 8px rgba(255, 215, 0, 0.2),
-        0 0 0 1px rgba(255, 255, 255, 0.1);
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.08),
+        0 0 0 1px rgba(255, 255, 255, 0.04);
     transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     position: relative;
     overflow: hidden; /* Crucial for containment */
@@ -2081,9 +2042,9 @@ animation: butteryFlow 16s ease-in-out infinite;
     left: -100%;
     width: 60%;
     height: 100%;
-    background: linear-gradient(90deg, 
-        transparent 0%, 
-        rgba(255, 215, 0, 0.2) 50%, 
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.1) 50%,
         transparent 100%);
     transition: all 0.7s cubic-bezier(0.19, 1, 0.22, 1);
     pointer-events: none;
@@ -2099,10 +2060,10 @@ animation: butteryFlow 16s ease-in-out infinite;
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(135deg, 
-        rgba(255, 215, 0, 0.05) 0%,
-        rgba(255,255,255,0) 50%,
-        rgba(255, 215, 0, 0.05) 100%);
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.03) 0%,
+        rgba(255, 255, 255, 0) 50%,
+        rgba(255, 255, 255, 0.03) 100%);
     opacity: 0;
     transition: opacity 0.4s ease;
     z-index: -1;
@@ -2110,10 +2071,11 @@ animation: butteryFlow 16s ease-in-out infinite;
 
 /* Card hover triggers promo effects */
 .tour-date:hover .venue-promo {
-    transform: translateY(-2px);
-    box-shadow: 
-        0 4px 12px rgba(255, 215, 0, 0.3),
-        0 0 0 1px rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .tour-date:hover .venue-promo::before {
@@ -2182,7 +2144,7 @@ animation: butteryFlow 16s ease-in-out infinite;
     font-size: 0.9rem;
     color: var(--primary);
     padding: 0.75rem;
-    background: #c3a86f28;
+    background: #9B7BB828;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.15);
     position: relative;
@@ -2223,12 +2185,12 @@ animation: butteryFlow 16s ease-in-out infinite;
     overflow: hidden;
 }
 
-/* Glowing swipe animation (add this anywhere in your CSS) */
+/* Glowing swipe animation - GPU optimized */
 .event-meta::before {
     content: '';
     position: absolute;
     top: 0;
-    left: -100%;
+    left: 0;
     width: 50%;
     height: 100%;
     background: linear-gradient(
@@ -2242,9 +2204,9 @@ animation: butteryFlow 16s ease-in-out infinite;
 }
 
 @keyframes swipeGlow {
-    0% { left: -100%; opacity: 0; }
+    0% { transform: translateX(-200%); opacity: 0; }
     20% { opacity: 0.5; }
-    100% { left: 150%; opacity: 0; }
+    100% { transform: translateX(300%); opacity: 0; }
 }
 
 /* Enhanced Address */
@@ -2413,11 +2375,11 @@ animation: butteryFlow 16s ease-in-out infinite;
 
 /* Hover effect */
 .btn:hover {
-    background-color: var(--primary); /* Using your primary gold color */
+    background-color: var(--primary); /* Using your primary purple color */
     transform: translateY(-2px); /* Keeping the lift effect */
-    box-shadow: 
-        0 4px 8px rgba(195, 169, 111, 0.3), /* Gold shadow for depth */
-        0 0 12px rgba(195, 169, 111, 0.2); /* Additional glow effect */
+    box-shadow:
+        0 4px 8px rgba(155, 123, 184, 0.3), /* Purple shadow for depth */
+        0 0 12px rgba(155, 123, 184, 0.2); /* Additional glow effect */
     color: var(--light); /* Ensuring text stays white */
     border-color: transparent; /* Removing any border artifacts */
 }
@@ -2927,7 +2889,7 @@ body {
 .merch-size:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(195, 169, 111, 0.3);
+    box-shadow: 0 0 0 2px rgba(155, 123, 184, 0.3);
 }
 
 /* Style for Internet Explorer */
@@ -2978,7 +2940,7 @@ body {
     background: var(--primary);
     border-color: var(--primary);
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(195, 169, 111, 0.3);
+    box-shadow: 0 4px 15px rgba(155, 123, 184, 0.3);
 }
 
 /* ======================
@@ -3102,7 +3064,7 @@ body {
     justify-content: center;
     font-size: 1.5rem;
     cursor: pointer;
-    box-shadow: 0 5px 20px rgba(195, 169, 111, 0.4);
+    box-shadow: 0 5px 20px rgba(155, 123, 184, 0.4);
     z-index: 999;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     border: none;
@@ -3111,7 +3073,7 @@ body {
 .cart-btn:hover {
     transform: translateY(-3px) scale(1.05);
     box-shadow: 
-        0 8px 30px rgba(195, 169, 111, 0.8),
+        0 8px 30px rgba(155, 123, 184, 0.8),
         0 0 20px rgba(255, 236, 179, 0.8);
     background-color: var(--primary); /* Ensures solid color */
     text-shadow: 0 0 8px rgba(255, 255, 255, 0.5); /* Added text glow */
@@ -3382,7 +3344,7 @@ body {
 
 .btn-checkout:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(195, 169, 111, 0.6);
+    box-shadow: 0 5px 15px rgba(155, 123, 184, 0.6);
 }
 
 /* Cart Item Animation */
@@ -4209,12 +4171,12 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .payment-btn {
-    background: linear-gradient(135deg, var(--primary) 0%, #d4b87a 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, #B49BCC 100%);
     color: white;
     flex: 1;
     min-height: 56px;
     position: relative;
-    box-shadow: 0 4px 16px rgba(195, 169, 111, 0.3);
+    box-shadow: 0 4px 16px rgba(155, 123, 184, 0.3);
 }
 
 .payment-btn:hover:not(:disabled) {
@@ -4492,6 +4454,12 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .footer-section {
     padding: 0 10px;
+}
+
+.footer-logo {
+    max-width: 250px;
+    height: auto;
+    display: block;
 }
 
 .footer-about h3 {
@@ -4910,7 +4878,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     border-color: var(--primary);
     color: var(--primary);
     transform: translateY(-50%) scale(1.1);
-    box-shadow: 0 4px 20px rgba(195, 169, 111, 0.3);
+    box-shadow: 0 4px 20px rgba(155, 123, 184, 0.3);
 }
 
 .carousel-nav:active {
@@ -4952,7 +4920,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .carousel-dots .dot.active {
     background: var(--primary);
     transform: scale(1.3);
-    box-shadow: 0 0 0 3px rgba(195, 169, 111, 0.3);
+    box-shadow: 0 0 0 3px rgba(155, 123, 184, 0.3);
 }
 
 .carousel-dots .dot.active::after {
