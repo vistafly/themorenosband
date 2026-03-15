@@ -128,39 +128,45 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         // Parse event time
         const timeText = eventTimeElement.textContent.trim();
         const timeMatch = timeText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-        
-        if (!timeMatch) return;
-        
-        const [, startHour, startMin, startPeriod, endHour, endMin, endPeriod] = timeMatch;
-        
+
         function parseTime(hour, minute, period, baseDate) {
             let hours = parseInt(hour);
             const minutes = parseInt(minute);
-            
+
             if (period.toUpperCase() === 'PM' && hours !== 12) {
                 hours += 12;
             } else if (period.toUpperCase() === 'AM' && hours === 12) {
                 hours = 0;
             }
-            
+
             const date = new Date(baseDate);
             date.setHours(hours, minutes, 0, 0);
             return date;
         }
-        
-        // Create start and end datetime objects
-        const startDateTime = parseTime(startHour, startMin, startPeriod, eventDate);
-        const endDateTime = parseTime(endHour, endMin, endPeriod, eventDate);
-        
+
+        let startDateTime, endDateTime;
+
+        if (timeMatch) {
+            const [, startHour, startMin, startPeriod, endHour, endMin, endPeriod] = timeMatch;
+            startDateTime = parseTime(startHour, startMin, startPeriod, eventDate);
+            endDateTime = parseTime(endHour, endMin, endPeriod, eventDate);
+        } else {
+            // TBD or unparseable time — use start/end of event date
+            startDateTime = new Date(eventDate);
+            startDateTime.setHours(0, 0, 0, 0);
+            endDateTime = new Date(eventDate);
+            endDateTime.setHours(23, 59, 59, 999);
+        }
+
         // Check if show is currently happening
-        if (now >= startDateTime && now <= endDateTime) {
+        if (timeMatch && now >= startDateTime && now <= endDateTime) {
             currentlyPlayingShow = dateElement;
         }
-        
+
         // Check if show is in the future
         if (endDateTime > now) {
             const timeDiff = startDateTime - now;
-            
+
             // Find the next upcoming show (closest to now but still in future)
             if (timeDiff < smallestTimeDiff) {
                 smallestTimeDiff = timeDiff;
@@ -231,15 +237,19 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             const timeText = eventTimeElement.textContent.trim();
             const timeMatch = timeText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
             
+            let endDateTime;
             if (timeMatch) {
                 const [, , , , endHour, endMin, endPeriod] = timeMatch;
-                const endDateTime = parseTime(endHour, endMin, endPeriod, eventDate);
-                const timeDiff = now - endDateTime;
-                
-                if (timeDiff > 0 && timeDiff < smallestPastDiff) {
-                    smallestPastDiff = timeDiff;
-                    mostRecentPast = dateElement;
-                }
+                endDateTime = parseTime(endHour, endMin, endPeriod, eventDate);
+            } else {
+                endDateTime = new Date(eventDate);
+                endDateTime.setHours(23, 59, 59, 999);
+            }
+            const timeDiff = now - endDateTime;
+
+            if (timeDiff > 0 && timeDiff < smallestPastDiff) {
+                smallestPastDiff = timeDiff;
+                mostRecentPast = dateElement;
             }
         });
         
