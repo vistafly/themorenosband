@@ -490,60 +490,95 @@ window.addEventListener('load', function() {
 
     // =============================================
     // MAP LAZY LOADER - Performance optimization
-    // Loads maps only for nearby cards and unloads
-    // distant ones to keep memory under control.
+    // Keeps max 3 map iframes in the DOM on mobile.
+    // Removes iframes entirely to free Safari memory,
+    // recreates them when scrolled back into view.
     // =============================================
     class MapLazyLoader {
         constructor() {
-            this.maps = Array.from(document.querySelectorAll('.lazy-map'));
             this.isMobile = window.innerWidth <= 768;
-            this.maxLoaded = this.isMobile ? 5 : 12;
-            this.loadedQueue = []; // ordered list of loaded iframes
+            this.maxLoaded = this.isMobile ? 3 : 10;
+            this.loadedQueue = []; // { container, src, label }
+            this.mapData = new Map(); // container -> { src, label }
+
+            // Store data-src from each iframe, keyed by its container
+            document.querySelectorAll('.lazy-map').forEach(iframe => {
+                const container = iframe.closest('.venue-map-container');
+                if (container) {
+                    this.mapData.set(container, {
+                        src: iframe.dataset.src || '',
+                        label: iframe.getAttribute('aria-label') || ''
+                    });
+                }
+            });
+
             this.init();
         }
 
         init() {
-            if (this.maps.length === 0) return;
+            if (this.mapData.size === 0) return;
 
-            if ('IntersectionObserver' in window) {
-                this.observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            this.loadMap(entry.target);
-                        }
-                    });
-                }, {
-                    root: null,
-                    rootMargin: this.isMobile ? '50px' : '200px',
-                    threshold: 0
+            // On mobile, remove ALL iframes immediately to start clean
+            if (this.isMobile) {
+                document.querySelectorAll('.lazy-map').forEach(iframe => {
+                    iframe.remove();
                 });
-
-                this.maps.forEach(map => this.observer.observe(map));
             }
+
+            this.observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        this.loadMap(entry.target);
+                    }
+                });
+            }, {
+                root: null,
+                rootMargin: this.isMobile ? '0px' : '200px',
+                threshold: 0
+            });
+
+            this.mapData.forEach((data, container) => {
+                this.observer.observe(container);
+            });
         }
 
-        loadMap(iframe) {
-            const src = iframe.dataset.src;
-            if (!src || iframe.src === src) return;
+        loadMap(container) {
+            const data = this.mapData.get(container);
+            if (!data || !data.src) return;
 
-            // If we're at the limit, unload the oldest (most distant) map first
+            // Already loaded? Move it to end of queue (most recent)
+            const idx = this.loadedQueue.findIndex(q => q.container === container);
+            if (idx !== -1) {
+                this.loadedQueue.push(this.loadedQueue.splice(idx, 1)[0]);
+                return;
+            }
+
+            // Evict oldest maps until under the limit
             while (this.loadedQueue.length >= this.maxLoaded) {
-                this.unloadOldest();
+                this.unloadMap(this.loadedQueue.shift());
             }
 
-            iframe.src = src;
-            this.loadedQueue.push(iframe);
+            // Create a fresh iframe
+            const iframe = document.createElement('iframe');
+            iframe.className = 'lazy-map';
+            iframe.src = data.src;
+            iframe.setAttribute('aria-label', data.label);
+            iframe.style.border = '0';
+            iframe.setAttribute('allowfullscreen', '');
+            container.appendChild(iframe);
+
+            this.loadedQueue.push({ container, src: data.src });
         }
 
-        unloadOldest() {
-            const old = this.loadedQueue.shift();
-            if (old) {
-                old.removeAttribute('src');
-                // Re-observe so it can reload when scrolled back into view
-                if (this.observer) {
-                    this.observer.observe(old);
-                }
+        unloadMap(entry) {
+            if (!entry) return;
+            // Physically remove iframe from DOM to force Safari to free memory
+            const iframe = entry.container.querySelector('iframe');
+            if (iframe) {
+                iframe.remove();
             }
+            // Re-observe so it reloads when scrolled back
+            this.observer.observe(entry.container);
         }
     }
 
