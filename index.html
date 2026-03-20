@@ -96,7 +96,148 @@
     </script>
 </head>
 <body>
-    <!-- Add this right after <body> -->
+<!-- TEMP DEBUG: Mobile crash logger - REMOVE AFTER DEBUGGING -->
+<script>
+(function() {
+    var log = [];
+    var startTime = Date.now();
+    function ts() { return ((Date.now() - startTime) / 1000).toFixed(2) + 's'; }
+    function memMB() {
+        if (performance && performance.memory) {
+            return (performance.memory.usedJSHeapSize / 1048576).toFixed(1) + 'MB';
+        }
+        return 'N/A';
+    }
+    function addLog(msg) {
+        var entry = '[' + ts() + '] [mem:' + memMB() + '] ' + msg;
+        log.push(entry);
+        if (log.length > 500) log.shift();
+        // Save to localStorage on EVERY log entry so it survives crashes
+        try { localStorage.setItem('_crashLog', JSON.stringify({ time: new Date().toISOString(), entries: log })); } catch(e) {}
+    }
+
+    // On page load, check if there's a previous crash log and show download modal
+    var prevCrash = null;
+    try { prevCrash = localStorage.getItem('_crashLog'); } catch(e) {}
+    if (prevCrash) {
+        // Save it as previous before we overwrite with this session
+        try { localStorage.setItem('_prevCrashLog', prevCrash); } catch(e) {}
+    }
+
+    addLog('PAGE LOAD START');
+    window.addEventListener('DOMContentLoaded', function() { addLog('DOM CONTENT LOADED'); });
+    window.addEventListener('load', function() {
+        addLog('WINDOW LOAD - iframes: ' + document.querySelectorAll('iframe').length +
+               ', iframes with src: ' + document.querySelectorAll('iframe[src]').length +
+               ', lazy-maps: ' + document.querySelectorAll('.lazy-map').length +
+               ', DOM nodes: ' + document.querySelectorAll('*').length);
+
+        // Check if we have a PREVIOUS crash log (means page reloaded/crashed)
+        var prev = null;
+        try { prev = localStorage.getItem('_prevCrashLog'); } catch(e) {}
+        if (prev) {
+            showCrashModal(prev);
+        }
+    });
+
+    // Log errors
+    window.addEventListener('error', function(e) {
+        addLog('ERROR: ' + (e.message || 'unknown') + ' at ' + (e.filename || '?') + ':' + (e.lineno || '?'));
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+        addLog('UNHANDLED REJECTION: ' + (e.reason || 'unknown'));
+    });
+
+    // Monitor every 2 seconds
+    setInterval(function() {
+        var iframesWithSrc = document.querySelectorAll('iframe[src]').length;
+        var nodes = document.querySelectorAll('*').length;
+        addLog('TICK - iframes loaded: ' + iframesWithSrc + ', DOM nodes: ' + nodes);
+    }, 2000);
+
+    // Log tour-grid scroll
+    var scrollCount = 0;
+    document.addEventListener('DOMContentLoaded', function() {
+        var grid = document.querySelector('.tour-grid');
+        if (grid) {
+            var lastLog = 0;
+            grid.addEventListener('scroll', function() {
+                scrollCount++;
+                var now = Date.now();
+                if (now - lastLog > 1000) {
+                    lastLog = now;
+                    addLog('SCROLL #' + scrollCount + ' pos: ' + Math.round(grid.scrollLeft) +
+                           '/' + (grid.scrollWidth - grid.clientWidth) +
+                           ' card: ~' + Math.round(grid.scrollLeft / 320));
+                }
+            }, { passive: true });
+        }
+    });
+
+    document.addEventListener('visibilitychange', function() {
+        addLog('VISIBILITY: ' + document.visibilityState);
+    });
+    window.addEventListener('pagehide', function() {
+        addLog('PAGEHIDE');
+    });
+
+    // Show modal with download button after a crash reload
+    function showCrashModal(prevLog) {
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;' +
+            'background:rgba(0,0,0,0.85);z-index:999999;display:flex;' +
+            'align-items:center;justify-content:center;padding:20px;';
+
+        var box = document.createElement('div');
+        box.style.cssText = 'background:#1a1a1a;border:2px solid #ff3333;border-radius:12px;' +
+            'padding:24px;max-width:340px;width:100%;text-align:center;color:#fff;font-family:sans-serif;';
+
+        box.innerHTML = '<h3 style="color:#ff3333;margin:0 0 12px;font-size:18px;">Crash Log Captured</h3>' +
+            '<p style="color:#ccc;font-size:14px;margin:0 0 20px;">The page crashed or reloaded. ' +
+            'Download the log and send it for debugging.</p>';
+
+        var dlBtn = document.createElement('button');
+        dlBtn.textContent = 'Download Crash Log';
+        dlBtn.style.cssText = 'background:#ff3333;color:#fff;border:none;padding:14px 24px;' +
+            'border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;width:100%;margin-bottom:10px;';
+        dlBtn.addEventListener('click', function() {
+            var parsed = {};
+            try { parsed = JSON.parse(prevLog); } catch(e) { parsed = { raw: prevLog }; }
+            var content = '=== CRASH LOG ===\n' +
+                'Captured at: ' + (parsed.time || 'unknown') + '\n' +
+                'Downloaded at: ' + new Date().toISOString() + '\n\n' +
+                '=== LOG ENTRIES ===\n' +
+                (parsed.entries ? parsed.entries.join('\n') : prevLog) +
+                '\n\n=== DEVICE INFO ===\n' +
+                'UA: ' + navigator.userAgent + '\n' +
+                'Screen: ' + screen.width + 'x' + screen.height + '\n' +
+                'Window: ' + window.innerWidth + 'x' + window.innerHeight + '\n' +
+                'DPR: ' + window.devicePixelRatio + '\n';
+            var blob = new Blob([content], { type: 'text/plain' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'morenos-crash-log.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
+        var dismissBtn = document.createElement('button');
+        dismissBtn.textContent = 'Dismiss';
+        dismissBtn.style.cssText = 'background:transparent;color:#888;border:1px solid #444;' +
+            'padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;width:100%;';
+        dismissBtn.addEventListener('click', function() {
+            overlay.remove();
+            try { localStorage.removeItem('_prevCrashLog'); } catch(e) {}
+        });
+
+        box.appendChild(dlBtn);
+        box.appendChild(dismissBtn);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+    }
+})();
+</script>
 <div class="luxe-scroll-track">
   <div class="luxe-progress-ribbon"></div>
 </div>
