@@ -2322,6 +2322,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     display: none;
 }
 
+
 /* Responsive Enhancements */
 @media (max-width: 768px) {
     .info {

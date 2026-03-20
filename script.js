@@ -490,11 +490,15 @@ window.addEventListener('load', function() {
 
     // =============================================
     // MAP LAZY LOADER - Performance optimization
+    // Loads maps only for nearby cards and unloads
+    // distant ones to keep memory under control.
     // =============================================
     class MapLazyLoader {
         constructor() {
-            this.maps = document.querySelectorAll('.lazy-map');
-            this.loadedMaps = new Set();
+            this.maps = Array.from(document.querySelectorAll('.lazy-map'));
+            this.isMobile = window.innerWidth <= 768;
+            this.maxLoaded = this.isMobile ? 5 : 12;
+            this.loadedQueue = []; // ordered list of loaded iframes
             this.init();
         }
 
@@ -502,36 +506,42 @@ window.addEventListener('load', function() {
             if (this.maps.length === 0) return;
 
             if ('IntersectionObserver' in window) {
-                const options = {
-                    root: null, // Use viewport instead of tour-grid for better mobile performance
-                    rootMargin: '200px',
-                    threshold: 0
-                };
-
                 this.observer = new IntersectionObserver((entries) => {
                     entries.forEach(entry => {
                         if (entry.isIntersecting) {
                             this.loadMap(entry.target);
                         }
                     });
-                }, options);
+                }, {
+                    root: null,
+                    rootMargin: this.isMobile ? '50px' : '200px',
+                    threshold: 0
+                });
 
                 this.maps.forEach(map => this.observer.observe(map));
-            } else {
-                // Fallback: load all maps immediately
-                this.maps.forEach(map => this.loadMap(map));
             }
         }
 
         loadMap(iframe) {
-            if (this.loadedMaps.has(iframe)) return;
-
             const src = iframe.dataset.src;
-            if (src) {
-                iframe.src = src;
-                this.loadedMaps.add(iframe);
+            if (!src || iframe.src === src) return;
+
+            // If we're at the limit, unload the oldest (most distant) map first
+            while (this.loadedQueue.length >= this.maxLoaded) {
+                this.unloadOldest();
+            }
+
+            iframe.src = src;
+            this.loadedQueue.push(iframe);
+        }
+
+        unloadOldest() {
+            const old = this.loadedQueue.shift();
+            if (old) {
+                old.removeAttribute('src');
+                // Re-observe so it can reload when scrolled back into view
                 if (this.observer) {
-                    this.observer.unobserve(iframe);
+                    this.observer.observe(old);
                 }
             }
         }
