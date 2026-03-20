@@ -503,8 +503,8 @@ window.addEventListener('load', function() {
 
             if ('IntersectionObserver' in window) {
                 const options = {
-                    root: document.querySelector('.tour-grid'),
-                    rootMargin: '200px', // Load 200px before visible
+                    root: null, // Use viewport instead of tour-grid for better mobile performance
+                    rootMargin: '200px',
                     threshold: 0
                 };
 
