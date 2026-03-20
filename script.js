@@ -585,27 +585,63 @@ window.addEventListener('load', function() {
     // Initialize map lazy loader
     new MapLazyLoader();
 
-    // Video autoplay functionality
-    const videos = document.querySelectorAll('.autoplay-video');
-    
-    // Autoplay all videos muted (no sound possible)
-    videos.forEach(video => {
-        video.muted = true; // Force mute (even if attribute changes)
-        video.removeAttribute('controls'); // Ensure no controls appear
-        
-        const playPromise = video.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.log('Autoplay prevented:', error);
+    // Video autoplay functionality - with visibility-based loading/unloading
+    const allVideos = document.querySelectorAll('.autoplay-video, .hero-video');
+
+    // On mobile, only play videos that are visible on screen
+    const isMobileDevice = window.innerWidth <= 768;
+
+    if (isMobileDevice) {
+        // Pause all videos initially, let IntersectionObserver manage them
+        allVideos.forEach(video => {
+            video.muted = true;
+            video.removeAttribute('controls');
+            video.setAttribute('preload', 'none');
+            video.pause();
+        });
+
+        const videoObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const video = entry.target;
+                if (entry.isIntersecting) {
+                    // Only load and play when visible
+                    if (video.getAttribute('preload') === 'none') {
+                        video.setAttribute('preload', 'auto');
+                        video.load();
+                    }
+                    video.play().catch(e => {});
+                } else {
+                    // Pause and unload when offscreen to free memory
+                    video.pause();
+                }
             });
-        }
-    });
+        }, { rootMargin: '50px', threshold: 0 });
+
+        allVideos.forEach(video => videoObserver.observe(video));
+    } else {
+        // Desktop: play all videos as before
+        allVideos.forEach(video => {
+            video.muted = true;
+            video.removeAttribute('controls');
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log('Autoplay prevented:', error);
+                });
+            }
+        });
+    }
 
     // Pause videos when tab is inactive
     document.addEventListener('visibilitychange', function() {
-        videos.forEach(video => {
-            document.hidden ? video.pause() : video.play().catch(e => {});
-        });
+        if (document.hidden) {
+            allVideos.forEach(video => video.pause());
+        } else {
+            // Only resume visible videos on mobile
+            if (!isMobileDevice) {
+                allVideos.forEach(video => video.play().catch(e => {}));
+            }
+        }
     });
 
     // =============================================
