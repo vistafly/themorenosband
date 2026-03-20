@@ -106,13 +106,13 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     let smallestTimeDiff = Infinity;
     let currentlyPlayingShow = null;
     
-    // Remove all existing highlights
-    document.querySelectorAll('.tour-date').forEach(dateElement => {
+    // Process each tour date card (single pass: clear + evaluate)
+    const allTourDates = document.querySelectorAll('.tour-date');
+    allTourDates.forEach(dateElement => {
         dateElement.classList.remove('highlight', 'currently-playing', 'active');
     });
-    
-    // Process each tour date card
-    document.querySelectorAll('.tour-date').forEach(dateElement => {
+
+    allTourDates.forEach(dateElement => {
         const timeElement = dateElement.querySelector('time');
         const eventTimeElement = dateElement.querySelector('.event-time');
         
@@ -221,22 +221,22 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         let mostRecentPast = null;
         let smallestPastDiff = Infinity;
         
-        document.querySelectorAll('.tour-date').forEach(dateElement => {
+        allTourDates.forEach(dateElement => {
             const timeElement = dateElement.querySelector('time');
             const eventTimeElement = dateElement.querySelector('.event-time');
-            
+
             if (!timeElement || !eventTimeElement) return;
-            
+
             const datetime = timeElement.getAttribute('datetime');
             if (!datetime) return;
-            
+
             const eventDate = new Date(datetime + 'T00:00:00');
             if (isNaN(eventDate.getTime())) return;
-            
+
             // Parse end time for comparison
             const timeText = eventTimeElement.textContent.trim();
             const timeMatch = timeText.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-            
+
             let endDateTime;
             if (timeMatch) {
                 const [, , , , endHour, endMin, endPeriod] = timeMatch;
@@ -285,6 +285,17 @@ document.addEventListener('DOMContentLoaded', function() {
 window.addEventListener('load', function() {
     setTimeout(highlightUpcomingDates, 100);
 });
+
+    function throttle(fn, delay) {
+        let lastCall = 0;
+        return function(...args) {
+            const now = Date.now();
+            if (now - lastCall >= delay) {
+                lastCall = now;
+                return fn.apply(this, args);
+            }
+        };
+    }
 
     class TourAutoScroll {
         constructor() {
@@ -430,9 +441,10 @@ window.addEventListener('load', function() {
                 this.updateCurrentIndex();
             };
 
+            const throttledInteraction = throttle(handleInteraction, 150);
+
             this.tourGrid.addEventListener('touchstart', handleInteraction, { passive: true });
-            this.tourGrid.addEventListener('touchmove', handleInteraction, { passive: true });
-            this.tourGrid.addEventListener('scroll', handleInteraction, { passive: true });
+            this.tourGrid.addEventListener('scroll', throttledInteraction, { passive: true });
             this.tourGrid.addEventListener('mousedown', handleInteraction);
 
             this.tourCards.forEach(card => {

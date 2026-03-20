@@ -1224,25 +1224,33 @@ a {
         top: 1.5rem;
         right: 1.5rem;
         padding: 10px 12px;
-        font-size: 800px;
+        font-size: 0.8rem;
         letter-spacing: 1px;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        box-shadow:
+            0 4px 15px rgba(0, 0, 0, 0.4),
+            0 2px 8px rgba(220, 20, 60, 0.5);
     }
-    
-    /* Reduce animation intensity on mobile */
+
+    /* Disable heavy animations on mobile to prevent crashes */
     .tour-date.currently-playing {
-        animation-duration: 7s;
+        animation: none;
+        box-shadow:
+            0 10px 35px rgba(0, 0, 0, 0.6),
+            0 0 50px rgba(155, 123, 184, 0.3);
     }
-    
+
     .tour-date.currently-playing .info::before {
-        animation-duration: 12s;
+        animation: none;
         opacity: 0.5;
     }
-    
+
     .tour-date.currently-playing .info::after {
+        animation: none;
         opacity: 0.3;
-        animation-duration: 18s;
     }
-    
+
     .tour-date.currently-playing:hover {
         transform: translateY(-4px) translateZ(0) scale(1.01);
     }
