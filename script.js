@@ -491,8 +491,9 @@ window.addEventListener('load', function() {
     // =============================================
     // MAP LAZY LOADER - Performance optimization
     // Mobile: uses tour-grid scroll position to find
-    // visible cards. Maps load only after scrolling
-    // stops for 600ms. All maps removed during scroll.
+    // visible cards. New maps load only after scrolling
+    // stops for 600ms. Existing maps stay visible but
+    // get removed once scrolled far away (1.5x buffer).
     // Desktop: IntersectionObserver, max 10 in DOM.
     // =============================================
     class MapLazyLoader {
@@ -537,12 +538,12 @@ window.addEventListener('load', function() {
             const grid = document.querySelector('.tour-grid');
             if (!grid) return;
 
-            // On scroll start: remove all maps. On scroll stop: load visible ones.
+            // During scroll: unload far-away maps but keep nearby ones.
+            // Only load NEW maps after scrolling stops for 600ms.
             grid.addEventListener('scroll', () => {
-                if (!this.isScrolling && this.loadedMap.size > 0) {
-                    this.unloadAll();
-                }
                 this.isScrolling = true;
+                // Remove maps that are far from current view (2 card-widths buffer)
+                this.unloadDistant(grid);
                 clearTimeout(this.scrollTimer);
                 this.scrollTimer = setTimeout(() => {
                     this.isScrolling = false;
@@ -590,6 +591,25 @@ window.addEventListener('load', function() {
                 if (this.loadedMap.has(entry.container)) continue;
                 if (this.loadedMap.size >= this.maxLoaded) break;
                 this.createIframe(entry);
+            }
+        }
+
+        unloadDistant(grid) {
+            const gridLeft = grid.scrollLeft;
+            const gridRight = gridLeft + grid.offsetWidth;
+            // Buffer: ~2 card widths beyond visible area
+            const buffer = grid.offsetWidth * 1.5;
+
+            for (const [container, iframe] of this.loadedMap) {
+                const entry = this.cardEntries.find(e => e.container === container);
+                if (!entry) continue;
+                const cardLeft = entry.card.offsetLeft;
+                const cardRight = cardLeft + entry.card.offsetWidth;
+                // Remove if card is far outside the visible + buffer zone
+                if (cardRight < gridLeft - buffer || cardLeft > gridRight + buffer) {
+                    iframe.remove();
+                    this.loadedMap.delete(container);
+                }
             }
         }
 
