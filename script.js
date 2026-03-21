@@ -490,22 +490,27 @@ window.addEventListener('load', function() {
 
     // =============================================
     // MAP LAZY LOADER - Performance optimization
-    // Keeps max 3 map iframes in the DOM on mobile.
-    // Removes iframes entirely to free Safari memory,
-    // recreates them when scrolled back into view.
+    // Mobile: uses tour-grid scroll position to find
+    // visible cards. Maps load only after scrolling
+    // stops for 600ms. All maps removed during scroll.
+    // Desktop: IntersectionObserver, max 10 in DOM.
     // =============================================
     class MapLazyLoader {
         constructor() {
             this.isMobile = window.innerWidth <= 768;
             this.maxLoaded = this.isMobile ? 3 : 10;
-            this.loadedQueue = []; // { container, src, label }
-            this.mapData = new Map(); // container -> { src, label }
+            this.loadedMap = new Map(); // container -> iframe
+            this.cardEntries = []; // ordered: { card, container, src, label }
+            this.scrollTimer = null;
+            this.isScrolling = false;
 
-            // Store data-src from each iframe, keyed by its container
             document.querySelectorAll('.lazy-map').forEach(iframe => {
                 const container = iframe.closest('.venue-map-container');
-                if (container) {
-                    this.mapData.set(container, {
+                const card = iframe.closest('.tour-date');
+                if (container && card) {
+                    this.cardEntries.push({
+                        card,
+                        container,
                         src: iframe.dataset.src || '',
                         label: iframe.getAttribute('aria-label') || ''
                     });
@@ -516,69 +521,115 @@ window.addEventListener('load', function() {
         }
 
         init() {
-            if (this.mapData.size === 0) return;
-
-            // On mobile, remove ALL iframes immediately to start clean
+            if (this.cardEntries.length === 0) return;
             if (this.isMobile) {
-                document.querySelectorAll('.lazy-map').forEach(iframe => {
-                    iframe.remove();
-                });
+                this.initMobile();
+            } else {
+                this.initDesktop();
             }
+        }
 
-            this.observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        this.loadMap(entry.target);
+        // MOBILE: scroll-position based, NO IntersectionObserver for maps
+        initMobile() {
+            // Remove ALL map iframes on load
+            document.querySelectorAll('.lazy-map').forEach(iframe => iframe.remove());
+
+            const grid = document.querySelector('.tour-grid');
+            if (!grid) return;
+
+            // On scroll start: remove all maps. On scroll stop: load visible ones.
+            grid.addEventListener('scroll', () => {
+                if (!this.isScrolling && this.loadedMap.size > 0) {
+                    this.unloadAll();
+                }
+                this.isScrolling = true;
+                clearTimeout(this.scrollTimer);
+                this.scrollTimer = setTimeout(() => {
+                    this.isScrolling = false;
+                    this.loadVisibleMaps(grid);
+                }, 600);
+            }, { passive: true });
+
+            // Watch for tour section entering/leaving viewport
+            const tourSection = document.querySelector('.tour-section');
+            if (tourSection) {
+                new IntersectionObserver((entries) => {
+                    if (entries[0].isIntersecting && !this.isScrolling) {
+                        this.loadVisibleMaps(grid);
+                    } else if (!entries[0].isIntersecting) {
+                        this.unloadAll();
                     }
-                });
-            }, {
-                root: null,
-                rootMargin: this.isMobile ? '0px' : '200px',
-                threshold: 0
-            });
-
-            this.mapData.forEach((data, container) => {
-                this.observer.observe(container);
-            });
+                }, { threshold: 0 }).observe(tourSection);
+            }
         }
 
-        loadMap(container) {
-            const data = this.mapData.get(container);
-            if (!data || !data.src) return;
+        loadVisibleMaps(grid) {
+            const gridLeft = grid.scrollLeft;
+            const gridRight = gridLeft + grid.offsetWidth;
 
-            // Already loaded? Move it to end of queue (most recent)
-            const idx = this.loadedQueue.findIndex(q => q.container === container);
-            if (idx !== -1) {
-                this.loadedQueue.push(this.loadedQueue.splice(idx, 1)[0]);
-                return;
+            // Find cards overlapping visible horizontal area
+            const visible = [];
+            for (const entry of this.cardEntries) {
+                const cardLeft = entry.card.offsetLeft;
+                const cardRight = cardLeft + entry.card.offsetWidth;
+                if (cardRight > gridLeft && cardLeft < gridRight) {
+                    visible.push(entry);
+                }
             }
 
-            // Evict oldest maps until under the limit
-            while (this.loadedQueue.length >= this.maxLoaded) {
-                this.unloadMap(this.loadedQueue.shift());
+            // Unload maps no longer visible
+            for (const [container, iframe] of this.loadedMap) {
+                if (!visible.find(v => v.container === container)) {
+                    iframe.remove();
+                    this.loadedMap.delete(container);
+                }
             }
 
-            // Create a fresh iframe
-            const iframe = document.createElement('iframe');
-            iframe.className = 'lazy-map';
-            iframe.src = data.src;
-            iframe.setAttribute('aria-label', data.label);
-            iframe.style.border = '0';
-            iframe.setAttribute('allowfullscreen', '');
-            container.appendChild(iframe);
-
-            this.loadedQueue.push({ container, src: data.src });
+            // Load visible (up to max)
+            for (const entry of visible) {
+                if (this.loadedMap.has(entry.container)) continue;
+                if (this.loadedMap.size >= this.maxLoaded) break;
+                this.createIframe(entry);
+            }
         }
 
-        unloadMap(entry) {
-            if (!entry) return;
-            // Physically remove iframe from DOM to force Safari to free memory
-            const iframe = entry.container.querySelector('iframe');
-            if (iframe) {
+        unloadAll() {
+            for (const [, iframe] of this.loadedMap) {
                 iframe.remove();
             }
-            // Re-observe so it reloads when scrolled back
-            this.observer.observe(entry.container);
+            this.loadedMap.clear();
+        }
+
+        // DESKTOP: IntersectionObserver (no crash issues with more memory)
+        initDesktop() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const info = this.cardEntries.find(c => c.container === entry.target);
+                        if (info && !this.loadedMap.has(info.container)) {
+                            while (this.loadedMap.size >= this.maxLoaded) {
+                                const oldest = this.loadedMap.keys().next().value;
+                                this.loadedMap.get(oldest).remove();
+                                this.loadedMap.delete(oldest);
+                            }
+                            this.createIframe(info);
+                        }
+                    }
+                });
+            }, { rootMargin: '200px', threshold: 0 });
+
+            this.cardEntries.forEach(entry => observer.observe(entry.container));
+        }
+
+        createIframe(entry) {
+            const iframe = document.createElement('iframe');
+            iframe.className = 'lazy-map';
+            iframe.src = entry.src;
+            iframe.setAttribute('aria-label', entry.label);
+            iframe.style.border = '0';
+            iframe.setAttribute('allowfullscreen', '');
+            entry.container.appendChild(iframe);
+            this.loadedMap.set(entry.container, iframe);
         }
     }
 
