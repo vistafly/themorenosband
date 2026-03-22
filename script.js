@@ -3249,6 +3249,7 @@ function initTourCalendar() {
                 logo.style.width = heroRect.width + 'px';
                 logo.style.maxWidth = heroRect.width + 'px';
                 logo.style.height = 'auto';
+                logo.classList.add('sized');
             }
         }
     }

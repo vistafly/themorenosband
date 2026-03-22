@@ -359,7 +359,7 @@ a {
         width: 80%;
         max-width: 300px;
         height: 100vh; /* fallback for older browsers */
-        height: 100svh;
+        height: calc(var(--stable-vh, 1vh) * 100);
         background: var(--dark);
         flex-direction: column;
         align-items: center;
@@ -414,7 +414,7 @@ a {
 /* Hero Section */
 .hero {
     height: 100vh; /* fallback for older browsers */
-    height: 100svh;
+    height: calc(var(--stable-vh, 1vh) * 100);
     min-height: 700px;
     display: flex;
     align-items: center;
@@ -2705,7 +2705,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
         width: 80%;
         max-width: 300px;
         height: 100vh; /* fallback for older browsers */
-        height: 100svh;
+        height: calc(var(--stable-vh, 1vh) * 100);
         background: var(--dark);
         flex-direction: column;
         align-items: center;

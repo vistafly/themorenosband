@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <script>
+        // Lock viewport height once to prevent layout shift from in-app browser chrome toggling
+        (function() {
+            var vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--stable-vh', vh + 'px');
+        })();
+    </script>
     <meta name="description" content="The Central Valley's Family Band! Bringing you Top40, Oldies, Latin, Country & More!">
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
     <link rel="canonical" href="https://themorenosband.com/">
@@ -853,7 +860,11 @@
     .loader-logo {
         opacity: 0;
         filter: drop-shadow(0 0 0px rgba(155,123,184,0));
-        transition: opacity 0.6s ease, filter 0.6s ease, width 0.5s ease, max-width 0.5s ease;
+        transition: opacity 0.6s ease, filter 0.6s ease;
+        visibility: hidden;
+    }
+    .loader-logo.sized {
+        visibility: visible;
     }
 
     /* Sound wave bars */
@@ -866,7 +877,6 @@
         margin-top: 16px;
         transform: translateX(-30px);
         opacity: 0.25;
-        transition: opacity 0.6s ease, filter 0.6s ease;
     }
     .loader-wave span {
         display: block;
@@ -918,9 +928,18 @@
         50% { opacity: 0.4; }
     }
 
+    @media (max-width: 768px) {
+        .loader-wave {
+            transform: translateX(0);
+        }
+        .loader-status {
+            transform: translateX(0);
+        }
+    }
+
     /* When done, wave and status fade out */
     #site-loader.loaded .loader-wave,
-    #site-loader.loaded .loader-status { opacity: 0; }
+    #site-loader.loaded .loader-status { opacity: 0; transition: opacity 0.6s ease; }
 </style>
 <div class="luxe-scroll-track">
   <div class="luxe-progress-ribbon"></div>
