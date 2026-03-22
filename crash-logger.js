@@ -74,14 +74,15 @@
     }
 
     // Detect crash vs clean reload
-    var wasCrash = false;
-    var prevCrash = null;
+    var exitType = 'CRASH'; // assume crash unless proven otherwise
     try {
         var cleanExit = localStorage.getItem('_cleanExit');
-        prevCrash = localStorage.getItem('_crashLog');
-        if (prevCrash && cleanExit !== 'true') {
-            wasCrash = true;
+        var prevCrash = localStorage.getItem('_crashLog');
+        if (prevCrash) {
             localStorage.setItem('_prevCrashLog', prevCrash);
+        }
+        if (cleanExit === 'true') {
+            exitType = 'MANUAL RELOAD';
         }
         localStorage.removeItem('_cleanExit');
     } catch(e) {}
@@ -151,13 +152,11 @@
             }
         }, 2000);
 
-        // Show crash modal if previous session crashed
-        if (wasCrash) {
-            var prev = null;
-            try { prev = localStorage.getItem('_prevCrashLog'); } catch(e) {}
-            if (prev) {
-                showCrashModal(prev);
-            }
+        // Always show modal with previous session log
+        var prev = null;
+        try { prev = localStorage.getItem('_prevCrashLog'); } catch(e) {}
+        if (prev) {
+            showCrashModal(prev, exitType);
         }
     });
 
@@ -286,20 +285,27 @@
         addLog('MAP_PROGRESS: ' + e.detail.loaded + '/' + e.detail.total);
     });
 
-    // Show modal with download button after a crash reload
-    function showCrashModal(prevLog) {
+    // Show modal with download button
+    function showCrashModal(prevLog, type) {
+        var isCrash = type === 'CRASH';
+        var borderColor = isCrash ? '#ff3333' : '#f0a500';
+        var titleColor = isCrash ? '#ff3333' : '#f0a500';
+        var title = isCrash ? 'Crash Log Captured' : 'Session Log Available';
+        var desc = isCrash
+            ? 'The page crashed. Download the log for debugging.'
+            : 'Manual reload detected. Download the previous session log.';
+
         var overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;' +
             'background:rgba(0,0,0,0.85);z-index:999999;display:flex;' +
             'align-items:center;justify-content:center;padding:20px;';
 
         var box = document.createElement('div');
-        box.style.cssText = 'background:#1a1a1a;border:2px solid #ff3333;border-radius:12px;' +
+        box.style.cssText = 'background:#1a1a1a;border:2px solid ' + borderColor + ';border-radius:12px;' +
             'padding:24px;max-width:340px;width:100%;text-align:center;color:#fff;font-family:sans-serif;';
 
-        box.innerHTML = '<h3 style="color:#ff3333;margin:0 0 12px;font-size:18px;">Crash Log Captured</h3>' +
-            '<p style="color:#ccc;font-size:14px;margin:0 0 20px;">The page crashed or reloaded. ' +
-            'Download the log and send it for debugging.</p>';
+        box.innerHTML = '<h3 style="color:' + titleColor + ';margin:0 0 12px;font-size:18px;">' + title + '</h3>' +
+            '<p style="color:#ccc;font-size:14px;margin:0 0 20px;">' + desc + '</p>';
 
         var dlBtn = document.createElement('button');
         dlBtn.textContent = 'Download Crash Log';
@@ -308,7 +314,8 @@
         dlBtn.addEventListener('click', function() {
             var parsed = {};
             try { parsed = JSON.parse(prevLog); } catch(e) { parsed = { raw: prevLog }; }
-            var content = '=== CRASH LOG ===\n' +
+            var content = '=== ' + type + ' LOG ===\n' +
+                'Exit type: ' + type + '\n' +
                 'Captured at: ' + (parsed.time || 'unknown') + '\n' +
                 'Downloaded at: ' + new Date().toISOString() + '\n\n' +
                 '=== LOG ENTRIES ===\n' +
