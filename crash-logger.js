@@ -1,5 +1,5 @@
 // =============================================
-// MOBILE CRASH LOGGER - Debug tool
+// CRASH LOGGER - Debug tool
 // Captures performance data and saves to localStorage.
 // Shows a download modal after a crash/reload.
 //
@@ -32,6 +32,8 @@
         var nodes = document.querySelectorAll('*').length;
         var mapContainers = document.querySelectorAll('.venue-map-container').length;
         var containersWithIframe = document.querySelectorAll('.venue-map-container iframe').length;
+        var images = document.querySelectorAll('img').length;
+        var imagesLoading = document.querySelectorAll('img[loading="lazy"]').length;
 
         return 'iframes_DOM:' + iframesInDOM +
             ' iframes_src:' + iframesWithSrc +
@@ -40,6 +42,7 @@
             ' lazy:' + lazyMaps +
             ' lazy_src:' + lazyWithSrc +
             ' videos:' + videos + '(playing:' + videosPlaying + ')' +
+            ' imgs:' + images + '(lazy:' + imagesLoading + ')' +
             ' animations:' + animations +
             ' nodes:' + nodes +
             ' mem:' + memMB();
@@ -64,7 +67,26 @@
     window.addEventListener('DOMContentLoaded', function() {
         addLog('DOM CONTENT LOADED | ' + snapshot());
 
-        // Log all setIntervals/setTimeouts active (patch to count)
+        // Log which code path the MapLazyLoader chose
+        addLog('DETECT: screen.width=' + screen.width +
+            ' window.innerWidth=' + window.innerWidth +
+            ' isMobile(screen<=768)=' + (screen.width <= 768) +
+            ' DPR=' + window.devicePixelRatio +
+            ' UA_mobile=' + /Mobile|iPhone|Android/i.test(navigator.userAgent));
+
+        // Check if mapLoader exists and what mode it's in
+        setTimeout(function() {
+            if (window.mapLoader) {
+                addLog('MAP_LOADER: isMobile=' + window.mapLoader.isMobile +
+                    ' loadedMap.size=' + window.mapLoader.loadedMap.size +
+                    ' cardEntries=' + window.mapLoader.cardEntries.length +
+                    ' preloadDone=' + window.mapLoader.preloadDone);
+            } else {
+                addLog('MAP_LOADER: NOT FOUND on window');
+            }
+        }, 500);
+
+        // Log all setIntervals active (patch to count)
         var intervalCount = 0;
         var origSetInterval = window.setInterval;
         window.setInterval = function() {
@@ -89,6 +111,15 @@
         sheets.forEach(function(s) { sheetList.push(s.href.split('/').pop()); });
         addLog('STYLESHEETS: ' + (sheetList.join(', ') || 'none'));
 
+        // Log map loader state after load
+        setTimeout(function() {
+            if (window.mapLoader) {
+                addLog('MAP_LOADER POST-LOAD: isMobile=' + window.mapLoader.isMobile +
+                    ' loadedMap.size=' + window.mapLoader.loadedMap.size +
+                    ' preloadDone=' + window.mapLoader.preloadDone);
+            }
+        }, 2000);
+
         // Check if we have a PREVIOUS crash log
         var prev = null;
         try { prev = localStorage.getItem('_prevCrashLog'); } catch(e) {}
@@ -107,9 +138,14 @@
         addLog('UNHANDLED REJECTION: ' + String(e.reason).substring(0, 300));
     });
 
-    // Full snapshot every 2 seconds
+    // Full snapshot every 2 seconds, include map loader state
     setInterval(function() {
-        addLog('TICK | ' + snapshot());
+        var mapInfo = '';
+        if (window.mapLoader) {
+            mapInfo = ' | ML:loaded=' + window.mapLoader.loadedMap.size +
+                ' scrolling=' + window.mapLoader.isScrolling;
+        }
+        addLog('TICK | ' + snapshot() + mapInfo);
     }, 2000);
 
     // Log tour-grid scroll with iframe detail
@@ -128,16 +164,22 @@
                     document.querySelectorAll('.tour-date').forEach(function(card, i) {
                         if (card.querySelector('iframe[src]')) loadedCards.push(i);
                     });
+                    var mlInfo = '';
+                    if (window.mapLoader) {
+                        mlInfo = ' ML:size=' + window.mapLoader.loadedMap.size +
+                            ' scrolling=' + window.mapLoader.isScrolling;
+                    }
                     addLog('SCROLL #' + scrollCount +
                         ' pos:' + Math.round(grid.scrollLeft) + '/' + (grid.scrollWidth - grid.clientWidth) +
                         ' card:~' + Math.round(grid.scrollLeft / 320) +
                         ' | maps_loaded:' + loadedCards.length +
-                        ' cards_with_maps:[' + loadedCards.join(',') + ']');
+                        ' cards_with_maps:[' + loadedCards.join(',') + ']' +
+                        mlInfo);
                 }
             }, { passive: true });
         }
 
-        // Log page vertical scroll too
+        // Log page vertical scroll
         var lastPageScroll = 0;
         window.addEventListener('scroll', function() {
             var now = Date.now();
@@ -174,7 +216,7 @@
         if (window.PerformanceObserver) {
             var resObserver = new PerformanceObserver(function(list) {
                 list.getEntries().forEach(function(entry) {
-                    // Only log large resources (>100KB) or iframes
+                    // Log large resources (>100KB) or iframes
                     if (entry.transferSize > 100000 || entry.initiatorType === 'iframe') {
                         addLog('RESOURCE: ' + entry.initiatorType + ' ' +
                             (entry.transferSize / 1024).toFixed(0) + 'KB ' +
@@ -186,6 +228,11 @@
             resObserver.observe({ entryTypes: ['resource'] });
         }
     } catch(e) {}
+
+    // Monitor map-progress events (desktop preload)
+    window.addEventListener('map-progress', function(e) {
+        addLog('MAP_PROGRESS: ' + e.detail.loaded + '/' + e.detail.total);
+    });
 
     // Show modal with download button after a crash reload
     function showCrashModal(prevLog) {
@@ -219,6 +266,7 @@
                 'Screen: ' + screen.width + 'x' + screen.height + '\n' +
                 'Window: ' + window.innerWidth + 'x' + window.innerHeight + '\n' +
                 'DPR: ' + window.devicePixelRatio + '\n' +
+                'isMobile(screen<=768): ' + (screen.width <= 768) + '\n' +
                 'Connection: ' + (navigator.connection ? navigator.connection.effectiveType + ' downlink:' + navigator.connection.downlink + 'Mbps' : 'N/A') + '\n' +
                 'HW Concurrency: ' + (navigator.hardwareConcurrency || 'N/A') + '\n' +
                 'Device Memory: ' + (navigator.deviceMemory ? navigator.deviceMemory + 'GB' : 'N/A') + '\n' +
