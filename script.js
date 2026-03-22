@@ -5,6 +5,28 @@ document.addEventListener('DOMContentLoaded', function() {
         yearElement.textContent = new Date().getFullYear();
     }
 
+    // Scroll spy - highlight active nav link
+    const navAnchors = document.querySelectorAll('.nav-links a');
+    const sections = [];
+    navAnchors.forEach(a => {
+        const id = a.getAttribute('href').substring(1);
+        const el = document.getElementById(id);
+        if (el) sections.push({ id, el, link: a });
+    });
+
+    function updateActiveNav() {
+        const scrollY = window.scrollY + 150;
+        let current = sections[0];
+        for (const s of sections) {
+            if (scrollY >= s.el.offsetTop) current = s;
+        }
+        navAnchors.forEach(a => a.classList.remove('active'));
+        if (current) current.link.classList.add('active');
+    }
+
+    window.addEventListener('scroll', updateActiveNav);
+    updateActiveNav();
+
     // Hamburger menu functionality
     const hamburger = document.getElementById('hamburger');
     const navLinks = document.getElementById('nav-links');
@@ -3187,12 +3209,39 @@ function initTourCalendar() {
         if (dismissed) return;
         dismissed = true;
         updateLogo(1);
+
+        // Match loader logo to hero logo size and position
+        var heroLogo = document.querySelector('.hero-logo-img');
+        if (heroLogo && logo) {
+            var heroRect = heroLogo.getBoundingClientRect();
+            logo.style.width = heroRect.width + 'px';
+            logo.style.maxWidth = heroRect.width + 'px';
+            logo.style.height = 'auto';
+        }
+
         loader.classList.add('loaded');
         setTimeout(() => {
             loader.classList.add('fade-out');
             setTimeout(() => loader.remove(), 800);
         }, 300);
     }
+
+    // Match loader logo size to hero logo
+    function matchHeroSize() {
+        var heroLogo = document.querySelector('.hero-logo-img');
+        if (heroLogo && logo) {
+            var heroRect = heroLogo.getBoundingClientRect();
+            if (heroRect.width > 0) {
+                logo.style.width = heroRect.width + 'px';
+                logo.style.maxWidth = heroRect.width + 'px';
+                logo.style.height = 'auto';
+            }
+        }
+    }
+    // Try immediately and on load
+    matchHeroSize();
+    window.addEventListener('load', matchHeroSize);
+    window.addEventListener('resize', matchHeroSize);
 
     if (isMobile) {
         updateLogo(0.5);

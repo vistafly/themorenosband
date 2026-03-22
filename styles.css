@@ -282,6 +282,11 @@ a {
     color: var(--primary);
 }
 
+.nav-links a.active {
+    color: var(--primary);
+    text-shadow: 0 0 8px rgba(155, 123, 184, 0.6), 0 0 20px rgba(155, 123, 184, 0.3);
+}
+
 /* Hamburger menu button - only visible on mobile */
 .hamburger {
     display: none;
@@ -565,6 +570,14 @@ a {
 .video-wrapper {
     position: relative;
     cursor: pointer;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+}
+
+.video-wrapper video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .video-item:hover {
@@ -2800,7 +2813,6 @@ body {
     overflow: hidden;
     padding: 100px 0;
     border-top: 3px solid var(--primary);
-    border-bottom: 3px solid var(--primary);
 
 
 }
@@ -4497,7 +4509,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     padding: 40px 0 40px;
     color: var(--light);
     position: relative;
-    margin-top: 100px;
+    margin-top: 50px;
     border-top: 3px solid var(--primary);
     width: 100%;
 }
@@ -5189,6 +5201,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .social-feed-section {
     background: var(--secondary);
     border-top: 3px solid var(--primary);
+    border-bottom: 3px solid var(--primary);
 }
 
 .social-feed-grid {
