@@ -885,8 +885,12 @@ a {
     position: relative;
     margin-bottom: 1.5rem;
     margin-top: 1.5rem;
-    cursor: pointer;
+    cursor: grab;
     height: auto;
+}
+
+.tour-date:active {
+    cursor: grabbing;
 }
 
 @media (max-width: 480px) {
@@ -2278,6 +2282,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     border-radius: 12px;
     overflow: hidden;
     height: 160px;
+    cursor: pointer;
     box-shadow:
         0 4px 20px rgba(0, 0, 0, 0.25),
         0 0 0 1px rgba(255, 255, 255, 0.05);
