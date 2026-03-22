@@ -620,28 +620,26 @@ window.addEventListener('load', function() {
             this.loadedMap.clear();
         }
 
-        // DESKTOP: IntersectionObserver (no crash issues with more memory)
+        // DESKTOP: IntersectionObserver with generous limits for laptop/desktop performance
         initDesktop() {
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         const info = this.cardEntries.find(c => c.container === entry.target);
                         if (info && !this.loadedMap.has(info.container)) {
-                            while (this.loadedMap.size >= this.maxLoaded) {
-                                const oldest = this.loadedMap.keys().next().value;
-                                this.loadedMap.get(oldest).remove();
-                                this.loadedMap.delete(oldest);
-                            }
                             this.createIframe(info);
                         }
                     }
                 });
-            }, { rootMargin: '200px', threshold: 0 });
+            }, { rootMargin: '600px', threshold: 0 });
 
             this.cardEntries.forEach(entry => observer.observe(entry.container));
         }
 
         createIframe(entry) {
+            // Remove placeholder iframes (lazy-map without src) so the new one isn't pushed out of view
+            entry.container.querySelectorAll('.lazy-map:not([src])').forEach(el => el.remove());
+
             const iframe = document.createElement('iframe');
             iframe.className = 'lazy-map';
             iframe.src = entry.src;
@@ -2973,3 +2971,4 @@ function initTourCalendar() {
         setTimeout(initTourCalendar, 500);
     }
 }
+

@@ -2777,83 +2777,67 @@ body {
 
 }
 
-.merch-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 30px;
-    position: relative;
-    z-index: 1;
-}
-
-.merch-item {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    overflow: hidden;
-    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.merch-item:hover {
-    transform: translateY(-10px);
-    box-shadow: 
-        0 15px 40px rgba(0, 0, 0, 0.2),
-        0 0 0 1px rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.08);
-}
-
 /* ======================
-   ONLY UPDATED TRANSITION STYLES
-   (Replace only these selectors in your existing CSS)
+   Merch Showcase (Single Item Hero Layout)
    ====================== */
-.merch-image-container {
+.merch-showcase {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 60px;
+    max-width: 1000px;
+    margin: 0 auto;
     position: relative;
+    z-index: 1;
+}
+
+.merch-showcase-image {
+    flex: 0 1 480px;
+    border-radius: 16px;
     overflow: hidden;
-    aspect-ratio: 1/1;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.merch-image {
+.merch-showcase-image .merch-image {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
-    position: absolute;
-    top: 0;
-    left: 0;
-    transition: 
-        opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1),
-        transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    height: auto;
+    display: block;
+    transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.merch-front {
-    opacity: 1;
-    transform: scale(1);
-    z-index: 1;
+.merch-showcase-image:hover .merch-image {
+    transform: scale(1.03);
 }
 
-.merch-back {
-    opacity: 0;
-    transform: scale(1);
-    z-index: 2;
+.merch-showcase-details {
+    flex: 0 1 400px;
+    text-align: left;
 }
 
-.merch-item:hover .merch-front {
-    opacity: 0;
-    transform: scale(1);
+.merch-showcase-details h3 {
+    font-size: 2.2rem;
+    color: var(--light);
+    font-family: var(--font-heading);
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
 }
 
-.merch-item:hover .merch-back {
-    opacity: 1;
-    transform: scale(1);
+.merch-tagline {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 24px;
+    font-style: italic;
+    letter-spacing: 0.5px;
 }
 
-/* Single view items remain unchanged */
-.merch-image:not(.merch-front):not(.merch-back) {
-    position: relative;
-    z-index: 1;
+.merch-showcase-details .merch-price {
+    font-size: 1.6rem;
 }
 
-.merch-item:hover .merch-image:not(.merch-front):not(.merch-back) {
-    transform: scale(1.05);
+.merch-showcase-details .merch-actions {
+    flex-direction: column;
+    max-width: 280px;
 }
 
 /* Rest of your existing styles... */
@@ -3038,43 +3022,64 @@ body {
     .merch-section {
         padding: 70px 0;
     }
-    
-    .merch-grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 20px;
+
+    .merch-showcase {
+        flex-direction: column;
+        gap: 40px;
+        text-align: center;
     }
-    
+
+    .merch-showcase-image {
+        flex: 0 1 auto;
+        max-width: 400px;
+        width: 100%;
+    }
+
+    .merch-showcase-details {
+        text-align: center;
+        flex: 0 1 auto;
+    }
+
+    .merch-showcase-details h3 {
+        font-size: 1.8rem;
+    }
+
+    .merch-showcase-details .merch-actions {
+        max-width: 100%;
+        align-items: center;
+    }
+
     .merch-cta {
         padding: 40px 30px;
         margin-top: 60px;
     }
-    
+
     .merch-cta h3 {
         font-size: 1.6rem;
     }
 }
 
 @media (max-width: 480px) {
-    .merch-grid {
-        grid-template-columns: 1fr;
+    .merch-showcase-details h3 {
+        font-size: 1.5rem;
     }
-    
+
     .merch-actions {
         flex-direction: column;
     }
-    
+
     .merch-size, .btn-cart {
         width: 100%;
     }
-    
+
     .merch-cta {
         padding: 30px 20px;
     }
-    
+
     .merch-cta h3 {
         font-size: 1.4rem;
     }
-    
+
     .merch-cta p {
         font-size: 1rem;
     }
