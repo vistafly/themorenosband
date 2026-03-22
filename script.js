@@ -490,20 +490,18 @@ window.addEventListener('load', function() {
 
     // =============================================
     // MAP LAZY LOADER - Performance optimization
-    // Mobile: uses tour-grid scroll position to find
-    // visible cards. New maps load only after scrolling
-    // stops for 600ms. Existing maps stay visible but
-    // get removed once scrolled far away (1.5x buffer).
-    // Desktop: IntersectionObserver, max 10 in DOM.
+    // Mobile: scroll-position based, loads max 3, unloads distant.
+    // Desktop: preloads ALL maps staggered behind the loading screen.
+    //          Once loaded, maps stay permanently in the DOM.
     // =============================================
     class MapLazyLoader {
         constructor() {
-            this.isMobile = window.innerWidth <= 768;
-            this.maxLoaded = this.isMobile ? 3 : 10;
+            this.isMobile = screen.width <= 768;
             this.loadedMap = new Map(); // container -> iframe
             this.cardEntries = []; // ordered: { card, container, src, label }
             this.scrollTimer = null;
             this.isScrolling = false;
+            this.preloadDone = false;
 
             document.querySelectorAll('.lazy-map').forEach(iframe => {
                 const container = iframe.closest('.venue-map-container');
@@ -523,26 +521,24 @@ window.addEventListener('load', function() {
 
         init() {
             if (this.cardEntries.length === 0) return;
+
+            // Remove ALL placeholder iframes — create real ones on demand
+            document.querySelectorAll('.lazy-map').forEach(iframe => iframe.remove());
+
             if (this.isMobile) {
                 this.initMobile();
             } else {
-                this.initDesktop();
+                this.preloadAll();
             }
         }
 
-        // MOBILE: scroll-position based, NO IntersectionObserver for maps
+        // MOBILE: scroll-position based, max 3, unloads distant
         initMobile() {
-            // Remove ALL map iframes on load
-            document.querySelectorAll('.lazy-map').forEach(iframe => iframe.remove());
-
             const grid = document.querySelector('.tour-grid');
             if (!grid) return;
 
-            // During scroll: unload far-away maps but keep nearby ones.
-            // Only load NEW maps after scrolling stops for 600ms.
             grid.addEventListener('scroll', () => {
                 this.isScrolling = true;
-                // Remove maps that are far from current view (2 card-widths buffer)
                 this.unloadDistant(grid);
                 clearTimeout(this.scrollTimer);
                 this.scrollTimer = setTimeout(() => {
@@ -551,7 +547,6 @@ window.addEventListener('load', function() {
                 }, 600);
             }, { passive: true });
 
-            // Watch for tour section entering/leaving viewport
             const tourSection = document.querySelector('.tour-section');
             if (tourSection) {
                 new IntersectionObserver((entries) => {
@@ -564,11 +559,39 @@ window.addEventListener('load', function() {
             }
         }
 
+        // DESKTOP: create iframes in small batches spaced 100ms apart.
+        // Iframes start hidden and fade in when their content loads,
+        // so the user never sees a blank white rectangle.
+        preloadAll() {
+            const total = this.cardEntries.length;
+            let created = 0;
+            let index = 0;
+
+            const createBatch = () => {
+                if (index >= total) return;
+
+                const end = Math.min(index + 2, total);
+                for (let i = index; i < end; i++) {
+                    const iframe = this.createIframe(this.cardEntries[i]);
+                    created++;
+                    window.dispatchEvent(new CustomEvent('map-progress', {
+                        detail: { loaded: created, total }
+                    }));
+                }
+                index = end;
+
+                if (index < total) {
+                    setTimeout(createBatch, 100);
+                }
+            };
+
+            createBatch();
+        }
+
         loadVisibleMaps(grid) {
             const gridLeft = grid.scrollLeft;
             const gridRight = gridLeft + grid.offsetWidth;
 
-            // Find cards overlapping visible horizontal area
             const visible = [];
             for (const entry of this.cardEntries) {
                 const cardLeft = entry.card.offsetLeft;
@@ -578,7 +601,7 @@ window.addEventListener('load', function() {
                 }
             }
 
-            // Unload maps no longer visible
+            // Mobile: unload maps no longer visible
             for (const [container, iframe] of this.loadedMap) {
                 if (!visible.find(v => v.container === container)) {
                     iframe.remove();
@@ -586,10 +609,9 @@ window.addEventListener('load', function() {
                 }
             }
 
-            // Load visible (up to max)
             for (const entry of visible) {
                 if (this.loadedMap.has(entry.container)) continue;
-                if (this.loadedMap.size >= this.maxLoaded) break;
+                if (this.loadedMap.size >= 3) break;
                 this.createIframe(entry);
             }
         }
@@ -597,7 +619,6 @@ window.addEventListener('load', function() {
         unloadDistant(grid) {
             const gridLeft = grid.scrollLeft;
             const gridRight = gridLeft + grid.offsetWidth;
-            // Buffer: ~2 card widths beyond visible area
             const buffer = grid.offsetWidth * 1.5;
 
             for (const [container, iframe] of this.loadedMap) {
@@ -605,7 +626,6 @@ window.addEventListener('load', function() {
                 if (!entry) continue;
                 const cardLeft = entry.card.offsetLeft;
                 const cardRight = cardLeft + entry.card.offsetWidth;
-                // Remove if card is far outside the visible + buffer zone
                 if (cardRight < gridLeft - buffer || cardLeft > gridRight + buffer) {
                     iframe.remove();
                     this.loadedMap.delete(container);
@@ -620,24 +640,8 @@ window.addEventListener('load', function() {
             this.loadedMap.clear();
         }
 
-        // DESKTOP: IntersectionObserver with generous limits for laptop/desktop performance
-        initDesktop() {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const info = this.cardEntries.find(c => c.container === entry.target);
-                        if (info && !this.loadedMap.has(info.container)) {
-                            this.createIframe(info);
-                        }
-                    }
-                });
-            }, { rootMargin: '600px', threshold: 0 });
-
-            this.cardEntries.forEach(entry => observer.observe(entry.container));
-        }
-
         createIframe(entry) {
-            // Remove placeholder iframes (lazy-map without src) so the new one isn't pushed out of view
+            if (this.loadedMap.has(entry.container)) return null;
             entry.container.querySelectorAll('.lazy-map:not([src])').forEach(el => el.remove());
 
             const iframe = document.createElement('iframe');
@@ -648,11 +652,148 @@ window.addEventListener('load', function() {
             iframe.setAttribute('allowfullscreen', '');
             entry.container.appendChild(iframe);
             this.loadedMap.set(entry.container, iframe);
+            return iframe;
         }
     }
 
     // Initialize map lazy loader
-    new MapLazyLoader();
+    window.mapLoader = new MapLazyLoader();
+
+    // =============================================
+    // TOUR GRID INTERACTION - Desktop only
+    // Click-drag to scroll with momentum.
+    // Trackpad/wheel uses native browser scroll (no JS override).
+    // =============================================
+    if (screen.width > 768) {
+        const grid = document.querySelector('.tour-grid');
+        if (grid) {
+            let isDragging = false;
+            let hasDragged = false;
+            let startX = 0;
+            let scrollStart = 0;
+            let velocity = 0;
+            let animating = false;
+            let lastX = 0;
+            let lastTime = 0;
+            const friction = 0.93;
+            const maxMomentum = 80;
+
+            // Grab cursor on grid and all children
+            grid.style.cursor = 'grab';
+
+            grid.addEventListener('mousedown', (e) => {
+                // Don't drag on iframes (maps) or interactive elements
+                if (e.target.tagName === 'IFRAME') return;
+
+                isDragging = true;
+                hasDragged = false;
+                startX = e.clientX;
+                scrollStart = grid.scrollLeft;
+                lastX = e.clientX;
+                lastTime = Date.now();
+                velocity = 0;
+
+                grid.style.cursor = 'grabbing';
+                document.body.style.userSelect = 'none';
+
+                // Stop any ongoing momentum
+                animating = false;
+
+                e.preventDefault();
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+
+                var dx = e.clientX - startX;
+                if (Math.abs(dx) > 3) hasDragged = true;
+
+                grid.scrollLeft = scrollStart - dx;
+
+                // Track velocity for throw momentum
+                var now = Date.now();
+                var dt = now - lastTime;
+                if (dt > 0) {
+                    velocity = (lastX - e.clientX) / dt * 16;
+                }
+                lastX = e.clientX;
+                lastTime = now;
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (!isDragging) return;
+                isDragging = false;
+                grid.style.cursor = 'grab';
+                document.body.style.userSelect = '';
+
+                // Throw momentum — let it fly
+                velocity = Math.max(-maxMomentum, Math.min(maxMomentum, velocity));
+                if (Math.abs(velocity) > 2 && !animating) {
+                    animating = true;
+                    coast();
+                }
+            });
+
+            function coast() {
+                if (!animating) return;
+                grid.scrollLeft += velocity;
+                velocity *= friction;
+                if (Math.abs(velocity) < 0.5) {
+                    animating = false;
+                    return;
+                }
+                requestAnimationFrame(coast);
+            }
+
+            // Block click events that fire after a drag
+            grid.addEventListener('click', (e) => {
+                if (hasDragged) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    hasDragged = false;
+                }
+            }, true);
+        }
+    }
+
+    // =============================================
+    // SOCIAL EMBED LAZY LOADER (mobile only)
+    // On desktop, the loading screen handles social embeds.
+    // On mobile, defer them until their section is near viewport.
+    // =============================================
+    if (screen.width <= 768) {
+        const socialEmbeds = document.querySelectorAll('.lazy-social[data-src]');
+        if (socialEmbeds.length > 0) {
+            let socialIndex = 0;
+            const socialQueue = Array.from(socialEmbeds);
+
+            const loadNextSocial = () => {
+                if (socialIndex >= socialQueue.length) return;
+                const iframe = socialQueue[socialIndex];
+                iframe.src = iframe.dataset.src;
+                iframe.removeAttribute('data-src');
+                iframe.classList.remove('lazy-social');
+                socialIndex++;
+                if (socialIndex < socialQueue.length) {
+                    setTimeout(loadNextSocial, 500);
+                }
+            };
+
+            const socialObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        socialObserver.unobserve(entry.target);
+                        loadNextSocial();
+                    }
+                });
+            }, { rootMargin: '400px', threshold: 0 });
+
+            socialEmbeds.forEach(iframe => {
+                const section = iframe.closest('section') || iframe.closest('.social-feed-card') || iframe.parentElement;
+                if (section) socialObserver.observe(section);
+            });
+        }
+    }
 
     // Video autoplay functionality - with visibility-based loading/unloading
     const allVideos = document.querySelectorAll('.autoplay-video, .hero-video');
@@ -2971,4 +3112,158 @@ function initTourCalendar() {
         setTimeout(initTourCalendar, 500);
     }
 }
+
+// =============================================
+// LOADING SCREEN CONTROLLER
+// Polls the DOM every 100ms to count how many map
+// iframes exist. Drives logo opacity + glow directly
+// from that count. No events needed — can't miss anything.
+// Dismisses once 50%+ maps created AND 2s minimum passed.
+// =============================================
+(function() {
+    const loader = document.getElementById('site-loader');
+    if (!loader) return;
+
+    const logo = loader.querySelector('.loader-logo');
+    const isMobile = screen.width <= 768;
+    let dismissed = false;
+    let windowLoaded = false;
+    let warmUpDone = false;
+
+    function updateLogo(t) {
+        if (!logo) return;
+        logo.style.opacity = t.toFixed(3);
+        var spread = Math.round(t * 25);
+        var blur = Math.round(t * 45);
+        var a1 = (t * 0.6).toFixed(2);
+        var a2 = (t * 0.25).toFixed(2);
+        logo.style.filter =
+            'drop-shadow(0 0 ' + spread + 'px rgba(155,123,184,' + a1 + ')) ' +
+            'drop-shadow(0 0 ' + blur + 'px rgba(155,123,184,' + a2 + '))';
+    }
+
+    function dismiss() {
+        if (dismissed) return;
+        dismissed = true;
+        updateLogo(1);
+        loader.classList.add('loaded');
+        setTimeout(() => {
+            loader.classList.add('fade-out');
+            setTimeout(() => loader.remove(), 800);
+        }, 300);
+    }
+
+    if (isMobile) {
+        updateLogo(0.5);
+        window.addEventListener('load', dismiss);
+        setTimeout(dismiss, 5000);
+        return;
+    }
+
+    // Load social embeds as soon as DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.lazy-social[data-src]').forEach(iframe => {
+            iframe.src = iframe.dataset.src;
+            iframe.removeAttribute('data-src');
+            iframe.classList.remove('lazy-social');
+        });
+    });
+
+    // Track window.load
+    window.addEventListener('load', () => { windowLoaded = true; });
+    if (document.readyState === 'complete') windowLoaded = true;
+
+    // -------------------------------------------------------
+    // ONE SINGLE SMOOTH RAMP from 0% → 95%
+    // Runs from page start, updates every 50ms.
+    // Progress = weighted average of:
+    //   - Time elapsed (smooth baseline so it never stalls)
+    //   - Iframes created (real creation progress)
+    //   - Warm-up scroll done (boolean bump)
+    // Dismiss when: ramp >= 95% AND window.load fired.
+    // -------------------------------------------------------
+    var startTime = Date.now();
+    var expectedDuration = 10000; // 10 seconds for full ramp
+    var totalMaps = 0;
+
+    var rampId = setInterval(() => {
+        if (dismissed) { clearInterval(rampId); return; }
+
+        // Count maps
+        if (totalMaps === 0) {
+            totalMaps = document.querySelectorAll('.venue-map-container').length || 1;
+        }
+        var created = document.querySelectorAll('.venue-map-container iframe[src]').length;
+        var creationProgress = Math.min(created / totalMaps, 1);
+
+        // Time progress — ease-in-out so it starts slow, builds in the middle, slows at end
+        var elapsed = Date.now() - startTime;
+        var timeT = Math.min(elapsed / expectedDuration, 1);
+        var timeEased = timeT < 0.5
+            ? 2 * timeT * timeT
+            : 1 - Math.pow(-2 * timeT + 2, 2) / 2;
+
+        // Warm-up bump
+        var warmUpBonus = warmUpDone ? 0.05 : 0;
+
+        // Blend: 70% time-based (slow, steady) + 25% creation + 5% warm-up
+        var blended = (timeEased * 0.7) + (creationProgress * 0.25) + warmUpBonus;
+        // Cap at 95% — dismiss() sets 100%
+        var progress = Math.min(blended, 0.95);
+
+        updateLogo(progress);
+
+        // Dismiss when we're at 93%+ AND window.load has fired
+        if (progress >= 0.93 && windowLoaded) {
+            clearInterval(rampId);
+            dismiss();
+        }
+    }, 50);
+
+    // Kick off warm-up scroll once all iframes are created
+    var creationPoll = setInterval(() => {
+        if (dismissed) { clearInterval(creationPoll); return; }
+        var total = document.querySelectorAll('.venue-map-container').length;
+        var created = document.querySelectorAll('.venue-map-container iframe[src]').length;
+        if (total > 0 && created >= total) {
+            clearInterval(creationPoll);
+            forceRenderMaps();
+        }
+    }, 200);
+
+    function forceRenderMaps() {
+        var tourSection = document.getElementById('tour');
+        if (!tourSection) { warmUpDone = true; return; }
+
+        window.scrollTo(0, tourSection.offsetTop);
+
+        var grid = document.querySelector('.tour-grid');
+        if (!grid) { warmUpDone = true; return; }
+
+        var saved = grid.style.scrollBehavior;
+        grid.style.scrollBehavior = 'auto';
+        var maxScroll = grid.scrollWidth - grid.clientWidth;
+        var pos = 0;
+        var step = Math.max(Math.ceil(maxScroll / 8), 1);
+
+        var scrollId = setInterval(() => {
+            pos += step;
+            if (pos >= maxScroll) {
+                grid.scrollLeft = maxScroll;
+                clearInterval(scrollId);
+                setTimeout(() => {
+                    grid.scrollLeft = 0;
+                    grid.style.scrollBehavior = saved;
+                    window.scrollTo(0, 0);
+                    warmUpDone = true;
+                }, 300);
+            } else {
+                grid.scrollLeft = pos;
+            }
+        }, 150);
+    }
+
+    // Absolute failsafe
+    setTimeout(dismiss, 12000);
+})();
 

@@ -767,6 +767,12 @@ a {
     letter-spacing: 0.5px;
 }
 
+/* Wrapper allows vertical overflow for glow effects */
+.tour-grid-wrapper {
+    overflow-y: visible;
+    overflow-x: clip;
+}
+
 /* Horizontal Scrolling Tour Grid (All Screens) */
 .tour-grid {
     display: flex;
@@ -863,7 +869,7 @@ a {
     
     .tour-grid {
         gap: 1rem;
-        padding: 0 calc(50vw - 170px); /* Updated for wider cards */
+        padding: 0 calc(50vw - 170px) 20px;
     }
 }
 
@@ -969,16 +975,7 @@ a {
             transparent 70%
         );
     
-    /* Enhanced shadow system */
-    box-shadow: 
-        0 10px 35px rgba(0, 0, 0, 0.6),
-        0 5px 15px rgba(0, 0, 0, 0.4),
-        0 0 50px rgba(155, 123, 184, 0.3),
-        0 0 100px rgba(155, 123, 184, 0.15),
-        inset 0 1px 3px rgba(255, 255, 255, 0.08),
-        inset 0 -2px 4px rgba(0, 0, 0, 0.3);
-    
-    /* Enhanced border with glow */
+    /* Border base — animation handles box-shadow + border-color */
     border: 1px solid rgba(155, 123, 184, 0.4);
     position: relative;
     z-index: 10;
@@ -987,8 +984,8 @@ a {
     transform: translateZ(0);
     backface-visibility: hidden;
 
-    /* Gentle breathing animation - GPU optimized */
-    animation: live-card-breathe 5s ease-in-out infinite alternate;
+    /* Subtle red/white pulse when live */
+    animation: live-card-pulse 3s ease-in-out infinite;
     
     /* Prevent text blur */
     -webkit-font-smoothing: antialiased;
@@ -1004,6 +1001,31 @@ a {
     100% {
         transform: scale(1.012);
         opacity: 0.97;
+    }
+}
+
+@keyframes live-card-pulse {
+    0%, 100% {
+        transform: translateY(0) translateZ(0);
+        border-color: rgba(155, 123, 184, 0.4);
+        box-shadow:
+            0 10px 35px rgba(0, 0, 0, 0.6),
+            0 5px 15px rgba(0, 0, 0, 0.4),
+            0 0 50px rgba(155, 123, 184, 0.3),
+            0 0 100px rgba(155, 123, 184, 0.15),
+            inset 0 1px 3px rgba(255, 255, 255, 0.08),
+            inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+    }
+    50% {
+        transform: translateY(-6px) translateZ(0);
+        border-color: rgba(220, 60, 60, 0.5);
+        box-shadow:
+            0 16px 45px rgba(0, 0, 0, 0.6),
+            0 8px 20px rgba(0, 0, 0, 0.4),
+            0 0 50px rgba(220, 60, 60, 0.25),
+            0 0 90px rgba(255, 255, 255, 0.1),
+            inset 0 1px 3px rgba(255, 255, 255, 0.12),
+            inset 0 -2px 4px rgba(0, 0, 0, 0.3);
     }
 }
 
@@ -1196,6 +1218,7 @@ a {
 
 /* ===== HOVER ENHANCEMENT FOR LIVE CARD ===== */
 .tour-date.currently-playing:hover {
+    animation-play-state: paused;
     transform: translateY(-8px) translateZ(0) scale(1.02);
     box-shadow: 
         0 20px 60px rgba(0, 0, 0, 0.8),
@@ -1233,9 +1256,9 @@ a {
             0 2px 8px rgba(220, 20, 60, 0.5);
     }
 
-    /* Disable heavy animations on mobile to prevent crashes */
+    /* Keep subtle pulse on mobile, disable heavy breathe animation */
     .tour-date.currently-playing {
-        animation: none;
+        animation: live-card-pulse 3s ease-in-out infinite;
         box-shadow:
             0 10px 35px rgba(0, 0, 0, 0.6),
             0 0 50px rgba(155, 123, 184, 0.3);
@@ -2836,8 +2859,13 @@ body {
 }
 
 .merch-showcase-details .merch-actions {
-    flex-direction: column;
-    max-width: 280px;
+    flex-direction: row;
+    max-width: 100%;
+}
+
+.merch-showcase-details .merch-actions .merch-size,
+.merch-showcase-details .merch-actions .btn-cart {
+    flex: 1;
 }
 
 /* Rest of your existing styles... */
@@ -4498,6 +4526,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     max-width: 250px;
     height: auto;
     display: block;
+    margin: 0 auto;
 }
 
 .footer-about h3 {
@@ -5071,17 +5100,13 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 /* Mobile carousel fixes */
 @media (max-width: 768px) {
     .testimonials-carousel {
-        padding: 0 60px; /* More space for nav buttons */
+        padding: 0 15px;
     }
-    
-    .carousel-nav.prev {
-        left: -50px;
+
+    .testimonials-carousel .carousel-nav {
+        display: none;
     }
-    
-    .carousel-nav.next {
-        right: -50px;
-    }
-    
+
     .testimonials-carousel .testimonial-card {
         min-height: 200px; /* Taller for mobile content */
         height: 450px;
@@ -5096,19 +5121,171 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 @media (max-width: 480px) {
     .testimonials-carousel {
-        padding: 0 50px;
+        padding: 0 10px;
     }
-    
-    .carousel-nav.prev {
-        left: -10px;
-    }
-    
-    .carousel-nav.next {
-        right: -10px;
-    }
-    
+
     .testimonials-carousel .testimonial-text {
         margin: 20px 0;
         font-size: 0.9rem;
+    }
+}
+
+/* Hero Social Buttons - Glass Style */
+.hero-socials {
+    position: absolute;
+    bottom: 40px;
+    left: 30px;
+    display: flex;
+    gap: 18px;
+    z-index: 2;
+}
+
+.hero-socials a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(155, 123, 184, 0.15);
+    border: 1px solid rgba(155, 123, 184, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: var(--light);
+    font-size: 1.2rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 12px rgba(155, 123, 184, 0.1);
+}
+
+.hero-socials a:hover {
+    background: rgba(155, 123, 184, 0.3);
+    border-color: rgba(155, 123, 184, 0.7);
+    color: #fff;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(155, 123, 184, 0.35);
+}
+
+@media (max-width: 768px) {
+    .hero-socials {
+        gap: 14px;
+        bottom: 30px;
+        left: 20px;
+    }
+
+    .hero-socials a {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
+    }
+}
+
+/* Social Feed Section */
+.social-feed-section {
+    background: var(--secondary);
+    border-top: 3px solid var(--primary);
+}
+
+.social-feed-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.social-feed-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(155, 123, 184, 0.2);
+    border-radius: 12px;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.social-feed-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(155, 123, 184, 0.15);
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    letter-spacing: 1px;
+    color: var(--primary);
+}
+
+.social-feed-card-header i {
+    font-size: 1.4rem;
+}
+
+.social-feed-embed {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 15px;
+    min-height: 400px;
+    overflow: hidden;
+}
+
+.social-feed-embed iframe,
+.social-feed-embed .instagram-media {
+    width: 100% !important;
+    max-width: 500px;
+}
+
+/* Instagram Embed + CTA */
+.instagram-embed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.instagram-post-wrapper {
+    width: 100%;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.instagram-post-wrapper::-webkit-scrollbar {
+    width: 4px;
+}
+
+.instagram-post-wrapper::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.instagram-post-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(155, 123, 184, 0.4);
+    border-radius: 4px;
+}
+
+.instagram-post-wrapper iframe {
+    width: 100%;
+    min-height: 550px;
+    border: none;
+    border-radius: 4px;
+}
+
+
+@media (max-width: 768px) {
+    .social-feed-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .social-feed-embed {
+        min-height: 350px;
+        padding: 10px;
+    }
+
+    .social-feed-card-header {
+        font-size: 1.1rem;
+        padding: 12px 15px;
     }
 }

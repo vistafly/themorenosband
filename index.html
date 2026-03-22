@@ -592,6 +592,68 @@
 </head>
 <body>
 <!-- DEBUG CRASH LOGGER: To re-enable, add this line here: <script src="crash-logger.js"></script> -->
+
+<!-- Loading Screen -->
+<div id="site-loader">
+    <div class="loader-content">
+        <img src="images/Transparent MORENO.png" alt="The Moreno's Band" class="loader-logo">
+        <div class="loader-wave">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span>
+        </div>
+    </div>
+</div>
+<style>
+    #site-loader {
+        position: fixed; inset: 0; z-index: 1000000;
+        background: #1a1a1a;
+        display: flex; align-items: center; justify-content: center;
+        transition: opacity 0.7s ease;
+    }
+    #site-loader.fade-out { opacity: 0; pointer-events: none; }
+    .loader-content { text-align: center; }
+    .loader-logo {
+        width: 220px; max-width: 60vw;
+        opacity: 0;
+        filter: drop-shadow(0 0 0px rgba(155,123,184,0));
+        transition: opacity 0.6s ease, filter 0.6s ease;
+    }
+
+    /* Sound wave bars */
+    .loader-wave {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        height: 30px;
+        margin-top: 24px;
+        opacity: 0.4;
+        transition: opacity 0.6s ease;
+    }
+    .loader-wave span {
+        display: block;
+        width: 3px;
+        border-radius: 2px;
+        background: #9B7BB8;
+        animation: waveBar 1.2s ease-in-out infinite;
+    }
+    .loader-wave span:nth-child(1) { height: 8px;  animation-delay: 0.0s; }
+    .loader-wave span:nth-child(2) { height: 16px; animation-delay: 0.1s; }
+    .loader-wave span:nth-child(3) { height: 24px; animation-delay: 0.2s; }
+    .loader-wave span:nth-child(4) { height: 12px; animation-delay: 0.3s; }
+    .loader-wave span:nth-child(5) { height: 28px; animation-delay: 0.15s; }
+    .loader-wave span:nth-child(6) { height: 12px; animation-delay: 0.35s; }
+    .loader-wave span:nth-child(7) { height: 24px; animation-delay: 0.25s; }
+    .loader-wave span:nth-child(8) { height: 16px; animation-delay: 0.05s; }
+    .loader-wave span:nth-child(9) { height: 8px;  animation-delay: 0.4s; }
+    @keyframes waveBar {
+        0%, 100% { transform: scaleY(0.4); }
+        50%      { transform: scaleY(1); }
+    }
+
+    /* When done, wave fades out */
+    #site-loader.loaded .loader-wave { opacity: 0; }
+</style>
 <div class="luxe-scroll-track">
   <div class="luxe-progress-ribbon"></div>
 </div>
@@ -630,6 +692,17 @@
     <img src="images/Transparent MORENO.png" alt="The Moreno's Band - Central Valley's Premier Family Band Logo" class="hero-logo-img">
     <h1 class="visually-hidden">The Moreno's Band - Live Music Entertainment in Fresno and Central Valley California</h1>
 </div>
+    </div>
+    <div class="hero-socials">
+        <a href="https://www.facebook.com/TheMorenos/" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+            <i class="fab fa-facebook-f"></i>
+        </a>
+        <a href="https://www.instagram.com/themorenosbandfresno/?hl=en" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+            <i class="fab fa-instagram"></i>
+        </a>
+        <a href="https://www.youtube.com/user/morenochepe/videos" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+            <i class="fab fa-youtube"></i>
+        </a>
     </div>
     <div class="scroll-indicator">
         <span>Scroll</span>
@@ -789,6 +862,7 @@
     </div>
 
     <!-- List View (default) -->
+    <div class="tour-grid-wrapper">
     <div class="tour-grid">
 
 <!-- ============ MARCH 2026 ============ -->
@@ -2046,6 +2120,7 @@
 </article>
 
     </div>
+    </div>
 </div>
 
 <!-- Merchandise Section -->
@@ -2057,7 +2132,7 @@
 
         <div class="merch-showcase">
             <div class="merch-showcase-image">
-                <img loading="lazy" src="images/tshirt.jpeg" alt="The Moreno's Band Official T-Shirt" class="merch-image">
+                <img loading="lazy" src="images/tshirt.jpg" alt="The Moreno's Band Official T-Shirt" class="merch-image">
             </div>
             <div class="merch-showcase-details">
                 <h3>The Moreno's Official Tee</h3>
@@ -2080,18 +2155,61 @@
     </div>
 </section>
 
+<!-- Social Feed Section -->
+<section id="social-feed" class="section social-feed-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">Follow Us</h2>
+        </div>
+        <div class="social-feed-grid">
+            <!-- Facebook Feed -->
+            <div class="social-feed-card">
+                <div class="social-feed-card-header">
+                    <i class="fab fa-facebook-f"></i>
+                    <span>Facebook</span>
+                </div>
+                <div class="social-feed-embed">
+                    <iframe class="lazy-social" data-src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2FTheMorenos%2F&tabs=timeline&width=500&height=600&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=true"
+                        width="500"
+                        height="600"
+                        style="border:none;overflow:hidden;width:100%;max-width:500px;"
+                        scrolling="no"
+                        frameborder="0"
+                        allowfullscreen="true"
+                        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                        title="The Moreno's Band Facebook Feed">
+                    </iframe>
+                </div>
+            </div>
+            <!-- Instagram Posts -->
+            <div class="social-feed-card">
+                <div class="social-feed-card-header">
+                    <i class="fab fa-instagram"></i>
+                    <span>Instagram</span>
+                </div>
+                <div class="social-feed-embed instagram-embed">
+                    <div class="instagram-post-wrapper">
+                        <iframe class="lazy-social" data-src="https://www.instagram.com/p/DLvC84dveBh/embed/" frameborder="0" scrolling="no" allowtransparency="true" title="Instagram Post 1"></iframe>
+                        <iframe class="lazy-social" data-src="https://www.instagram.com/p/DUywUd_kttV/embed/" frameborder="0" scrolling="no" allowtransparency="true" title="Instagram Post 2"></iframe>
+                        <iframe class="lazy-social" data-src="https://www.instagram.com/p/DQf0qCsEURX/embed/" frameborder="0" scrolling="no" allowtransparency="true" title="Instagram Post 3"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
  <section id="contact" class="section contact-section">
         <div class="container">
             <div class="section-header">
                 <h2 class="section-title">Book The Band</h2>
             </div>
             <div class="form-embed-container">
-                <iframe 
-                    src="https://themorenosband.fillout.com/t/kvPTtsL2Z7us" 
-                    frameborder="0" 
+                <iframe class="lazy-social"
+                    data-src="https://themorenosband.fillout.com/t/kvPTtsL2Z7us"
+                    frameborder="0"
                     id="booking-iframe"
                     scrolling="no"
-                    loading="eager"
                 ></iframe>
             </div>
         </div>
@@ -2428,5 +2546,6 @@
     </footer>
 
     <script src="script.js"></script>
+<!-- DESKTOP DEBUGGER: To re-enable, add this line here: <script src="desktop-debugger.js"></script> -->
 </body>
 </html>
