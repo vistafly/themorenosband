@@ -604,7 +604,7 @@ window.addEventListener('load', function() {
             // Mobile: unload maps no longer visible
             for (const [container, iframe] of this.loadedMap) {
                 if (!visible.find(v => v.container === container)) {
-                    iframe.remove();
+                    this.destroyIframe(iframe);
                     this.loadedMap.delete(container);
                 }
             }
@@ -627,7 +627,7 @@ window.addEventListener('load', function() {
                 const cardLeft = entry.card.offsetLeft;
                 const cardRight = cardLeft + entry.card.offsetWidth;
                 if (cardRight < gridLeft - buffer || cardLeft > gridRight + buffer) {
-                    iframe.remove();
+                    this.destroyIframe(iframe);
                     this.loadedMap.delete(container);
                 }
             }
@@ -635,9 +635,15 @@ window.addEventListener('load', function() {
 
         unloadAll() {
             for (const [, iframe] of this.loadedMap) {
-                iframe.remove();
+                this.destroyIframe(iframe);
             }
             this.loadedMap.clear();
+        }
+
+        // Force about:blank before removing to help Safari release process memory
+        destroyIframe(iframe) {
+            iframe.src = 'about:blank';
+            iframe.remove();
         }
 
         createIframe(entry) {
@@ -759,39 +765,39 @@ window.addEventListener('load', function() {
     // =============================================
     // SOCIAL EMBED LAZY LOADER (mobile only)
     // On desktop, the loading screen handles social embeds.
-    // On mobile, defer them until their section is near viewport.
+    // On mobile, load when visible, UNLOAD when scrolled away
+    // to free memory for map iframes.
     // =============================================
     if (screen.width <= 768) {
         const socialEmbeds = document.querySelectorAll('.lazy-social[data-src]');
         if (socialEmbeds.length > 0) {
-            let socialIndex = 0;
-            const socialQueue = Array.from(socialEmbeds);
-
-            const loadNextSocial = () => {
-                if (socialIndex >= socialQueue.length) return;
-                const iframe = socialQueue[socialIndex];
-                iframe.src = iframe.dataset.src;
-                iframe.removeAttribute('data-src');
-                iframe.classList.remove('lazy-social');
-                socialIndex++;
-                if (socialIndex < socialQueue.length) {
-                    setTimeout(loadNextSocial, 500);
-                }
-            };
+            // Store original src for each embed so we can reload later
+            const socialSrcMap = new Map();
+            socialEmbeds.forEach(iframe => {
+                socialSrcMap.set(iframe, iframe.dataset.src);
+            });
 
             const socialObserver = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
+                    const iframe = entry.target;
+                    const originalSrc = socialSrcMap.get(iframe);
+                    if (!originalSrc) return;
+
                     if (entry.isIntersecting) {
-                        socialObserver.unobserve(entry.target);
-                        loadNextSocial();
+                        // Load if not already loaded
+                        if (!iframe.src || iframe.src === 'about:blank') {
+                            iframe.src = originalSrc;
+                        }
+                    } else {
+                        // Unload when scrolled away to free memory
+                        if (iframe.src && iframe.src !== 'about:blank') {
+                            iframe.src = 'about:blank';
+                        }
                     }
                 });
-            }, { rootMargin: '400px', threshold: 0 });
+            }, { rootMargin: '200px', threshold: 0 });
 
-            socialEmbeds.forEach(iframe => {
-                const section = iframe.closest('section') || iframe.closest('.social-feed-card') || iframe.parentElement;
-                if (section) socialObserver.observe(section);
-            });
+            socialEmbeds.forEach(iframe => socialObserver.observe(iframe));
         }
     }
 
