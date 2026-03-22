@@ -3245,7 +3245,17 @@ function initTourCalendar() {
 
     if (isMobile) {
         updateLogo(0.5);
-        window.addEventListener('load', dismiss);
+        var mobileStart = Date.now();
+        var mobileMinDisplay = 2500;
+        function mobileDismiss() {
+            var elapsed = Date.now() - mobileStart;
+            if (elapsed < mobileMinDisplay) {
+                setTimeout(dismiss, mobileMinDisplay - elapsed);
+            } else {
+                dismiss();
+            }
+        }
+        window.addEventListener('load', mobileDismiss);
         setTimeout(dismiss, 5000);
         return;
     }
