@@ -11,6 +11,9 @@
 (function() {
     var log = [];
     var startTime = Date.now();
+    var totalMapLoads = 0; // cumulative count of map src changes
+    var totalSrcChanges = 0; // cumulative count of ANY iframe src changes
+
     function ts() { return ((Date.now() - startTime) / 1000).toFixed(2) + 's'; }
     function memMB() {
         if (performance && performance.memory) {
@@ -22,53 +25,64 @@
     function snapshot() {
         var iframesInDOM = document.querySelectorAll('iframe').length;
         var iframesWithSrc = document.querySelectorAll('iframe[src]').length;
+        var iframesBlanked = document.querySelectorAll('iframe[src="about:blank"]').length;
         var lazyMaps = document.querySelectorAll('.lazy-map').length;
-        var lazyWithSrc = document.querySelectorAll('.lazy-map[src]').length;
+        var lazyWithSrc = 0;
+        document.querySelectorAll('.lazy-map').forEach(function(m) {
+            if (m.src && m.src !== 'about:blank') lazyWithSrc++;
+        });
         var videos = document.querySelectorAll('video').length;
         var videosPlaying = 0;
-        document.querySelectorAll('video').forEach(function(v) { if (!v.paused) videosPlaying++; });
+        var videosSrc = 0;
+        document.querySelectorAll('video').forEach(function(v) {
+            if (!v.paused) videosPlaying++;
+            if (v.currentSrc) videosSrc++;
+        });
         var animations = 0;
         try { animations = document.getAnimations ? document.getAnimations().length : '?'; } catch(e) {}
         var nodes = document.querySelectorAll('*').length;
         var mapContainers = document.querySelectorAll('.venue-map-container').length;
         var containersWithIframe = document.querySelectorAll('.venue-map-container iframe').length;
         var images = document.querySelectorAll('img').length;
-        var imagesLoading = document.querySelectorAll('img[loading="lazy"]').length;
+        var canvases = document.querySelectorAll('canvas').length;
 
-        return 'iframes_DOM:' + iframesInDOM +
-            ' iframes_src:' + iframesWithSrc +
-            ' maps_total:' + mapContainers +
-            ' maps_loaded:' + containersWithIframe +
-            ' lazy:' + lazyMaps +
-            ' lazy_src:' + lazyWithSrc +
-            ' videos:' + videos + '(playing:' + videosPlaying + ')' +
-            ' imgs:' + images + '(lazy:' + imagesLoading + ')' +
-            ' animations:' + animations +
+        // Count social iframes currently active
+        var socialIframes = 0;
+        document.querySelectorAll('iframe').forEach(function(f) {
+            var s = f.src || '';
+            if (s.indexOf('instagram') !== -1 || s.indexOf('facebook') !== -1 || s.indexOf('fillout') !== -1) {
+                socialIframes++;
+            }
+        });
+
+        return 'iframes:' + iframesInDOM + '(src:' + iframesWithSrc + ' blank:' + iframesBlanked + ')' +
+            ' maps:' + containersWithIframe + '/' + mapContainers + '(active:' + lazyWithSrc + ')' +
+            ' social:' + socialIframes +
+            ' vids:' + videos + '(play:' + videosPlaying + ' loaded:' + videosSrc + ')' +
+            ' anim:' + animations +
             ' nodes:' + nodes +
+            ' canvas:' + canvases +
+            ' mapLoads:' + totalMapLoads +
             ' mem:' + memMB();
     }
 
     function addLog(msg) {
         var entry = '[' + ts() + '] ' + msg;
         log.push(entry);
-        if (log.length > 800) log.shift();
+        if (log.length > 1000) log.shift();
         try { localStorage.setItem('_crashLog', JSON.stringify({ time: new Date().toISOString(), entries: log })); } catch(e) {}
     }
 
-    // Detect crash vs clean reload:
-    // On clean exit (pagehide/beforeunload), we set _cleanExit=true.
-    // On next load, if _cleanExit is missing, the previous session crashed.
+    // Detect crash vs clean reload
     var wasCrash = false;
     var prevCrash = null;
     try {
         var cleanExit = localStorage.getItem('_cleanExit');
         prevCrash = localStorage.getItem('_crashLog');
         if (prevCrash && cleanExit !== 'true') {
-            // Previous session did NOT exit cleanly = crash
             wasCrash = true;
             localStorage.setItem('_prevCrashLog', prevCrash);
         }
-        // Clear the flag for this session (will be set again on clean exit)
         localStorage.removeItem('_cleanExit');
     } catch(e) {}
 
@@ -77,26 +91,31 @@
     window.addEventListener('DOMContentLoaded', function() {
         addLog('DOM CONTENT LOADED | ' + snapshot());
 
-        // Log which code path the MapLazyLoader chose
-        addLog('DETECT: screen.width=' + screen.width +
-            ' window.innerWidth=' + window.innerWidth +
+        // Device & detection info
+        addLog('DETECT: screen=' + screen.width + 'x' + screen.height +
+            ' window=' + window.innerWidth + 'x' + window.innerHeight +
             ' isMobile(screen<=768)=' + (screen.width <= 768) +
             ' DPR=' + window.devicePixelRatio +
-            ' UA_mobile=' + /Mobile|iPhone|Android/i.test(navigator.userAgent));
+            ' UA_mobile=' + /Mobile|iPhone|Android/i.test(navigator.userAgent) +
+            ' touch=' + ('ontouchstart' in window) +
+            ' orientation=' + (screen.orientation ? screen.orientation.type : window.orientation));
 
-        // Check if mapLoader exists and what mode it's in
+        // Check mapLoader after it initializes
         setTimeout(function() {
             if (window.mapLoader) {
-                addLog('MAP_LOADER: isMobile=' + window.mapLoader.isMobile +
-                    ' loadedMap.size=' + window.mapLoader.loadedMap.size +
-                    ' cardEntries=' + window.mapLoader.cardEntries.length +
-                    ' preloadDone=' + window.mapLoader.preloadDone);
+                var ml = window.mapLoader;
+                addLog('MAP_LOADER: isMobile=' + ml.isMobile +
+                    ' loadedMap.size=' + ml.loadedMap.size +
+                    ' cardEntries=' + ml.cardEntries.length +
+                    ' preloadDone=' + ml.preloadDone +
+                    ' hasPool=' + !!ml.pool +
+                    ' hasMobileIframe=' + !!ml.mobileIframe);
             } else {
                 addLog('MAP_LOADER: NOT FOUND on window');
             }
         }, 500);
 
-        // Log all setIntervals active (patch to count)
+        // Patch setInterval to log creation
         var intervalCount = 0;
         var origSetInterval = window.setInterval;
         window.setInterval = function() {
@@ -109,28 +128,30 @@
     window.addEventListener('load', function() {
         addLog('WINDOW LOAD | ' + snapshot());
 
-        // List all scripts loaded
+        // Scripts
         var scripts = document.querySelectorAll('script[src]');
         var scriptList = [];
         scripts.forEach(function(s) { scriptList.push(s.src.split('/').pop()); });
         addLog('SCRIPTS: ' + (scriptList.join(', ') || 'none external'));
 
-        // List stylesheets
+        // Stylesheets
         var sheets = document.querySelectorAll('link[rel="stylesheet"]');
         var sheetList = [];
         sheets.forEach(function(s) { sheetList.push(s.href.split('/').pop()); });
         addLog('STYLESHEETS: ' + (sheetList.join(', ') || 'none'));
 
-        // Log map loader state after load
+        // Map loader state after load settles
         setTimeout(function() {
             if (window.mapLoader) {
-                addLog('MAP_LOADER POST-LOAD: isMobile=' + window.mapLoader.isMobile +
-                    ' loadedMap.size=' + window.mapLoader.loadedMap.size +
-                    ' preloadDone=' + window.mapLoader.preloadDone);
+                var ml = window.mapLoader;
+                addLog('MAP_LOADER POST-LOAD: isMobile=' + ml.isMobile +
+                    ' loadedMap.size=' + ml.loadedMap.size +
+                    ' preloadDone=' + ml.preloadDone +
+                    ' mobileCurrentSrc=' + (ml.mobileCurrentSrc ? ml.mobileCurrentSrc.substring(0, 60) + '...' : 'none'));
             }
         }, 2000);
 
-        // Only show crash modal if previous session actually crashed
+        // Show crash modal if previous session crashed
         if (wasCrash) {
             var prev = null;
             try { prev = localStorage.getItem('_prevCrashLog'); } catch(e) {}
@@ -140,7 +161,7 @@
         }
     });
 
-    // Log errors with stack traces
+    // Error tracking
     window.addEventListener('error', function(e) {
         var stack = '';
         if (e.error && e.error.stack) stack = ' STACK: ' + e.error.stack.substring(0, 300);
@@ -150,17 +171,19 @@
         addLog('UNHANDLED REJECTION: ' + String(e.reason).substring(0, 300));
     });
 
-    // Full snapshot every 2 seconds, include map loader state
+    // Full snapshot every 2 seconds with extended ML info
     setInterval(function() {
         var mapInfo = '';
         if (window.mapLoader) {
-            mapInfo = ' | ML:loaded=' + window.mapLoader.loadedMap.size +
-                ' scrolling=' + window.mapLoader.isScrolling;
+            var ml = window.mapLoader;
+            mapInfo = ' | ML:loaded=' + ml.loadedMap.size +
+                ' scrolling=' + ml.isScrolling +
+                ' assigned=' + (ml.mobileAssignedTo ? 'yes' : 'no');
         }
         addLog('TICK | ' + snapshot() + mapInfo);
     }, 2000);
 
-    // Log tour-grid scroll with iframe detail
+    // Tour-grid scroll logging
     var scrollCount = 0;
     document.addEventListener('DOMContentLoaded', function() {
         var grid = document.querySelector('.tour-grid');
@@ -171,10 +194,10 @@
                 var now = Date.now();
                 if (now - lastLog > 500) {
                     lastLog = now;
-                    // Find which cards have iframes loaded
                     var loadedCards = [];
                     document.querySelectorAll('.tour-date').forEach(function(card, i) {
-                        if (card.querySelector('iframe[src]')) loadedCards.push(i);
+                        var iframe = card.querySelector('iframe');
+                        if (iframe && iframe.src && iframe.src !== 'about:blank') loadedCards.push(i);
                     });
                     var mlInfo = '';
                     if (window.mapLoader) {
@@ -184,14 +207,15 @@
                     addLog('SCROLL #' + scrollCount +
                         ' pos:' + Math.round(grid.scrollLeft) + '/' + (grid.scrollWidth - grid.clientWidth) +
                         ' card:~' + Math.round(grid.scrollLeft / 320) +
-                        ' | maps_loaded:' + loadedCards.length +
-                        ' cards_with_maps:[' + loadedCards.join(',') + ']' +
+                        ' | maps_active:' + loadedCards.length +
+                        ' on_cards:[' + loadedCards.join(',') + ']' +
+                        ' cumMapLoads:' + totalMapLoads +
                         mlInfo);
                 }
             }, { passive: true });
         }
 
-        // Log page vertical scroll
+        // Page vertical scroll
         var lastPageScroll = 0;
         window.addEventListener('scroll', function() {
             var now = Date.now();
@@ -202,47 +226,58 @@
         }, { passive: true });
     });
 
+    // Visibility and lifecycle
     document.addEventListener('visibilitychange', function() {
         addLog('VISIBILITY: ' + document.visibilityState + ' | ' + snapshot());
     });
     window.addEventListener('pagehide', function() {
         addLog('PAGEHIDE | ' + snapshot());
-        // Mark clean exit so next load knows it wasn't a crash
         try { localStorage.setItem('_cleanExit', 'true'); } catch(e) {}
     });
     window.addEventListener('beforeunload', function() {
         try { localStorage.setItem('_cleanExit', 'true'); } catch(e) {}
     });
 
-    // Performance observer for long tasks (>50ms)
+    // Low memory warning (Safari-specific)
+    if (window.onmemorywarning !== undefined) {
+        window.addEventListener('memorywarning', function() {
+            addLog('MEMORY WARNING fired | ' + snapshot());
+        });
+    }
+
+    // Performance observer: long tasks
     try {
         if (window.PerformanceObserver) {
-            var longTaskObserver = new PerformanceObserver(function(list) {
+            new PerformanceObserver(function(list) {
                 list.getEntries().forEach(function(entry) {
                     if (entry.duration > 100) {
                         addLog('LONG TASK: ' + entry.duration.toFixed(0) + 'ms name:' + entry.name);
                     }
                 });
-            });
-            longTaskObserver.observe({ entryTypes: ['longtask'] });
+            }).observe({ entryTypes: ['longtask'] });
         }
     } catch(e) {}
 
-    // Resource loading monitor - log heavy resources
+    // Resource loading monitor - track iframes and large resources
     try {
         if (window.PerformanceObserver) {
-            var resObserver = new PerformanceObserver(function(list) {
+            new PerformanceObserver(function(list) {
                 list.getEntries().forEach(function(entry) {
-                    // Log large resources (>100KB) or iframes
-                    if (entry.transferSize > 100000 || entry.initiatorType === 'iframe') {
+                    var isIframe = entry.initiatorType === 'iframe';
+                    var isLarge = entry.transferSize > 100000;
+                    if (isIframe || isLarge) {
+                        totalSrcChanges++;
+                        if (isIframe && entry.name.indexOf('google.com/maps') !== -1) {
+                            totalMapLoads++;
+                        }
                         addLog('RESOURCE: ' + entry.initiatorType + ' ' +
                             (entry.transferSize / 1024).toFixed(0) + 'KB ' +
                             entry.duration.toFixed(0) + 'ms ' +
-                            entry.name.substring(0, 100));
+                            entry.name.substring(0, 100) +
+                            (isIframe ? ' [cumMaps:' + totalMapLoads + ' cumSrc:' + totalSrcChanges + ']' : ''));
                     }
                 });
-            });
-            resObserver.observe({ entryTypes: ['resource'] });
+            }).observe({ entryTypes: ['resource'] });
         }
     } catch(e) {}
 
@@ -284,9 +319,13 @@
                 'Window: ' + window.innerWidth + 'x' + window.innerHeight + '\n' +
                 'DPR: ' + window.devicePixelRatio + '\n' +
                 'isMobile(screen<=768): ' + (screen.width <= 768) + '\n' +
+                'Touch: ' + ('ontouchstart' in window) + '\n' +
+                'Orientation: ' + (screen.orientation ? screen.orientation.type : window.orientation) + '\n' +
                 'Connection: ' + (navigator.connection ? navigator.connection.effectiveType + ' downlink:' + navigator.connection.downlink + 'Mbps' : 'N/A') + '\n' +
                 'HW Concurrency: ' + (navigator.hardwareConcurrency || 'N/A') + '\n' +
                 'Device Memory: ' + (navigator.deviceMemory ? navigator.deviceMemory + 'GB' : 'N/A') + '\n' +
+                'Total Map Loads: ' + totalMapLoads + '\n' +
+                'Total Src Changes: ' + totalSrcChanges + '\n' +
                 '\n=== CURRENT SESSION (post-reload) ===\n' +
                 log.join('\n') + '\n';
             var blob = new Blob([content], { type: 'text/plain' });

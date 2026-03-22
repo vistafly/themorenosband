@@ -532,31 +532,28 @@ window.addEventListener('load', function() {
             }
         }
 
-        // MOBILE: reuses a fixed pool of 3 iframes.
-        // Never creates/destroys iframes after init — just moves
-        // them between containers and updates src. This prevents
-        // Safari's cumulative memory leak from iframe lifecycle.
+        // MOBILE: single reused iframe. Only loads a map for the
+        // most-centered visible card after scrolling stops.
+        // One iframe = one Google Maps process = minimal memory.
         initMobile() {
             const grid = document.querySelector('.tour-grid');
             if (!grid) return;
 
-            // Create a permanent pool of 3 iframes
-            this.pool = [];
-            for (let i = 0; i < 3; i++) {
-                const iframe = document.createElement('iframe');
-                iframe.className = 'lazy-map';
-                iframe.style.border = '0';
-                iframe.setAttribute('allowfullscreen', '');
-                iframe.src = 'about:blank';
-                this.pool.push({ iframe, assignedTo: null });
-            }
+            // Single permanent iframe
+            this.mobileIframe = document.createElement('iframe');
+            this.mobileIframe.className = 'lazy-map';
+            this.mobileIframe.style.border = '0';
+            this.mobileIframe.setAttribute('allowfullscreen', '');
+            this.mobileIframe.src = 'about:blank';
+            this.mobileAssignedTo = null;
+            this.mobileCurrentSrc = '';
 
             grid.addEventListener('scroll', () => {
                 this.isScrolling = true;
                 clearTimeout(this.scrollTimer);
                 this.scrollTimer = setTimeout(() => {
                     this.isScrolling = false;
-                    this.assignPoolToVisible(grid);
+                    this.assignMobileMap(grid);
                 }, 600);
             }, { passive: true });
 
@@ -564,83 +561,63 @@ window.addEventListener('load', function() {
             if (tourSection) {
                 new IntersectionObserver((entries) => {
                     if (entries[0].isIntersecting && !this.isScrolling) {
-                        this.assignPoolToVisible(grid);
+                        this.assignMobileMap(grid);
                     } else if (!entries[0].isIntersecting) {
-                        this.parkPool();
+                        this.parkMobileMap();
                     }
                 }, { threshold: 0 }).observe(tourSection);
             }
         }
 
-        // Move pool iframes to currently visible card containers
-        assignPoolToVisible(grid) {
-            const gridLeft = grid.scrollLeft;
-            const gridRight = gridLeft + grid.offsetWidth;
+        // Find the most-centered card and show its map
+        assignMobileMap(grid) {
+            const gridCenter = grid.scrollLeft + grid.offsetWidth / 2;
 
-            // Find visible cards
-            const visible = [];
+            // Find the card closest to center
+            let best = null;
+            let bestDist = Infinity;
             for (const entry of this.cardEntries) {
-                const cardLeft = entry.card.offsetLeft;
-                const cardRight = cardLeft + entry.card.offsetWidth;
-                if (cardRight > gridLeft && cardLeft < gridRight) {
-                    visible.push(entry);
+                const cardCenter = entry.card.offsetLeft + entry.card.offsetWidth / 2;
+                const dist = Math.abs(cardCenter - gridCenter);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = entry;
                 }
             }
 
-            // Determine which pool slots are already correctly assigned
-            const neededEntries = visible.slice(0, 3);
-            const alreadyAssigned = new Set();
+            if (!best) return;
 
-            for (const slot of this.pool) {
-                const match = neededEntries.find(e => e.container === slot.assignedTo);
-                if (match) {
-                    alreadyAssigned.add(match.container);
-                }
+            // Already showing this card's map — skip
+            if (this.mobileAssignedTo === best.container && this.mobileCurrentSrc === best.src) return;
+
+            // Move iframe to new container
+            if (this.mobileIframe.parentNode) {
+                this.mobileIframe.parentNode.removeChild(this.mobileIframe);
+            }
+            this.mobileIframe.setAttribute('aria-label', best.label);
+            best.container.appendChild(this.mobileIframe);
+
+            // Only change src if it's a different map
+            if (this.mobileCurrentSrc !== best.src) {
+                this.mobileIframe.src = best.src;
+                this.mobileCurrentSrc = best.src;
             }
 
-            // Free pool slots not assigned to a needed container
-            const freeSlots = [];
-            for (const slot of this.pool) {
-                if (!slot.assignedTo || !alreadyAssigned.has(slot.assignedTo)) {
-                    // Detach from old container
-                    if (slot.iframe.parentNode) {
-                        slot.iframe.parentNode.removeChild(slot.iframe);
-                    }
-                    slot.assignedTo = null;
-                    freeSlots.push(slot);
-                }
-            }
+            this.mobileAssignedTo = best.container;
 
-            // Assign free slots to visible entries that need them
-            for (const entry of neededEntries) {
-                if (alreadyAssigned.has(entry.container)) continue;
-                const slot = freeSlots.shift();
-                if (!slot) break;
-
-                slot.iframe.setAttribute('aria-label', entry.label);
-                entry.container.appendChild(slot.iframe);
-                slot.iframe.src = entry.src;
-                slot.assignedTo = entry.container;
-            }
-
-            // Update loadedMap for crash logger compatibility
+            // Update loadedMap for crash logger
             this.loadedMap.clear();
-            for (const slot of this.pool) {
-                if (slot.assignedTo) {
-                    this.loadedMap.set(slot.assignedTo, slot.iframe);
-                }
-            }
+            this.loadedMap.set(best.container, this.mobileIframe);
         }
 
-        // Park all pool iframes (tour section out of view)
-        parkPool() {
-            for (const slot of this.pool) {
-                if (slot.iframe.parentNode) {
-                    slot.iframe.parentNode.removeChild(slot.iframe);
-                }
-                slot.iframe.src = 'about:blank';
-                slot.assignedTo = null;
+        // Park the iframe when tour section leaves viewport
+        parkMobileMap() {
+            if (this.mobileIframe.parentNode) {
+                this.mobileIframe.parentNode.removeChild(this.mobileIframe);
             }
+            this.mobileIframe.src = 'about:blank';
+            this.mobileAssignedTo = null;
+            this.mobileCurrentSrc = '';
             this.loadedMap.clear();
         }
 
