@@ -532,18 +532,31 @@ window.addEventListener('load', function() {
             }
         }
 
-        // MOBILE: scroll-position based, max 3, unloads distant
+        // MOBILE: reuses a fixed pool of 3 iframes.
+        // Never creates/destroys iframes after init — just moves
+        // them between containers and updates src. This prevents
+        // Safari's cumulative memory leak from iframe lifecycle.
         initMobile() {
             const grid = document.querySelector('.tour-grid');
             if (!grid) return;
 
+            // Create a permanent pool of 3 iframes
+            this.pool = [];
+            for (let i = 0; i < 3; i++) {
+                const iframe = document.createElement('iframe');
+                iframe.className = 'lazy-map';
+                iframe.style.border = '0';
+                iframe.setAttribute('allowfullscreen', '');
+                iframe.src = 'about:blank';
+                this.pool.push({ iframe, assignedTo: null });
+            }
+
             grid.addEventListener('scroll', () => {
                 this.isScrolling = true;
-                this.unloadDistant(grid);
                 clearTimeout(this.scrollTimer);
                 this.scrollTimer = setTimeout(() => {
                     this.isScrolling = false;
-                    this.loadVisibleMaps(grid);
+                    this.assignPoolToVisible(grid);
                 }, 600);
             }, { passive: true });
 
@@ -551,12 +564,84 @@ window.addEventListener('load', function() {
             if (tourSection) {
                 new IntersectionObserver((entries) => {
                     if (entries[0].isIntersecting && !this.isScrolling) {
-                        this.loadVisibleMaps(grid);
+                        this.assignPoolToVisible(grid);
                     } else if (!entries[0].isIntersecting) {
-                        this.unloadAll();
+                        this.parkPool();
                     }
                 }, { threshold: 0 }).observe(tourSection);
             }
+        }
+
+        // Move pool iframes to currently visible card containers
+        assignPoolToVisible(grid) {
+            const gridLeft = grid.scrollLeft;
+            const gridRight = gridLeft + grid.offsetWidth;
+
+            // Find visible cards
+            const visible = [];
+            for (const entry of this.cardEntries) {
+                const cardLeft = entry.card.offsetLeft;
+                const cardRight = cardLeft + entry.card.offsetWidth;
+                if (cardRight > gridLeft && cardLeft < gridRight) {
+                    visible.push(entry);
+                }
+            }
+
+            // Determine which pool slots are already correctly assigned
+            const neededEntries = visible.slice(0, 3);
+            const alreadyAssigned = new Set();
+
+            for (const slot of this.pool) {
+                const match = neededEntries.find(e => e.container === slot.assignedTo);
+                if (match) {
+                    alreadyAssigned.add(match.container);
+                }
+            }
+
+            // Free pool slots not assigned to a needed container
+            const freeSlots = [];
+            for (const slot of this.pool) {
+                if (!slot.assignedTo || !alreadyAssigned.has(slot.assignedTo)) {
+                    // Detach from old container
+                    if (slot.iframe.parentNode) {
+                        slot.iframe.parentNode.removeChild(slot.iframe);
+                    }
+                    slot.assignedTo = null;
+                    freeSlots.push(slot);
+                }
+            }
+
+            // Assign free slots to visible entries that need them
+            for (const entry of neededEntries) {
+                if (alreadyAssigned.has(entry.container)) continue;
+                const slot = freeSlots.shift();
+                if (!slot) break;
+
+                slot.iframe.setAttribute('aria-label', entry.label);
+                entry.container.appendChild(slot.iframe);
+                slot.iframe.src = entry.src;
+                slot.assignedTo = entry.container;
+            }
+
+            // Update loadedMap for crash logger compatibility
+            this.loadedMap.clear();
+            for (const slot of this.pool) {
+                if (slot.assignedTo) {
+                    this.loadedMap.set(slot.assignedTo, slot.iframe);
+                }
+            }
+        }
+
+        // Park all pool iframes (tour section out of view)
+        parkPool() {
+            for (const slot of this.pool) {
+                if (slot.iframe.parentNode) {
+                    slot.iframe.parentNode.removeChild(slot.iframe);
+                }
+                slot.iframe.src = 'about:blank';
+                slot.assignedTo = null;
+            }
+            this.loadedMap.clear();
         }
 
         // DESKTOP: create iframes in small batches spaced 100ms apart.
@@ -586,64 +671,6 @@ window.addEventListener('load', function() {
             };
 
             createBatch();
-        }
-
-        loadVisibleMaps(grid) {
-            const gridLeft = grid.scrollLeft;
-            const gridRight = gridLeft + grid.offsetWidth;
-
-            const visible = [];
-            for (const entry of this.cardEntries) {
-                const cardLeft = entry.card.offsetLeft;
-                const cardRight = cardLeft + entry.card.offsetWidth;
-                if (cardRight > gridLeft && cardLeft < gridRight) {
-                    visible.push(entry);
-                }
-            }
-
-            // Mobile: unload maps no longer visible
-            for (const [container, iframe] of this.loadedMap) {
-                if (!visible.find(v => v.container === container)) {
-                    this.destroyIframe(iframe);
-                    this.loadedMap.delete(container);
-                }
-            }
-
-            for (const entry of visible) {
-                if (this.loadedMap.has(entry.container)) continue;
-                if (this.loadedMap.size >= 3) break;
-                this.createIframe(entry);
-            }
-        }
-
-        unloadDistant(grid) {
-            const gridLeft = grid.scrollLeft;
-            const gridRight = gridLeft + grid.offsetWidth;
-            const buffer = grid.offsetWidth * 1.5;
-
-            for (const [container, iframe] of this.loadedMap) {
-                const entry = this.cardEntries.find(e => e.container === container);
-                if (!entry) continue;
-                const cardLeft = entry.card.offsetLeft;
-                const cardRight = cardLeft + entry.card.offsetWidth;
-                if (cardRight < gridLeft - buffer || cardLeft > gridRight + buffer) {
-                    this.destroyIframe(iframe);
-                    this.loadedMap.delete(container);
-                }
-            }
-        }
-
-        unloadAll() {
-            for (const [, iframe] of this.loadedMap) {
-                this.destroyIframe(iframe);
-            }
-            this.loadedMap.clear();
-        }
-
-        // Force about:blank before removing to help Safari release process memory
-        destroyIframe(iframe) {
-            iframe.src = 'about:blank';
-            iframe.remove();
         }
 
         createIframe(entry) {
