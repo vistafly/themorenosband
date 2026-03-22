@@ -3188,6 +3188,7 @@ function initTourCalendar() {
     if (!loader) return;
 
     const logo = loader.querySelector('.loader-logo');
+    const wave = loader.querySelector('.loader-wave');
     const isMobile = screen.width <= 768;
     let dismissed = false;
     let windowLoaded = false;
@@ -3203,6 +3204,19 @@ function initTourCalendar() {
         logo.style.filter =
             'drop-shadow(0 0 ' + spread + 'px rgba(155,123,184,' + a1 + ')) ' +
             'drop-shadow(0 0 ' + blur + 'px rgba(155,123,184,' + a2 + '))';
+
+        // Sync wave opacity and glow with logo
+        if (wave) {
+            var waveOpacity = (0.25 + t * 0.55).toFixed(3); // 0.25 → 0.8
+            wave.style.opacity = waveOpacity;
+            var wSpread = Math.round(t * 15);
+            var wBlur = Math.round(t * 30);
+            var wa1 = (t * 0.5).toFixed(2);
+            var wa2 = (t * 0.2).toFixed(2);
+            wave.style.filter =
+                'drop-shadow(0 0 ' + wSpread + 'px rgba(155,123,184,' + wa1 + ')) ' +
+                'drop-shadow(0 0 ' + wBlur + 'px rgba(155,123,184,' + wa2 + '))';
+        }
     }
 
     function dismiss() {

@@ -826,9 +826,12 @@
 <div id="site-loader">
     <div class="loader-content">
         <img src="images/Transparent MORENO.png" alt="The Moreno's Band" class="loader-logo">
+        <span class="loader-status">Loading</span>
         <div class="loader-wave">
             <span></span><span></span><span></span><span></span><span></span>
             <span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span>
+            <span></span><span></span>
         </div>
     </div>
 </div>
@@ -855,17 +858,15 @@
 
     /* Sound wave bars */
     .loader-wave {
-        position: absolute;
-        bottom: -54px;
-        left: 50%;
-        transform: translateX(-50%);
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 3px;
+        gap: 4px;
         height: 30px;
-        opacity: 0.4;
-        transition: opacity 0.6s ease;
+        margin-top: 16px;
+        transform: translateX(-30px);
+        opacity: 0.25;
+        transition: opacity 0.6s ease, filter 0.6s ease;
     }
     .loader-wave span {
         display: block;
@@ -874,22 +875,52 @@
         background: #9B7BB8;
         animation: waveBar 1.2s ease-in-out infinite;
     }
-    .loader-wave span:nth-child(1) { height: 8px;  animation-delay: 0.0s; }
-    .loader-wave span:nth-child(2) { height: 16px; animation-delay: 0.1s; }
-    .loader-wave span:nth-child(3) { height: 24px; animation-delay: 0.2s; }
-    .loader-wave span:nth-child(4) { height: 12px; animation-delay: 0.3s; }
-    .loader-wave span:nth-child(5) { height: 28px; animation-delay: 0.15s; }
-    .loader-wave span:nth-child(6) { height: 12px; animation-delay: 0.35s; }
-    .loader-wave span:nth-child(7) { height: 24px; animation-delay: 0.25s; }
-    .loader-wave span:nth-child(8) { height: 16px; animation-delay: 0.05s; }
-    .loader-wave span:nth-child(9) { height: 8px;  animation-delay: 0.4s; }
+    .loader-wave span:nth-child(1)  { height: 4px;  animation-delay: 0.45s; }
+    .loader-wave span:nth-child(2)  { height: 6px;  animation-delay: 0.38s; }
+    .loader-wave span:nth-child(3)  { height: 10px; animation-delay: 0.3s; }
+    .loader-wave span:nth-child(4)  { height: 16px; animation-delay: 0.1s; }
+    .loader-wave span:nth-child(5)  { height: 24px; animation-delay: 0.2s; }
+    .loader-wave span:nth-child(6)  { height: 12px; animation-delay: 0.3s; }
+    .loader-wave span:nth-child(7)  { height: 28px; animation-delay: 0.15s; }
+    .loader-wave span:nth-child(8)  { height: 20px; animation-delay: 0.0s; }
+    .loader-wave span:nth-child(9)  { height: 12px; animation-delay: 0.35s; }
+    .loader-wave span:nth-child(10) { height: 24px; animation-delay: 0.25s; }
+    .loader-wave span:nth-child(11) { height: 16px; animation-delay: 0.05s; }
+    .loader-wave span:nth-child(12) { height: 10px; animation-delay: 0.28s; }
+    .loader-wave span:nth-child(13) { height: 6px;  animation-delay: 0.4s; }
+    .loader-wave span:nth-child(14) { height: 8px;  animation-delay: 0.32s; }
+    .loader-wave span:nth-child(15) { height: 4px;  animation-delay: 0.48s; }
     @keyframes waveBar {
         0%, 100% { transform: scaleY(0.4); }
         50%      { transform: scaleY(1); }
     }
 
-    /* When done, wave fades out */
-    #site-loader.loaded .loader-wave { opacity: 0; }
+    /* Loading status text */
+    .loader-status {
+        margin-top: -22px;
+        margin-bottom: 10px;
+        transform: translateX(-27px);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 300;
+        letter-spacing: 6px;
+        text-transform: uppercase;
+        color: rgba(155, 123, 184, 0.4);
+        opacity: 0;
+        animation: statusFadeIn 1.2s ease 0.8s forwards, statusPulse 2.5s ease-in-out 2s infinite;
+        transition: opacity 0.6s ease;
+    }
+    @keyframes statusFadeIn {
+        to { opacity: 1; }
+    }
+    @keyframes statusPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+    }
+
+    /* When done, wave and status fade out */
+    #site-loader.loaded .loader-wave,
+    #site-loader.loaded .loader-status { opacity: 0; }
 </style>
 <div class="luxe-scroll-track">
   <div class="luxe-progress-ribbon"></div>
@@ -1114,7 +1145,7 @@
     <div class="info">
         <div class="venue-header">
             <h3>School House</h3>
-            <span class="venue-promo">Restaurant & Tavern - Jake Solo Performance</span>
+            <span class="venue-promo">Restaurant & Tavern - Jake Solo</span>
         </div>
         <p class="venue-desc">Enjoy some great food and even better music.</p>
         <div class="event-meta">
@@ -1457,9 +1488,9 @@
             <h3>Hard Rock Casino</h3>
             <span class="venue-promo">Casino & Resort</span>
         </div>
-        <p class="venue-desc">Entertainment destination featuring gaming, dining, and live events. Load in off by 5pm.</p>
+        <p class="venue-desc">Entertainment destination featuring gaming, dining, and live events.</p>
         <div class="event-meta">
-            <span class="event-time">2:30PM Load In - 9:30PM - 11:00PM Show</span>
+            <span class="event-time">9:30PM - 11:00PM Show</span>
             <span class="event-age">21+</span>
         </div>
         <address class="venue-address">1777 Garone Farm Road, Mettler, CA</address>
@@ -1577,7 +1608,7 @@
     <div class="info">
         <div class="venue-header">
             <h3>Eagles Landing Steakhouse</h3>
-            <span class="venue-promo">Restaurant & Bar - Jake Solo Performance</span>
+            <span class="venue-promo">Restaurant & Bar - Jake Solo</span>
         </div>
         <p class="venue-desc">Steakhouse featuring live music and great dining.</p>
         <div class="event-meta">

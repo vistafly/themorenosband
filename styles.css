@@ -358,7 +358,8 @@ a {
         right: -100%;
         width: 80%;
         max-width: 300px;
-        height: 100vh;
+        height: 100vh; /* fallback for older browsers */
+        height: 100svh;
         background: var(--dark);
         flex-direction: column;
         align-items: center;
@@ -412,7 +413,8 @@ a {
 
 /* Hero Section */
 .hero {
-    height: 100vh;
+    height: 100vh; /* fallback for older browsers */
+    height: 100svh;
     min-height: 700px;
     display: flex;
     align-items: center;
@@ -1889,7 +1891,7 @@ a {
         width: 240px;
         max-width: 80vw;
         padding: 0.7rem;
-        max-height: 60vh;
+        max-height: 60svh;
         overflow-y: auto;
     }
 
@@ -1962,6 +1964,7 @@ a {
     flex-direction: column;
     gap: 1.5rem;
     position: relative;
+    flex: 1;
     background: linear-gradient(135deg, 
         rgba(255, 255, 255, 0.08) 0%,
         rgba(255, 255, 255, 0.03) 50%,
@@ -2163,6 +2166,9 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     position: relative;
     padding: 0.5rem 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Subtle left border accent */
@@ -2291,7 +2297,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 
 /* Enhanced Map Container */
 .venue-map-container {
-    margin-top: 1rem;
+    margin-top: auto;
     border-radius: 12px;
     overflow: hidden;
     height: 160px;
@@ -2698,7 +2704,8 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
         right: -100%;
         width: 80%;
         max-width: 300px;
-        height: 100vh;
+        height: 100vh; /* fallback for older browsers */
+        height: 100svh;
         background: var(--dark);
         flex-direction: column;
         align-items: center;
