@@ -55,12 +55,22 @@
         try { localStorage.setItem('_crashLog', JSON.stringify({ time: new Date().toISOString(), entries: log })); } catch(e) {}
     }
 
-    // On page load, check if there's a previous crash log
+    // Detect crash vs clean reload:
+    // On clean exit (pagehide/beforeunload), we set _cleanExit=true.
+    // On next load, if _cleanExit is missing, the previous session crashed.
+    var wasCrash = false;
     var prevCrash = null;
-    try { prevCrash = localStorage.getItem('_crashLog'); } catch(e) {}
-    if (prevCrash) {
-        try { localStorage.setItem('_prevCrashLog', prevCrash); } catch(e) {}
-    }
+    try {
+        var cleanExit = localStorage.getItem('_cleanExit');
+        prevCrash = localStorage.getItem('_crashLog');
+        if (prevCrash && cleanExit !== 'true') {
+            // Previous session did NOT exit cleanly = crash
+            wasCrash = true;
+            localStorage.setItem('_prevCrashLog', prevCrash);
+        }
+        // Clear the flag for this session (will be set again on clean exit)
+        localStorage.removeItem('_cleanExit');
+    } catch(e) {}
 
     addLog('PAGE LOAD START | ' + snapshot());
 
@@ -120,11 +130,13 @@
             }
         }, 2000);
 
-        // Check if we have a PREVIOUS crash log
-        var prev = null;
-        try { prev = localStorage.getItem('_prevCrashLog'); } catch(e) {}
-        if (prev) {
-            showCrashModal(prev);
+        // Only show crash modal if previous session actually crashed
+        if (wasCrash) {
+            var prev = null;
+            try { prev = localStorage.getItem('_prevCrashLog'); } catch(e) {}
+            if (prev) {
+                showCrashModal(prev);
+            }
         }
     });
 
@@ -195,6 +207,11 @@
     });
     window.addEventListener('pagehide', function() {
         addLog('PAGEHIDE | ' + snapshot());
+        // Mark clean exit so next load knows it wasn't a crash
+        try { localStorage.setItem('_cleanExit', 'true'); } catch(e) {}
+    });
+    window.addEventListener('beforeunload', function() {
+        try { localStorage.setItem('_cleanExit', 'true'); } catch(e) {}
     });
 
     // Performance observer for long tasks (>50ms)
