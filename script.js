@@ -767,6 +767,37 @@ window.addEventListener('load', function() {
     }
 
     // =============================================
+    // FACEBOOK EMBED MOBILE FIT
+    // Adjust the Facebook plugin URL width to match the container on mobile
+    // so it renders at the correct size natively (no CSS scaling needed).
+    // Must run BEFORE the lazy loader below sets iframe.src.
+    // =============================================
+    if (window.innerWidth <= 768) {
+        const fbEmbed = document.querySelector('.facebook-embed');
+        if (fbEmbed) {
+            const fbIframe = fbEmbed.querySelector('iframe');
+            if (fbIframe) {
+                const fbWidth = Math.round(fbEmbed.clientWidth);
+                const fbHeight = Math.round(fbWidth * 1.4);
+                var src = fbIframe.dataset.src;
+                if (src) {
+                    src = src.replace(/width=\d+/, 'width=' + fbWidth)
+                             .replace(/height=\d+/, 'height=' + fbHeight);
+                    fbIframe.dataset.src = src;
+                }
+                fbIframe.setAttribute('width', fbWidth);
+                fbIframe.setAttribute('height', fbHeight);
+                fbIframe.style.cssText = 'border:none;overflow:hidden;width:100%;max-width:' + fbWidth + 'px;';
+
+                // Match Instagram wrapper height to Facebook embed height
+                var igWrapper = document.querySelector('.instagram-post-wrapper');
+                if (igWrapper) {
+                    igWrapper.style.maxHeight = fbHeight + 'px';
+                }
+            }
+        }
+    }
+
     // SOCIAL EMBED LAZY LOADER (mobile only)
     // On desktop, the loading screen handles social embeds.
     // On mobile, load when visible, UNLOAD when scrolled away
