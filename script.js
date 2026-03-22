@@ -2184,7 +2184,7 @@ function hideCreditCardForm() {
 // Add to cart event listeners for merchandise items
 document.querySelectorAll('.btn-cart').forEach(button => {
     button.addEventListener('click', function() {
-        const merchItem = this.closest('.merch-item');
+        const merchItem = this.closest('.merch-showcase');
         const product = {
             id: merchItem.dataset.productId || generateProductId(merchItem),
             name: merchItem.dataset.productName || merchItem.querySelector('h3').textContent,
