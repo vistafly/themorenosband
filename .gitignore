@@ -1,0 +1,6 @@
+# Local venue archive — contains reusable venue info for past bookings.
+# Not meant to be published; consulted locally before rebuilding tour cards.
+venues/
+
+# Google Search Console exports and other SEO audit data — local reference only.
+SEO/
