@@ -102,6 +102,68 @@
     }
     </script>
 
+    <!-- Structured Data: WebSite (enables sitelinks in search results) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "The Moreno's Band",
+      "alternateName": "The Morenos Band",
+      "url": "https://themorenosband.com/",
+      "description": "The Central Valley's Family Band! Bringing you Top40, Oldies, Latin, Country & More!",
+      "publisher": {
+        "@type": "MusicGroup",
+        "name": "The Moreno's Band",
+        "url": "https://themorenosband.com/"
+      }
+    }
+    </script>
+
+    <!-- Structured Data: SiteNavigationElement (tells Google about page sections for sitelinks) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SiteNavigationElement",
+          "name": "Home",
+          "url": "https://themorenosband.com/#home",
+          "position": 1
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "name": "Live Performances",
+          "url": "https://themorenosband.com/#videos",
+          "position": 2
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "name": "Testimonials",
+          "url": "https://themorenosband.com/#testimonials",
+          "position": 3
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "name": "Upcoming Gigs",
+          "url": "https://themorenosband.com/#tour",
+          "position": 4
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "name": "Band Merch",
+          "url": "https://themorenosband.com/#merch",
+          "position": 5
+        },
+        {
+          "@type": "SiteNavigationElement",
+          "name": "Book The Band",
+          "url": "https://themorenosband.com/#contact",
+          "position": 6
+        }
+      ]
+    }
+    </script>
+
     <!-- Structured Data: Upcoming Events (MusicEvent) for Google Rich Results -->
     <script type="application/ld+json">
     [
@@ -625,7 +687,7 @@
   <div class="luxe-progress-ribbon"></div>
 </div>
    <!-- Updated navbar without logo -->
-<nav class="navbar">
+<nav class="navbar" aria-label="Main navigation">
     <div class="container">
         <!-- Hamburger menu button -->
         <div class="hamburger" id="hamburger">
@@ -658,6 +720,7 @@
         <div class="hero-logo">
     <img src="images/Transparent MORENO.png" alt="The Moreno's Band - Central Valley's Premier Family Band Logo" class="hero-logo-img">
     <h1 class="visually-hidden">The Moreno's Band - Live Music Entertainment in Fresno and Central Valley California</h1>
+    <p class="visually-hidden">The Moreno's Band is the Central Valley's premier family band, performing live music across Fresno, Visalia, Clovis, and beyond. We play Top 40, Oldies, Latin, Country, and more at bars, wineries, casinos, and private events. Book us for your wedding, party, or venue — check our upcoming gigs, watch live performances, read testimonials, and shop band merch.</p>
 </div>
     </div>
     <div class="hero-socials">
@@ -2126,7 +2189,7 @@
                 <div class="footer-about">
                     <img src="images/Transparent MORENO.png" alt="TheMorenosBand Logo" class="footer-logo">
                 </div>
-                <div class="footer-links">
+                <nav class="footer-links" aria-label="Footer navigation">
                     <h3>Quick Links</h3>
                     <ul>
                         <li><a href="#home">Home</a></li>
@@ -2136,7 +2199,7 @@
                         <li><a href="#merch">Merch</a></li>
                         <li><a href="#contact">Book Now</a></li>
                     </ul>
-                </div>
+                </nav>
                 <div class="footer-contact">
                     <h3>Contact</h3>
                     <p><i class="fas fa-phone"></i> <a href="tel:5594486128">(559) 448-6128</a></p>
