@@ -404,7 +404,7 @@ window.addEventListener('load', function() {
             
             // Only reset currentIndex if we haven't interacted yet
             if (!this.hasInteracted) {
-                this.currentIndex = 0;
+                this.currentIndex = this.findUpcomingIndex();
             }
             
             // Wait 2 seconds then start scrolling
@@ -431,8 +431,8 @@ window.addEventListener('load', function() {
                 return;
             }
 
-            // Move to next card
-            this.currentIndex = (this.currentIndex + 1) % this.tourCards.length;
+            // Move to next visible card (skip hidden past gigs)
+            this.currentIndex = this.nextVisibleIndex(this.currentIndex);
             const targetCard = this.tourCards[this.currentIndex];
             
             if (!targetCard) return;
@@ -496,6 +496,32 @@ window.addEventListener('load', function() {
             this.currentIndex = closestCardIndex;
         }
 
+        isCardHidden(card) {
+            return !card || card.classList.contains('tour-card-hidden') || card.offsetParent === null;
+        }
+
+        nextVisibleIndex(fromIndex) {
+            const n = this.tourCards.length;
+            for (let step = 1; step <= n; step++) {
+                const idx = (fromIndex + step) % n;
+                if (!this.isCardHidden(this.tourCards[idx])) return idx;
+            }
+            return fromIndex;
+        }
+
+        findUpcomingIndex() {
+            const now = Date.now();
+            let fallback = 0;
+            for (let i = 0; i < this.tourCards.length; i++) {
+                const card = this.tourCards[i];
+                if (this.isCardHidden(card)) continue;
+                fallback = i;
+                const end = getTourCardEnd(card);
+                if (end && end.getTime() >= now) return i;
+            }
+            return fallback;
+        }
+
         pause() {
             this.isPaused = true;
         }
@@ -508,6 +534,100 @@ window.addEventListener('load', function() {
     // Initialize the tour auto-scroll
     if (document.querySelector('.tour-grid')) {
         window.tourScroller = new TourAutoScroll();
+    }
+
+    // =============================================
+    // TOUR LIST: hide gigs older than 7 days + land on the upcoming card
+    // Cards stay in the HTML (for SEO/structured data); we just toggle a class.
+    // =============================================
+    const TOUR_HIDE_DAYS = 7;
+
+    function getTourCardEnd(card) {
+        const timeEl = card.querySelector('time');
+        if (!timeEl) return null;
+        const datetime = timeEl.getAttribute('datetime');
+        if (!datetime) return null;
+        const base = new Date(datetime + 'T00:00:00');
+        if (isNaN(base.getTime())) return null;
+
+        const eventTimeEl = card.querySelector('.event-time');
+        const txt = eventTimeEl ? eventTimeEl.textContent.trim() : '';
+        const m = txt.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*[-–—]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+
+        const end = new Date(base);
+        if (m) {
+            const to24 = (h, period) => {
+                h = parseInt(h, 10);
+                period = period.toUpperCase();
+                if (period === 'PM' && h !== 12) h += 12;
+                else if (period === 'AM' && h === 12) h = 0;
+                return h;
+            };
+            const startH = to24(m[1], m[3]);
+            const endH = to24(m[4], m[6]);
+            // Overnight end (e.g. 9:00PM - 12:00AM) rolls into the next day
+            if (endH < startH) end.setDate(end.getDate() + 1);
+            end.setHours(endH, parseInt(m[5], 10), 0, 0);
+        } else {
+            // TBD / unparseable time — treat the whole event day as the window
+            end.setHours(23, 59, 59, 999);
+        }
+        return end;
+    }
+
+    function applyTourListFilter() {
+        const cards = document.querySelectorAll('.tour-date');
+        if (!cards.length) return;
+        const cutoff = new Date();
+        cutoff.setHours(0, 0, 0, 0);
+        cutoff.setDate(cutoff.getDate() - TOUR_HIDE_DAYS);
+
+        cards.forEach(card => {
+            const timeEl = card.querySelector('time');
+            const datetime = timeEl ? timeEl.getAttribute('datetime') : null;
+            if (!datetime) return;
+            const d = new Date(datetime + 'T00:00:00');
+            if (isNaN(d.getTime())) return;
+            if (d.getTime() < cutoff.getTime()) {
+                card.classList.add('tour-card-hidden');
+            } else {
+                card.classList.remove('tour-card-hidden');
+            }
+        });
+    }
+
+    function centerUpcomingCard() {
+        const grid = document.querySelector('.tour-grid');
+        if (!grid) return;
+        const cards = Array.from(grid.querySelectorAll('.tour-date'))
+            .filter(c => !c.classList.contains('tour-card-hidden'));
+        if (!cards.length) return;
+
+        const now = Date.now();
+        let target = cards[cards.length - 1]; // fallback: most recent still-visible gig
+        for (const c of cards) {
+            const end = getTourCardEnd(c);
+            if (end && end.getTime() >= now) { target = c; break; }
+        }
+
+        const scrollTo = target.offsetLeft + (target.offsetWidth / 2) - (grid.offsetWidth / 2);
+        grid.scrollLeft = Math.max(0, scrollTo);
+    }
+
+    function initUpcomingTourView() {
+        applyTourListFilter();
+        // Defer measurement until layout settles so offsets are accurate
+        requestAnimationFrame(() => {
+            centerUpcomingCard();
+            if (window.tourScroller && typeof window.tourScroller.findUpcomingIndex === 'function') {
+                window.tourScroller.currentIndex = window.tourScroller.findUpcomingIndex();
+            }
+        });
+    }
+
+    if (document.querySelector('.tour-grid')) {
+        initUpcomingTourView();
+        window.addEventListener('load', () => setTimeout(initUpcomingTourView, 150));
     }
 
     // =============================================
@@ -2951,6 +3071,8 @@ class TourCalendar {
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const dimCutoff = new Date(today);
+        dimCutoff.setDate(dimCutoff.getDate() - 7);
 
         // Add previous month's trailing days
         for (let i = firstDay - 1; i >= 0; i--) {
@@ -2968,6 +3090,9 @@ class TourCalendar {
             const events = this.getEventsForDate(currentDate);
 
             const dayElement = this.createDayElement(day, false, isToday, events);
+            if (events.length > 0 && currentDate.getTime() < dimCutoff.getTime()) {
+                dayElement.classList.add('past-dim');
+            }
             this.calendarDaysElement.appendChild(dayElement);
         }
 
