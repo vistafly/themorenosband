@@ -31,57 +31,85 @@ document.addEventListener('DOMContentLoaded', function() {
     const hamburger = document.getElementById('hamburger');
     const navLinks = document.getElementById('nav-links');
     const navOverlay = document.getElementById('nav-overlay');
+    const navMenu = document.getElementById('nav-menu');
+    const navbar = document.querySelector('.navbar');
+    const nextShowLink = document.getElementById('nav-next-show');
+
+    // Fill the "Next Show" teaser from the highlighted (or first) tour card
+    function updateNextShow() {
+        if (!nextShowLink) return;
+        const card = document.querySelector('.tour-date.currently-playing, .tour-date.highlight') ||
+                     document.querySelector('.tour-date');
+        if (!card) { nextShowLink.hidden = true; return; }
+        const month = card.querySelector('.month')?.textContent.trim() || '';
+        const day = card.querySelector('.day')?.textContent.trim() || '';
+        const venue = card.querySelector('.venue-header h3')?.textContent.trim() || '';
+        const time = card.querySelector('.event-time')?.textContent.trim() || '';
+        const start = time === 'TBD' ? '' : time.split(/\s*[-–—]\s*/)[0].replace(/\s*Show$/i, '');
+        const playing = card.classList.contains('currently-playing');
+        nextShowLink.querySelector('.nav-next-label').textContent = playing ? 'Playing Now' : 'Next Show';
+        const details = nextShowLink.querySelector('.nav-next-details');
+        const when = document.createElement('span');
+        const where = document.createElement('span');
+        when.className = 'nav-next-when';
+        where.className = 'nav-next-venue';
+        when.textContent = [`${month.charAt(0)}${month.slice(1).toLowerCase()} ${day}`, start].filter(Boolean).join(' · ');
+        where.textContent = venue;
+        details.replaceChildren(when, where);
+        nextShowLink.hidden = false;
+    }
+
+    function setMenuOpen(open) {
+        hamburger.classList.toggle('active', open);
+        navLinks.classList.toggle('active', open);
+        navOverlay.classList.toggle('active', open);
+        if (navMenu) navMenu.classList.toggle('open', open);
+        if (navbar) navbar.classList.toggle('menu-open', open);
+        hamburger.setAttribute('aria-expanded', String(open));
+        hamburger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+        document.body.style.overflow = open ? 'hidden' : '';
+
+        // Pause/resume tour scroller when menu opens/closes
+        if (window.tourScroller) {
+            open ? window.tourScroller.pause() : window.tourScroller.resume();
+        }
+        if (open) updateNextShow();
+    }
 
     // Toggle mobile menu
     function toggleMobileMenu() {
-        hamburger.classList.toggle('active');
-        navLinks.classList.toggle('active');
-        navOverlay.classList.toggle('active');
-        
-        // Pause/resume tour scroller when menu opens/closes
-        if (window.tourScroller) {
-            if (navLinks.classList.contains('active')) {
-                window.tourScroller.pause();
-                document.body.style.overflow = 'hidden';
-            } else {
-                window.tourScroller.resume();
-                document.body.style.overflow = '';
-            }
-        } else {
-            document.body.style.overflow = navLinks.classList.contains('active') ? 'hidden' : '';
-        }
+        setMenuOpen(!navLinks.classList.contains('active'));
     }
 
     // Close mobile menu
     function closeMobileMenu() {
-        hamburger.classList.remove('active');
-        navLinks.classList.remove('active');
-        navOverlay.classList.remove('active');
-        document.body.style.overflow = '';
-        
-        if (window.tourScroller) {
-            window.tourScroller.resume();
-        }
+        if (navLinks.classList.contains('active')) setMenuOpen(false);
     }
 
     // Event listeners for mobile menu
     if (hamburger) {
         hamburger.addEventListener('click', toggleMobileMenu);
+        hamburger.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleMobileMenu();
+            }
+        });
     }
     if (navOverlay) {
         navOverlay.addEventListener('click', closeMobileMenu);
     }
 
-    // Close menu when clicking on navigation links
-    if (navLinks) {
-        navLinks.querySelectorAll('a').forEach(link => {
+    // Close menu when clicking on navigation links (and the next-show teaser)
+    if (navMenu) {
+        navMenu.querySelectorAll('a[href^="#"]').forEach(link => {
             link.addEventListener('click', closeMobileMenu);
         });
     }
 
-    // Close menu when window is resized to desktop
+    // Close menu when window is resized to desktop (matches the 1236px CSS breakpoint)
     window.addEventListener('resize', function() {
-        if (window.innerWidth > 768) {
+        if (window.innerWidth > 1236) {
             closeMobileMenu();
         }
     });
@@ -2378,14 +2406,31 @@ class ImmersiveNav {
         this.lastScrollY = window.scrollY;
         this.scrollDirection = 0;
         this.scrollDelta = 0;
+        this.travel = 0; // Distance scrolled in the current direction
         this.ticking = false;
         this.mobileMenuOpen = false; // Track mobile menu state
+        this.pinnedUntil = 0; // Keep navbar visible until this timestamp
+        // Tuning: how far to scroll before hiding / showing
+        this.hideAfter = 250; // px scrolled down in one go
+        this.showAfter = 40;  // px scrolled up in one go
+        this.showOnStop = 600; // ms without scrolling before navbar reappears
+        this.stopTimer = null;
         this.init();
     }
 
     init() {
-        window.addEventListener('scroll', this.handleScroll.bind(this));
-        
+        window.addEventListener('scroll', this.handleScroll.bind(this), { passive: true });
+
+        // Keep navbar visible while a nav link smooth-scrolls to its section
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('a[href^="#"]')) this.pin(1500);
+        });
+
+        // Desktop: reveal navbar when the mouse moves to the top of the window
+        document.addEventListener('mousemove', (e) => {
+            if (e.clientY < 80 && this.navbar.classList.contains('hidden')) this.pin(0);
+        }, { passive: true });
+
         // Watch for mobile menu state changes
         const navLinks = document.querySelector('.nav-links');
         if (navLinks) {
@@ -2409,8 +2454,15 @@ class ImmersiveNav {
         if (this.mobileMenuOpen) return;
 
         this.scrollDelta = window.scrollY - this.lastScrollY;
-        this.scrollDirection = Math.sign(this.scrollDelta);
+        const direction = Math.sign(this.scrollDelta);
+        // Accumulate distance while direction holds; reset when it flips
+        this.travel = direction === this.scrollDirection ? this.travel + Math.abs(this.scrollDelta) : Math.abs(this.scrollDelta);
+        if (direction !== 0) this.scrollDirection = direction;
         this.lastScrollY = window.scrollY;
+
+        // Bring the navbar back once scrolling stops
+        clearTimeout(this.stopTimer);
+        this.stopTimer = setTimeout(() => this.pin(0), this.showOnStop);
 
         if (!this.ticking) {
             window.requestAnimationFrame(() => {
@@ -2426,20 +2478,25 @@ class ImmersiveNav {
         if (this.mobileMenuOpen) return;
 
         const atTop = window.scrollY < 10;
-        const scrolledEnough = Math.abs(this.scrollDelta) > 5;
-        const shouldHide = this.scrollDirection > 0 && window.scrollY > 120;
-        const shouldShow = this.scrollDirection < 0 || atTop;
+        const pinned = Date.now() < this.pinnedUntil || this.navbar.matches(':hover, :focus-within');
+        const shouldHide = !pinned && this.scrollDirection > 0 && this.travel > this.hideAfter && window.scrollY > 300;
+        const shouldShow = atTop || pinned || (this.scrollDirection < 0 && this.travel > this.showAfter);
 
         this.navbar.classList.toggle('at-top', atTop);
         this.navbar.classList.toggle('scrolled', !atTop);
 
-        if (scrolledEnough) {
-            if (shouldHide && !this.navbar.classList.contains('hidden')) {
-                this.navbar.classList.add('hidden');
-            } else if (shouldShow && this.navbar.classList.contains('hidden')) {
-                this.navbar.classList.remove('hidden');
-            }
+        if (shouldShow) {
+            this.navbar.classList.remove('hidden');
+        } else if (shouldHide) {
+            this.navbar.classList.add('hidden');
         }
+    }
+
+    // Show the navbar and keep it visible for `ms` milliseconds
+    pin(ms) {
+        this.pinnedUntil = Date.now() + ms;
+        this.travel = 0;
+        this.navbar.classList.remove('hidden');
     }
 }
 
@@ -2905,6 +2962,7 @@ class TourCalendar {
         this.calendarDaysElement = document.querySelector('.calendar-days');
         this.prevMonthBtn = document.querySelector('.prev-month');
         this.nextMonthBtn = document.querySelector('.next-month');
+        this.todayBtn = document.querySelector('.calendar-today-btn');
         this.viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
         this.popup = document.getElementById('calendar-popup');
         this.activeDay = null;
@@ -2997,6 +3055,16 @@ class TourCalendar {
             });
         }
 
+        // Jump back to the current month
+        if (this.todayBtn) {
+            this.todayBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.goToToday();
+                this.closePopup();
+            });
+        }
+
         // Close popup when clicking outside calendar days or popup
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.calendar-day') && !e.target.closest('.calendar-event-popup')) {
@@ -3044,8 +3112,21 @@ class TourCalendar {
     }
 
     changeMonth(delta) {
+        // Pin to the 1st so e.g. Jan 31 + 1 month doesn't skip to March
+        this.currentDate.setDate(1);
         this.currentDate.setMonth(this.currentDate.getMonth() + delta);
         this.renderCalendar();
+    }
+
+    goToToday() {
+        this.currentDate = new Date();
+        this.renderCalendar();
+        const todayCell = this.calendarDaysElement.querySelector('.calendar-day.today');
+        if (todayCell) {
+            todayCell.classList.remove('today-flash');
+            void todayCell.offsetWidth; // restart the animation
+            todayCell.classList.add('today-flash');
+        }
     }
 
     renderCalendar() {
@@ -3060,6 +3141,14 @@ class TourCalendar {
             'July', 'August', 'September', 'October', 'November', 'December'
         ];
         this.monthYearElement.textContent = `${monthNames[month]} ${year}`;
+
+        // "Today" button is only useful when viewing another month
+        if (this.todayBtn) {
+            const now = new Date();
+            const onCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+            this.todayBtn.disabled = onCurrentMonth;
+            this.todayBtn.setAttribute('aria-label', onCurrentMonth ? 'Showing the current month' : 'Go to today');
+        }
 
         // Clear previous days
         this.calendarDaysElement.innerHTML = '';
@@ -3116,6 +3205,8 @@ class TourCalendar {
 
         if (isToday) {
             dayDiv.classList.add('today');
+            dayDiv.setAttribute('aria-current', 'date');
+            dayDiv.title = 'Today';
         }
 
         if (events.length > 0) {
@@ -3138,10 +3229,16 @@ class TourCalendar {
             // Store events data
             dayDiv.dataset.events = JSON.stringify(events);
 
-            // Click/tap to show popup
+            // Click/tap: one show -> jump to its card in List View;
+            // several shows -> popup so the visitor can pick one
             dayDiv.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.showPopup(dayDiv, events);
+                if (events.length === 1 && this.canShowCard(events[0].element)) {
+                    this.goToCard(events[0].element);
+                } else {
+                    this.cancelPopupClose();
+                    this.showPopup(dayDiv, events);
+                }
             });
 
             // Desktop hover to show popup
@@ -3161,6 +3258,52 @@ class TourCalendar {
         }
 
         return dayDiv;
+    }
+
+    // Past gigs older than a week are hidden from List View, so there's no card to show
+    canShowCard(card) {
+        return !!card && !card.classList.contains('tour-card-hidden');
+    }
+
+    // Switch to List View, bring the tour section into view and center the card
+    goToCard(card) {
+        this.closePopup();
+        this.switchView('list');
+
+        requestAnimationFrame(() => {
+            const tour = document.getElementById('tour');
+            if (tour) {
+                window.scrollTo({ top: tour.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+            }
+
+            // Reuse the auto-scroller so it also pauses after this "interaction"
+            const scroller = window.tourScroller;
+            const index = scroller ? scroller.tourCards.indexOf(card) : -1;
+            if (index >= 0) {
+                scroller.goToCard(index);
+            } else {
+                const grid = this.listView;
+                const left = card.offsetLeft + card.offsetWidth / 2 - grid.offsetWidth / 2;
+                grid.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+            }
+
+            // Light the card once the scrolling has settled, so the flash isn't
+            // missed while the page is still moving
+            let lit = false;
+            const light = () => {
+                if (lit) return;
+                lit = true;
+                card.classList.remove('card-spotlight');
+                void card.offsetWidth; // restart the animation
+                card.classList.add('card-spotlight');
+                clearTimeout(card._spotlightTimer);
+                card._spotlightTimer = setTimeout(() => card.classList.remove('card-spotlight'), 3000);
+            };
+            if ('onscrollend' in window) {
+                window.addEventListener('scrollend', light, { once: true });
+            }
+            setTimeout(light, 700);
+        });
     }
 
     getEventsForDate(date) {
@@ -3203,6 +3346,29 @@ class TourCalendar {
                 address.className = 'popup-address';
                 address.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${event.address}`;
                 eventDiv.appendChild(address);
+            }
+
+            // Click through to the card in List View
+            if (this.canShowCard(event.element)) {
+                eventDiv.classList.add('popup-event-link');
+                eventDiv.setAttribute('role', 'button');
+                eventDiv.tabIndex = 0;
+                const cta = document.createElement('div');
+                cta.className = 'popup-view-card';
+                cta.innerHTML = 'View details <i class="fas fa-arrow-right"></i>';
+                eventDiv.appendChild(cta);
+
+                const open = (e) => {
+                    e.stopPropagation();
+                    this.goToCard(event.element);
+                };
+                eventDiv.addEventListener('click', open);
+                eventDiv.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        open(e);
+                    }
+                });
             }
 
             this.popup.appendChild(eventDiv);

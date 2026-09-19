@@ -2,5 +2,8 @@
 # Not meant to be published; consulted locally before rebuilding tour cards.
 venues/
 
+# Claude Code project settings and skills (tour-dates generator) — local tooling only.
+.claude/
+
 # Google Search Console exports and other SEO audit data — local reference only.
 SEO/

@@ -1708,6 +1708,86 @@ a {
     font-weight: 600;
 }
 
+/* Today: filled circle behind the number (works with or without a show) */
+.calendar-day.today .calendar-day-number,
+.calendar-day.today.has-event .calendar-day-number {
+    display: grid;
+    place-items: center;
+    width: 2em;
+    height: 2em;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--light);
+    font-weight: 700;
+    box-shadow: 0 0 0 3px rgba(155, 123, 184, 0.25), 0 0 14px rgba(155, 123, 184, 0.45);
+}
+
+.calendar-day.today-flash {
+    animation: calendar-today-flash 1.2s ease-out;
+}
+
+@keyframes calendar-today-flash {
+    0% { box-shadow: 0 0 0 0 rgba(155, 123, 184, 0.8); }
+    100% { box-shadow: 0 0 0 14px rgba(155, 123, 184, 0); }
+}
+
+/* Month title + Today button */
+.calendar-title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.calendar-today-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid rgba(155, 123, 184, 0.6);
+    border-radius: 999px;
+    background: rgba(155, 123, 184, 0.12);
+    color: var(--light);
+    font-family: var(--font-main);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
+    touch-action: manipulation;
+}
+
+.calendar-today-btn i {
+    color: var(--primary);
+    transition: color 0.25s ease;
+}
+
+.calendar-today-btn:hover:not(:disabled) {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.calendar-today-btn:hover:not(:disabled) i {
+    color: var(--light);
+}
+
+.calendar-today-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.calendar-today-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .calendar-day.today-flash {
+        animation: none;
+    }
+}
+
 /* Event Details Popup - Shared Popup */
 .calendar-event-popup {
     position: fixed;
@@ -1789,6 +1869,122 @@ a {
     font-size: 0.75rem;
     margin-top: 0.15rem;
     flex-shrink: 0;
+}
+
+/* Popup entries that link to their card in List View */
+.popup-event-link {
+    margin: 0 -0.5rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.popup-event-link:hover,
+.popup-event-link:focus-visible {
+    background: rgba(155, 123, 184, 0.15);
+    outline: none;
+}
+
+.popup-view-card {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--primary);
+}
+
+.popup-view-card i {
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+}
+
+.popup-event-link:hover .popup-view-card i {
+    transform: translateX(4px);
+}
+
+/* Card the visitor jumped to from the calendar - stage light hit */
+.tour-date.card-spotlight {
+    outline: 2px solid transparent;
+    /* Keeps the ring on the card's own 14px corners - never set border-radius
+       here, "inherit" would take the grid's square corners */
+    outline-offset: 4px;
+    animation: card-spotlight 2.8s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 3;
+}
+
+@keyframes card-spotlight {
+    0% {
+        outline-color: rgba(255, 246, 232, 0);
+        outline-offset: 16px;
+        box-shadow:
+            inset 0 0 40px 6px rgba(255, 246, 232, 0),
+            inset 0 0 0 1px rgba(255, 252, 245, 0),
+            0 0 0 0 rgba(255, 246, 232, 0);
+        filter: brightness(1);
+        transform: translateY(0) scale(1);
+    }
+    /* the light snaps on */
+    10% {
+        outline-color: rgba(255, 252, 245, 0.95);
+        outline-offset: 4px;
+        box-shadow:
+            inset 0 0 40px 6px rgba(255, 246, 232, 0.45),
+            inset 0 0 0 1px rgba(255, 252, 245, 0.8),
+            0 0 0 5px rgba(255, 246, 232, 0.28),
+            0 0 38px 10px rgba(255, 246, 232, 0.5),
+            0 0 90px 26px rgba(155, 123, 184, 0.55);
+        filter: brightness(1.3);
+        transform: translateY(-5px) scale(1.015);
+    }
+    /* settles into a purple halo */
+    38% {
+        outline-color: rgba(214, 191, 235, 0.9);
+        outline-offset: 4px;
+        box-shadow:
+            inset 0 0 34px 4px rgba(155, 123, 184, 0.4),
+            inset 0 0 0 1px rgba(214, 191, 235, 0.5),
+            0 0 0 3px rgba(155, 123, 184, 0.35),
+            0 0 30px 6px rgba(155, 123, 184, 0.5),
+            0 0 70px 18px rgba(155, 123, 184, 0.35);
+        filter: brightness(1.1);
+        transform: translateY(-2px) scale(1.006);
+    }
+    75% {
+        outline-color: rgba(155, 123, 184, 0.75);
+        outline-offset: 4px;
+        box-shadow:
+            inset 0 0 26px 2px rgba(155, 123, 184, 0.25),
+            inset 0 0 0 1px rgba(214, 191, 235, 0.25),
+            0 0 0 2px rgba(155, 123, 184, 0.22),
+            0 0 26px 4px rgba(155, 123, 184, 0.32),
+            0 0 60px 14px rgba(155, 123, 184, 0.2);
+        filter: brightness(1.04);
+        transform: none;
+    }
+    100% {
+        outline-color: rgba(155, 123, 184, 0);
+        outline-offset: 4px;
+        box-shadow:
+            inset 0 0 26px 2px rgba(155, 123, 184, 0),
+            inset 0 0 0 1px rgba(214, 191, 235, 0),
+            0 0 0 0 rgba(155, 123, 184, 0);
+        filter: brightness(1);
+        transform: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tour-date.card-spotlight {
+        animation: none;
+        outline-color: rgba(214, 191, 235, 0.9);
+        box-shadow: 0 0 30px 6px rgba(155, 123, 184, 0.45);
+    }
 }
 
 /* Arrow pointer removed for dynamic positioning */
@@ -5328,5 +5524,382 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     .social-feed-card-header {
         font-size: 1.1rem;
         padding: 12px 15px;
+    }
+}
+
+/* =============================================
+   MOBILE / TABLET MENU - Full-screen stage
+   Overrides the old slide-in drawer rules above.
+   ============================================= */
+
+/* Desktop: the menu wrapper is invisible to layout, links stay inline */
+.nav-menu {
+    display: contents;
+}
+
+.nav-menu-extras {
+    display: none;
+}
+
+/* backdrop-filter can't transition to "none" smoothly; animate the rest only */
+.navbar {
+    transition-property: transform, padding, box-shadow, background-color;
+}
+
+@media (max-width: 1236px) {
+    /* The navbar's blur/transform would trap the fixed menu inside the navbar
+       and stop the menu's own blur from reaching the page - drop them while open */
+    .navbar.menu-open {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .hamburger {
+        position: relative;
+        z-index: 1002;
+        width: 46px;
+        height: 46px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border-radius: 50%;
+        transition: background 0.3s ease;
+    }
+
+    .hamburger.active {
+        background: rgba(155, 123, 184, 0.18);
+    }
+
+    .hamburger:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+
+    /* Backdrop: blurred black with a soft purple stage light */
+    .nav-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background:
+            radial-gradient(120% 70% at 100% 0%, rgba(155, 123, 184, 0.28), transparent 60%),
+            radial-gradient(90% 60% at 0% 100%, rgba(155, 123, 184, 0.14), transparent 65%),
+            rgba(8, 6, 12, 0.93);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+        z-index: 999;
+    }
+
+    .nav-overlay.active {
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 0.35s ease;
+    }
+
+    /* Menu panel */
+    .nav-menu {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        inset: 0;
+        height: 100vh; /* fallback for older browsers */
+        height: calc(var(--stable-vh, 1vh) * 100);
+        padding: 104px max(28px, calc((100vw - 540px) / 2)) 32px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        z-index: 1000;
+        visibility: hidden;
+        pointer-events: none;
+        transition: visibility 0s linear 0.35s;
+    }
+
+    .nav-menu.open {
+        visibility: visible;
+        pointer-events: auto;
+        transition: none;
+    }
+
+    /* Reset the old drawer styles */
+    .nav-menu .nav-links {
+        position: static;
+        right: auto;
+        width: auto;
+        max-width: none;
+        height: auto;
+        background: none;
+        box-shadow: none;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        margin: 0;
+        counter-reset: navnum;
+        transition: none;
+    }
+
+    .nav-menu .nav-links li {
+        display: block;
+        margin: 0;
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .nav-menu.open .nav-links li {
+        opacity: 1;
+        transform: none;
+    }
+
+    .nav-menu.open .nav-links li:nth-child(1) { transition-delay: 0.05s; }
+    .nav-menu.open .nav-links li:nth-child(2) { transition-delay: 0.10s; }
+    .nav-menu.open .nav-links li:nth-child(3) { transition-delay: 0.15s; }
+    .nav-menu.open .nav-links li:nth-child(4) { transition-delay: 0.20s; }
+    .nav-menu.open .nav-links li:nth-child(5) { transition-delay: 0.25s; }
+    .nav-menu.open .nav-links li:nth-child(6) { transition-delay: 0.32s; }
+
+    .nav-menu .nav-links li:not(.nav-cta) {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Big numbered stage links */
+    .nav-menu .nav-links li:not(.nav-cta) a {
+        counter-increment: navnum;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 14px 4px;
+        font-family: var(--font-heading);
+        font-size: clamp(2.1rem, 8.5vw, 3.2rem);
+        font-weight: 400;
+        letter-spacing: 1.5px;
+        line-height: 1;
+        text-align: left;
+        color: var(--light);
+        transition: color 0.25s ease, transform 0.25s ease;
+    }
+
+    .nav-menu .nav-links li:not(.nav-cta) a::before {
+        content: counter(navnum, decimal-leading-zero);
+        min-width: 1.9em;
+        padding-top: 2px; /* optical alignment with the cap height */
+        font-family: var(--font-main);
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        color: var(--primary);
+    }
+
+    /* Current section marker */
+    .nav-menu .nav-links li:not(.nav-cta) a::after {
+        content: '';
+        align-self: center;
+        width: 9px;
+        height: 9px;
+        margin-left: auto;
+        border-radius: 50%;
+        background: var(--primary);
+        box-shadow: 0 0 12px rgba(155, 123, 184, 0.9);
+        opacity: 0;
+        transform: scale(0);
+        transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .nav-menu .nav-links li:not(.nav-cta) a.active {
+        color: var(--primary);
+    }
+
+    .nav-menu .nav-links li:not(.nav-cta) a.active::after {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    /* Book Now call-to-action */
+    .nav-menu .nav-links li.nav-cta {
+        margin-top: 28px;
+    }
+
+    .nav-menu .nav-links li.nav-cta a,
+    .nav-menu .nav-links li.nav-cta a.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 18px 24px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #b89bd3 0%, var(--primary) 55%, #7c5b9b 100%);
+        box-shadow: 0 10px 30px rgba(155, 123, 184, 0.35);
+        color: var(--light);
+        font-family: var(--font-main);
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 3px;
+        line-height: 1;
+        text-shadow: none;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .nav-menu .nav-links li.nav-cta a::after {
+        content: '\2192';
+        font-size: 1.25em;
+        letter-spacing: 0;
+        transition: transform 0.25s ease;
+    }
+
+    .nav-menu .nav-links li.nav-cta a:active {
+        transform: scale(0.98);
+    }
+
+    @media (hover: hover) {
+        .nav-menu .nav-links li:not(.nav-cta) a:hover {
+            color: var(--primary);
+            transform: translateX(6px);
+        }
+
+        .nav-menu .nav-links li.nav-cta a:hover {
+            box-shadow: 0 14px 38px rgba(155, 123, 184, 0.5);
+        }
+
+        .nav-menu .nav-links li.nav-cta a:hover::after {
+            transform: translateX(5px);
+        }
+    }
+
+    /* Next show teaser + socials */
+    .nav-menu-extras {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        margin-top: auto;
+        padding-top: 36px;
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    .nav-menu.open .nav-menu-extras {
+        opacity: 1;
+        transform: none;
+        transition-delay: 0.4s;
+    }
+
+    .nav-next-show {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 16px 18px;
+        text-align: center;
+        border: 1px solid rgba(155, 123, 184, 0.35);
+        border-radius: 16px;
+        background: rgba(155, 123, 184, 0.08);
+        transition: background 0.25s ease, border-color 0.25s ease;
+    }
+
+    .nav-next-show[hidden] {
+        display: none;
+    }
+
+    .nav-next-show:hover {
+        background: rgba(155, 123, 184, 0.15);
+        border-color: rgba(155, 123, 184, 0.6);
+    }
+
+    .nav-next-label {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--primary);
+    }
+
+    .nav-next-label::before {
+        content: '';
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: var(--primary);
+        animation: nav-live-pulse 1.8s ease-out infinite;
+    }
+
+    .nav-next-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        line-height: 1.35;
+    }
+
+    .nav-next-when {
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        color: rgba(255, 255, 255, 0.65);
+    }
+
+    .nav-next-venue {
+        font-family: var(--font-heading);
+        font-size: 1.35rem;
+        letter-spacing: 1px;
+        color: var(--light);
+    }
+
+    .nav-menu-social {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+    }
+
+    .nav-menu-social a {
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 50%;
+        color: var(--light);
+        font-size: 1.05rem;
+        transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+    }
+
+    .nav-menu-social a:hover {
+        background: var(--primary);
+        border-color: var(--primary);
+    }
+}
+
+/* Tall screens (tablets): center the menu instead of pinning extras to the bottom */
+@media (max-width: 1236px) and (min-height: 900px) {
+    .nav-menu {
+        justify-content: center;
+    }
+
+    .nav-menu-extras {
+        margin-top: 0;
+        padding-top: 48px;
+    }
+}
+
+@keyframes nav-live-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(155, 123, 184, 0.7); }
+    100% { box-shadow: 0 0 0 9px rgba(155, 123, 184, 0); }
+}
+
+@media (max-width: 1236px) and (prefers-reduced-motion: reduce) {
+    .nav-menu .nav-links li,
+    .nav-menu-extras,
+    .nav-overlay {
+        transition: none;
+        transform: none;
+    }
+
+    .nav-next-label::before {
+        animation: none;
     }
 }
