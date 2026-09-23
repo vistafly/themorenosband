@@ -1,16 +1,344 @@
 /* Modern CSS for Local Band */
+
+/* ==========================================================================
+   DESIGN TOKENS — sampled from the logo (chrome mic / blackletter ink /
+   crimson rose / green leaves). Every colour in this stylesheet routes
+   through these. Do not introduce raw hex values below this block.
+
+   Proportion target: ~60% ink+paper, ~30% chrome, ~10% rose, green <=3%.
+   ========================================================================== */
 :root {
-    --primary: #9B7BB8;        /* Purple from logo */
-    --secondary: #000000;      /* Background black */
-    --dark: #1a1a1a;           /* Slightly lighter black for contrast */
-    --light: #ffffff;          /* White */
-    --accent: #9B7BB8;         /* Matching logo accent */
-    --highlight: #ffffff;      /* White as highlight in text */
+    /* Ink — the wordmark black, warmed slightly so it's not flat #000 */
+    --ink-950: #0e0b0c;   /* darkest backgrounds, hero overlay base */
+    --ink-900: #171314;   /* dark section bg, footer */
+    --ink-800: #221c1e;   /* dark cards / raised surfaces */
+    --ink-700: #2e2729;   /* borders on dark */
+
+    /* Paper — soft ivory instead of stark white (pairs with blackletter) */
+    --paper:    #faf7f4;  /* light section bg */
+    --paper-2:  #f3eeea;  /* alternate light section / cards */
+    --white:    #ffffff;
+
+    /* Chrome — the microphone */
+    --chrome-100: #e4e4e5;
+    --chrome-300: #adafb0; /* secondary text on dark, dividers */
+    --chrome-500: #8f9193;
+    --chrome-700: #575f59;
+
+    /* Rose — the brand accent (from the rose petals) */
+    --rose-900: #4a0d18;
+    --rose-700: #6f1524;  /* rose shadow tone, pressed states */
+    --rose-600: #8a1530;  /* PRIMARY on light backgrounds */
+    --rose-500: #a31431;  /* PRIMARY buttons, key accents */
+    --rose-300: #e0566f;  /* rose text/links on DARK backgrounds only */
+    --rose-100: #f7e4e8;  /* soft tint: badges, hover bg on light */
+
+    /* Leaf — from the rose leaves. Use sparingly. */
+    --leaf-800: #1c3e24;
+    --leaf-600: #326d44;  /* success states, "confirmed" gig badge */
+    --leaf-400: #6fa37f;  /* leaf on dark backgrounds */
+    --leaf-100: #e5efe8;
+
+    /* Semantic */
+    --text:          #1a1516;          /* body text on light */
+    --text-muted:    #5c5557;
+    --text-on-dark:  #ece6e2;
+    --muted-on-dark: #a39a9c;
+    --accent:        var(--rose-500);
+    --accent-hover:  var(--rose-600);
+    --link:          var(--rose-600);
+    --success:       var(--leaf-600);
+    --error:         #b3261e;
+    --focus-ring:    0 0 0 3px rgba(163, 20, 49, .35);
+
+    /* Signature effects */
+    --grad-rose:   linear-gradient(135deg, #a31431 0%, #6f1524 100%);
+    --grad-chrome: linear-gradient(90deg, transparent, #adafb0 20%, #e4e4e5 50%, #adafb0 80%, transparent);
+    --grad-hero:   linear-gradient(180deg, rgba(14,11,12,.35) 0%, rgba(14,11,12,.55) 55%, rgba(14,11,12,.92) 100%);
+
+    /* Elevation. All shadows are neutral ink — rose is a FILL and a TEXT
+       colour, never a shadow. Coloured drop-shadows read cheap and muddy the
+       neutrals, so there is deliberately no rose glow token. */
+    --shadow-card: 0 1px 2px rgba(14,11,12,.06), 0 12px 32px -12px rgba(14,11,12,.18);
+    --shadow-sm:   0 1px 2px rgba(14,11,12,.08), 0 3px 8px -4px rgba(14,11,12,.16);
+    --lift:        0 2px 4px rgba(14,11,12,.10), 0 14px 28px -12px rgba(14,11,12,.38);
+    --lift-lg:     0 3px 6px rgba(14,11,12,.12), 0 26px 52px -18px rgba(14,11,12,.46);
+    /* On dark surfaces the same shadows need more weight to register */
+    --lift-dark:   0 14px 32px -10px rgba(14,11,12,.72);
+    --lift-dark-lg:0 22px 52px -14px rgba(14,11,12,.85);
+
+    /* --- Additions beyond the brand sheet, needed for WCGA compliance and
+           for composing rgba() tints without repeating literals --- */
+
+    /* Channel triplets, so alpha tints stay tokenised: rgba(var(--x-rgb), .3) */
+    --accent-rgb: 163, 20, 49;      /* --rose-500 */
+    --ink-rgb:    14, 11, 12;       /* --ink-950  — all shadows, never pure black */
+    --chrome-rgb: 173, 175, 176;    /* --chrome-300 — structural tints on dark */
+    --paper-rgb:  250, 247, 244;    /* --paper — warm highlights/glints on dark */
+    --leaf-rgb:   50, 109, 68;      /* --leaf-600 */
+    --error-rgb:  179, 38, 30;      /* --error */
+
+    /* --error (#b3261e) is only 2.82:1 on --ink-900 — fails AA. Dark surfaces
+       use this warm coral instead (7.33:1 on --ink-900, stays in the rose family). */
+    --error-on-dark: #f0857d;
+
+    /* --chrome-300 as a control border on white is 2.20:1 — fails WCAG 1.4.11
+       (3:1 for UI boundaries). Real control borders use these; --chrome-300 is
+       for decorative dividers only. */
+    --border-input:   var(--chrome-500);  /* 3.16:1 on --white */
+    --border-on-dark: var(--chrome-500);  /* 5.83:1 on --ink-900 */
 
     --font-main: 'Montserrat', sans-serif;
     --font-heading: 'Bebas Neue', sans-serif;
 
-    --section-padding: 100px;
+    /* One rhythm for every section. Fluid rather than stepped at breakpoints:
+       ~94px at 1440, ~72px at 1100, floor of 64px below ~985px. Sections used
+       to run 48 / 60 / 70 / 100px depending on which rule won. */
+    --section-padding: clamp(64px, 6.5vw, 100px);
+
+    /* Clearance for the fixed navbar when a section is scrolled to. Written by
+       script.js from the navbar's real scrolled height, so it follows any
+       padding change instead of drifting out of step. The value here is only
+       the fallback used before that first measurement. */
+    --nav-offset: 80px;
+
+    /* --- Legacy aliases -------------------------------------------------
+       The original palette was purple-on-black and these six carried it.
+       Every declaration in this file has been migrated to the semantic
+       tokens above, so these now have ZERO uses — they are kept only as a
+       safety net for any markup or injected style that still names them.
+       Do not use them in new code. */
+    --primary:   var(--rose-500);
+    --secondary: var(--ink-950);
+    --dark:      var(--ink-900);
+    --light:     var(--text-on-dark);
+    --highlight: var(--white);
+}
+
+::selection {
+    background: var(--rose-500);
+    color: var(--white);
+}
+
+/* ==========================================================================
+   LOGO SHIMMER
+
+   A specular highlight that rakes across the logo, pauses, then rakes back.
+   Replaces the old red drop-shadow glow on the preloader and the hero.
+
+   The sweep is MASKED with the logo PNG itself, so the light only ever
+   travels over the artwork - never across the transparent box around it.
+   That is what makes it read as light on an object rather than a rectangle
+   sliding past.
+
+   The band is a true specular: a faint DARK leading edge, a bright core, a
+   softer dark trail. Under `overlay` the dark side darkens and the bright
+   side lightens, which is the only way the sheen stays visible across the
+   white wordmark - pure white cannot be brightened any further.
+   ========================================================================== */
+.logo-shimmer {
+    position: relative;
+    /* contain the blend so it mixes with the logo, not the hero video */
+    isolation: isolate;
+}
+
+.logo-shimmer > img {
+    display: block;
+}
+
+/* Two passes, swept in lockstep.
+
+   One pass cannot light this artwork. `overlay` and `soft-light` both preserve
+   pure black and pure white by definition, and this logo is almost entirely a
+   white wordmark inside a heavy black outline - so a single overlay pass is
+   mathematically invisible on the parts that matter.
+
+     ::before  multiply  darkens, so it shows on the WHITE wordmark
+     ::after   screen    lightens, so it shows on the BLACK outline and chrome
+
+   Together they read as one specular highlight travelling over the mark. */
+.logo-shimmer::before,
+.logo-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+
+    background-repeat: no-repeat;
+    /* 220%, not 300%. The band's travel is (100% - size) of the box, so an
+       oversized image spends most of the sweep off-frame - at 300% the core
+       was only over the logo for ~0.5s of a 2s pass, which read as a flash
+       rather than a sweep. At 220% it is on the mark for ~83% of the pass. */
+    background-size: 220% 100%;
+    /* Parked just off the RIGHT, matching keyframe 0% of logo-shimmer */
+    background-position: 0% 0;
+
+    -webkit-mask-image: url('images/morenos-logo.png');
+            mask-image: url('images/morenos-logo.png');
+    -webkit-mask-size: 100% 100%;
+            mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+            mask-position: center;
+
+    animation: logo-shimmer 9s infinite;
+}
+
+/* Shading just ahead of and behind the core — the only thing that registers
+   on the white wordmark, since white cannot be brightened. Kept very light:
+   any heavier and it reads as a smudge rather than a falloff. */
+.logo-shimmer::before {
+    background-image: linear-gradient(105deg,
+        transparent 0%,
+        transparent 43%,
+        rgba(14, 11, 12, .16) 47%,
+        rgba(14, 11, 12, 0) 50%,
+        rgba(14, 11, 12, .10) 53.5%,
+        transparent 57%,
+        transparent 100%);
+    mix-blend-mode: multiply;
+}
+
+/* The specular core. Narrow and well short of full white on purpose — at
+   alpha 1 the screen pass turned the black blackletter outline fully white
+   and the mark lost all its definition as the band went past. */
+.logo-shimmer::after {
+    background-image: linear-gradient(105deg,
+        transparent 0%,
+        transparent 45.5%,
+        rgba(255, 255, 255, .16) 48%,
+        rgba(255, 255, 255, .55) 50%,
+        rgba(255, 255, 255, .16) 52%,
+        transparent 54.5%,
+        transparent 100%);
+    mix-blend-mode: screen;
+}
+
+/* 2s sweep across - 2.5s hold - 2s sweep back - 2.5s hold.
+   Per-keyframe timing functions so the sweeps ease and the holds sit still.
+
+   DIRECTION MATTERS HERE. background-position 100% puts the band just off the
+   LEFT edge and 0% puts it just off the RIGHT, so:
+
+       100% -> 0%   sweeps rightward
+       0% -> 100%   sweeps leftward
+
+   The loader's hand-off sweep (logo-shimmer-entry, below) runs rightward, so
+   this one opens LEFTWARD. Otherwise the mark got raked in the same direction
+   twice in a row across the hand-off and the second pass looked like a stutter
+   of the first. */
+@keyframes logo-shimmer {
+    0% {
+        background-position: 0% 0;
+        animation-timing-function: cubic-bezier(.45, .05, .3, 1);
+    }
+    22% {
+        background-position: 100% 0;
+        animation-timing-function: linear;
+    }
+    50% {
+        background-position: 100% 0;
+        animation-timing-function: cubic-bezier(.45, .05, .3, 1);
+    }
+    72% {
+        background-position: 0% 0;
+        animation-timing-function: linear;
+    }
+    100% {
+        background-position: 0% 0;
+    }
+}
+
+/* The hero sweep waits for the hand-off.
+   It used to start on page load and run behind the loader the whole time, so
+   whichever pass happened to be playing when the loader cleared was pure luck -
+   at a ~8s load you caught the start of a cycle, at a ~5s load you caught a
+   return pass already in flight. Holding it until script.js adds .site-entered
+   means the first pass a visitor ever sees is always keyframe 0%, leftward. */
+.hero-logo.logo-shimmer::before,
+.hero-logo.logo-shimmer::after {
+    animation: none;
+}
+
+.site-entered .hero-logo.logo-shimmer::before,
+.site-entered .hero-logo.logo-shimmer::after {
+    /* 0.9s delay so it begins just after the loader has finished fading out */
+    animation: logo-shimmer 9s 0.9s infinite;
+}
+
+/* The preloader mark fades in as the page loads. The fade is applied to this
+   wrapper (by script.js) rather than to the <img>, so the sheen rises with the
+   logo instead of floating over an invisible one. */
+.logo-shimmer--loader {
+    opacity: 0;
+    transition: opacity 0.6s ease;
+}
+
+/* On the preloader the sweep is NOT ambient. It holds completely still while
+   the colour is filling - two effects competing for the same mark just muddied
+   both - and only fires once the logo is fully back, as the "come on in" beat
+   before the loader hands over to the hero. script.js adds .reveal-done at
+   that moment. */
+.logo-shimmer--loader::before,
+.logo-shimmer--loader::after {
+    opacity: 0;
+    animation: none;
+}
+
+/* ONE slow pass, not two fast ones. The rapid double sweep read as a twitch -
+   it drew attention to itself right at the moment the site should feel calm
+   and open. A single unhurried rake, paired with the glow taking one soft
+   breath underneath it, is the confirmation instead.
+   Keep the duration in step with ENTRY_SWEEP_MS in script.js. */
+.logo-shimmer--loader.reveal-done::before,
+.logo-shimmer--loader.reveal-done::after {
+    opacity: 1;
+    animation: logo-shimmer-entry 1.15s cubic-bezier(.33, 0, .18, 1) both;
+}
+
+@keyframes logo-shimmer-entry {
+    from { background-position: 100% 0; }
+    to   { background-position: 0% 0; }
+}
+
+/* The mark exhales once as the door opens: the coloured halo swells a little,
+   peaks with the sweep, then settles back as the loader hands over. No scale
+   on the logo itself - it is pixel-matched to the hero mark underneath, and
+   moving it would show as a doubled image through the cross-fade. */
+.logo-shimmer--loader.reveal-done .loader-logo-glow {
+    animation: loader-glow-breath 1.35s cubic-bezier(.33, 0, .2, 1) both;
+}
+
+@keyframes loader-glow-breath {
+    0%   { transform: scale(1);    opacity: .9; }
+    45%  { transform: scale(1.06); opacity: 1; }
+    100% { transform: scale(1.03); opacity: .82; }
+}
+
+/* Footer mark is smaller and sits in quieter company - soften the core a
+   little so it reads as a sheen rather than a flash. */
+.logo-shimmer--footer {
+    display: block;
+    width: -moz-fit-content;
+    width: fit-content;
+    margin: 0 auto;
+}
+
+.logo-shimmer--footer::before,
+.logo-shimmer--footer::after {
+    opacity: .7;
+    animation-duration: 11s;
+    animation-delay: 1.5s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .logo-shimmer::before,
+    .logo-shimmer::after {
+        animation: none;
+        opacity: 0;
+    }
 }
 
 /* Base Reset */
@@ -35,8 +363,8 @@
 
 body {
     font-family: var(--font-main);
-    color: var(--light);
-    background-color: var(--dark);
+    color: var(--text-on-dark);
+    background-color: var(--ink-900);
     line-height: 1.6;
     overflow-x: hidden;
 }
@@ -66,6 +394,15 @@ a {
     padding: var(--section-padding) 0;
 }
 
+/* Every scroll target clears the fixed navbar, so landing on /#tour directly
+   or via any native anchor jump puts the heading below the bar rather than
+   underneath it. */
+.section,
+.tour-section,
+.hero {
+    scroll-margin-top: var(--nav-offset);
+}
+
 .section-header {
     text-align: center;
     margin-bottom: 50px;
@@ -75,7 +412,7 @@ a {
     font-size: clamp(2rem, 5vw, 3rem);
     margin-bottom: 15px;
     position: relative;
-    color: var(--light);
+    color: var(--text-on-dark);
 }
 
 .section-title::after {
@@ -86,7 +423,39 @@ a {
     transform: translateX(-50%);
     width: 80px;
     height: 3px;
-    background: var(--primary);
+    background: var(--grad-rose);
+}
+
+/* ==========================================================================
+   SECTION RHYTHM
+
+   The page alternates strictly dark / light so no two neighbours share a tone.
+   Two sections are anchored by third-party content this stylesheet cannot
+   reach inside, and the rest alternate outward from them:
+
+     hero            DARK   video + --grad-hero
+     Performances    LIGHT  --paper
+     Testimonials    DARK   --ink-900
+     Upcoming Gigs   LIGHT  --paper-2
+     Merch           DARK   --ink-900
+     Follow Us       LIGHT  --paper      <- FB + Instagram embeds render white
+     Book The Band   DARK   --ink-900    <- the Fillout form renders dark
+     Footer          DARK   --ink-950    <- one tone deeper + chrome hairline
+
+   Book and Footer are the only same-tone neighbours; the Fillout form forces
+   it. They are separated by a tone step and the footer's chrome hairline, so
+   the page reads as closing down into the footer rather than as a mistake.
+
+   Because the tone change IS the divider, the chrome hairlines that used to
+   sit on top of every section were removed - only the footer keeps one.
+   ========================================================================== */
+
+/* Headings on the light sections invert their ink. Scoped to the existing
+   section classes so no markup has to change. */
+.videos-section .section-title,
+.tour-section .section-title,
+.social-feed-section .section-title {
+    color: var(--text);
 }
 
 .section-subtitle {
@@ -106,76 +475,66 @@ a {
     font-size: 0.8rem;
 }
 
-/* === LUXURY SCROLL TRACK === */
+/* ==========================================================================
+   SCROLL PROGRESS RAIL
+
+   A hairline rail on the right edge, vertically centred, filling downward.
+
+   The old version was a 4px bar across the top of the window, and its
+   colours were broken by construction: the rose -> chrome -> rose gradient
+   was painted on the RIBBON, and the ribbon is the thing that grows. At 10%
+   scroll the entire eight-stop gradient was squashed into a 10%-wide sliver,
+   so the bar showed a different smear of colour at every scroll position
+   instead of reading as progress. It also sat at z-index 9999 directly under
+   the fixed navbar, and stacked three blurred layers with a soft-light blend
+   and a looping feather animation on top of each other.
+
+   Here the gradient lives on a full-height element and is revealed with
+   clip-path, so the colour is anchored to the rail and never distorts - the
+   rose simply deepens as you go down the page. No blurs, no blend modes, no
+   idle animation.
+   ========================================================================== */
 .luxe-scroll-track {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 4px; /* Slightly thicker for gradient visibility */
-  background: rgba(25, 20, 15, 0.15); /* Warm dark base */
-  z-index: 9999;
-  overflow: hidden;
-}
-
-/* === SILK PROGRESS RIBBON === */
-.luxe-progress-ribbon {
-  height: 100%;
-  width: 0;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(155, 123, 184, 0.8) 10%,  /* Light purple */
-    rgba(170, 140, 200, 0.9) 25%,  /* Medium purple */
-    rgba(180, 155, 204, 1) 40%,    /* Light purple */
-    rgba(190, 165, 215, 1) 50%,    /* Bright purple */
-    rgba(180, 155, 204, 1) 60%,    /* Light purple */
-    rgba(170, 140, 200, 0.9) 75%,  /* Medium purple */
-    rgba(155, 123, 184, 0.8) 90%,  /* Light purple */
-    transparent 100%);
-  transition: width 0.2s cubic-bezier(0.12, 0.65, 0.35, 1); /* Smooth ease-out */
-  position: relative;
-}
-
-/* === IMMERSIVE GLOW LAYER === */
-.luxe-progress-ribbon::before {
-  content: '';
-  position: absolute;
+  right: 16px;
   top: 50%;
-  left: 0;
-  width: 100%;
-  height: 300%;
   transform: translateY(-50%);
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(255, 230, 180, 0.5) 20%,
-    rgba(255, 240, 200, 0.7) 50%,
-    rgba(255, 230, 180, 0.5) 80%,
-    transparent 100%);
-  filter: blur(12px);
-  mix-blend-mode: soft-light;
-  opacity: 0.9;
+  width: 3px;
+  height: clamp(120px, 26vh, 280px);
+  border-radius: 999px;
+  /* Chrome at this alpha is the one neutral that holds on both tones: it
+     resolves to roughly #dcdcdc over --paper and #4f4f4f over --ink-900, so
+     the empty part of the rail stays visible as the page alternates light
+     and dark sections. At 0.2 it disappeared completely on the light ones. */
+  background: rgba(var(--chrome-rgb), 0.38);
+  overflow: hidden;
   pointer-events: none;
+  /* Under the navbar (1000), the cart (999) and the mobile menu overlay, so
+     an open menu covers it rather than the rail floating over the top. */
+  z-index: 900;
 }
 
-/* === EDGE FEATHER EFFECT === */
-.luxe-progress-ribbon::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -10px;
-  width: calc(100% + 20px);
+.luxe-progress-ribbon {
+  width: 100%;
   height: 100%;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(255, 240, 200, 0.4) 30%,
-    transparent 100%);
-  filter: blur(5px);
-  animation: edge-feather 3s infinite alternate;
+  border-radius: inherit;
+  background: linear-gradient(180deg,
+    var(--rose-300) 0%,
+    var(--rose-500) 55%,
+    var(--rose-700) 100%);
+  /* Revealed top-down. clip-path rather than height, so the gradient stays
+     anchored to the full rail instead of being compressed into the filled
+     portion. --p is written by ProgressBar in script.js. */
+  clip-path: inset(0 0 calc(100% - var(--p, 0%)) 0);
+  will-change: clip-path;
 }
 
-@keyframes edge-feather {
-  0% { opacity: 0.7; transform: translateX(-5px); }
-  100% { opacity: 0.9; transform: translateX(5px); }
+@media (max-width: 768px) {
+  .luxe-scroll-track {
+    right: 10px;
+    width: 2px;
+    height: clamp(90px, 20vh, 180px);
+  }
 }
 
 /* Navigation - Fixed Issues */
@@ -186,6 +545,7 @@ a {
     left: 0;
     z-index: 1000;
     padding: 25px 0;
+    background: rgba(var(--ink-rgb), 0.85);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     transition: all 0.3s ease;
@@ -193,9 +553,10 @@ a {
 
 .navbar.scrolled {
     padding: 18px 0;
+    background: rgba(var(--ink-rgb), 0.92);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 4px 30px rgba(var(--ink-rgb), 0.45);
 }
 
 .navbar.hidden {
@@ -231,6 +592,17 @@ a {
 
 /* Tablet & Small Desktop */
 @media (max-width: 768px) {
+    /* On mobile the bar holds nothing but the 46px hamburger, so the desktop
+       25px/18px vertical padding made a ~96px fixed header eating the top of
+       every screen. Tightened to 10px/7px -> ~66px, ~52px once scrolled. */
+    .navbar {
+        padding: 10px 0;
+    }
+
+    .navbar.scrolled {
+        padding: 7px 0;
+    }
+
     .logo {
         height: 80px;
         padding-top: 0px;
@@ -261,7 +633,12 @@ a {
 }
 
 .nav-links li {
-    margin-left: 90px;
+    /* Was a flat 90px. The mobile menu takes over at 1236px, so between
+       1237px and ~1270px the six items needed 1171px inside 1157px of
+       available width and the bar wrapped to two rows, breaking "Upcoming
+       Gigs" and "Book Now". Fluid spacing keeps the original 90px from
+       ~1500px up and closes the gap at the bottom of the desktop range. */
+    margin-left: clamp(40px, 6vw, 90px);
     display: flex;
     align-items: center;
 }
@@ -273,18 +650,47 @@ a {
     text-transform: uppercase;
     transition: all 0.3s ease;
     position: relative;
-    color: var(--light);
+    color: var(--text-on-dark);
     display: inline-block;
     line-height: 1;
 }
 
 .nav-links a:hover {
-    color: var(--primary);
+    color: var(--rose-300);
 }
 
 .nav-links a.active {
-    color: var(--primary);
-    text-shadow: 0 0 8px rgba(155, 123, 184, 0.6), 0 0 20px rgba(155, 123, 184, 0.3);
+    color: var(--rose-300);
+    /* No text-glow: the colour change plus the underline already mark the
+       active section, and a red halo on type reads cheap. */
+}
+
+/* Desktop only: 2px rose underline that grows out from the centre.
+   Scoped above the mobile breakpoint so it cannot collide with the
+   full-screen mobile menu's own ::after treatment. */
+@media (min-width: 1237px) {
+    .nav-links a::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        bottom: -6px;
+        width: 0;
+        height: 2px;
+        /* rose-300, not rose-500: the nav is dark, and --rose-500 only makes
+           2.4:1 against it (needs 3:1 as a UI indicator). rose-300 is 5.1:1. */
+        background: var(--rose-300);
+        transform: translateX(-50%);
+        transition: width 0.25s ease;
+    }
+
+    .nav-links a:hover::after,
+    .nav-links a.active::after {
+        width: 100%;
+    }
+
+    .nav-links li.nav-cta a::after {
+        display: none; /* the CTA is a filled button, not an underlined link */
+    }
 }
 
 /* Hamburger menu button - only visible on mobile */
@@ -300,7 +706,7 @@ a {
 .hamburger span {
     width: 25px;
     height: 3px;
-    background: var(--light);
+    background: var(--text-on-dark);
     margin: 3px 0;
     border-radius: 2px;
     transition: all 0.4s cubic-bezier(0.55, 0.055, 0.675, 0.19);
@@ -332,7 +738,7 @@ a {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(var(--ink-rgb), 0.5);
     z-index: 999;
 }
 
@@ -342,9 +748,7 @@ a {
 
 /* UPDATE YOUR EXISTING MOBILE STYLES - Replace the existing @media (max-width: 768px) section */
 @media (max-width: 1236px) {
-    .section {
-        padding: 70px 0;
-    }
+    /* .section padding override removed - --section-padding is fluid now */
 
     /* Show hamburger menu */
     .hamburger {
@@ -360,12 +764,12 @@ a {
         max-width: 300px;
         height: 100vh; /* fallback for older browsers */
         height: calc(var(--stable-vh, 1vh) * 100);
-        background: var(--dark);
+        background: var(--ink-900);
         flex-direction: column;
         align-items: center;
         justify-content: center;
         transition: all 0.3s ease;
-        box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+        box-shadow: -5px 0 20px rgba(var(--ink-rgb), 0.3);
         z-index: 1000;
     }
 
@@ -434,7 +838,9 @@ a {
     z-index: 0;
 }
 
-/* Video overlay */
+/* Video overlay — ink gradient so the logo's white outline reads.
+   The rose radial that used to sit behind the wordmark is gone; the logo is
+   lit by the shimmer sweep instead. */
 .hero::before {
     content: '';
     position: absolute;
@@ -442,7 +848,7 @@ a {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(rgba(15, 15, 27, 0.7), rgba(15, 15, 27, 0.7));
+    background: var(--grad-hero);
     z-index: 1;
 }
 
@@ -476,7 +882,7 @@ a {
     width: 20px;
     height: 30px;
     margin-top: 10px;
-    border: 1px solid var(--light);
+    border: 1px solid var(--chrome-300);
     border-radius: 15px;
     position: relative;
 }
@@ -489,7 +895,7 @@ a {
     transform: translateX(-50%);
     width: 4px;
     height: 4px;
-    background: var(--light);
+    background: var(--chrome-100);
     border-radius: 50%;
     animation: scrollDown 2s infinite;
 }
@@ -500,12 +906,11 @@ a {
     100% { transform: translate(-50%, 10px); opacity: 0; }
 }
 
-/* Video Section - Expanded Width Version */
+/* Video Section - Expanded Width Version - LIGHT */
 .videos-section {
-    background: var(--dark);
-    padding: 60px 20px; /* Remove side padding completely */
-    border-top: 3px solid var(--primary);
-
+    background: var(--paper);
+    color: var(--text);
+    padding: var(--section-padding) 20px;
 }
 
 .videos-section .container {
@@ -514,94 +919,621 @@ a {
     margin: 0 auto;
 }
 
-.video-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Slightly larger min width */
-    gap: 40px; /* Reduced gap for more space utilization */
-    width: 100%; /* Ensure full width */
-}
+/* ==========================================================================
+   LIVE PERFORMANCES REEL
 
-/* Keep all your existing video item styles */
-.video-item {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    overflow: hidden;
-    transition: all 0.3s ease;
-}
-
-.video-item:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-.video-info {
-    padding: 15px 20px; /* Slightly reduced top/bottom padding */
-    color: white; /* Ensures text is readable on dark bg */
-    text-align: left; /* Explicit alignment (fixes potential center-aligned text) */
-    line-height: 1.4; /* Better readability */
-}
-
-.video-info h3 {
-    font-size: 1.3rem;
-    margin: 0 0 8px 0; /* Tightened margin (was 5px) */
-    font-weight: 600; /* Boldness for titles */
-    letter-spacing: 0.5px; /* Slight spacing for elegance */
-}
-
-.video-info p {
-    font-size: 0.9rem;
-    opacity: 0.8;
-    margin: 0; /* Remove default paragraph margins */
-    font-weight: 300; /* Lighter weight for subtlety */
-}
-
-/* Optional: Add a divider between video and info */
-.video-item {
-    border: 1px solid rgba(255, 255, 255, 0.1); /* Soft border */
-}
-
-/* Video Play Button Styles */
-/* Remove all audio-related UI elements */
-.autoplay-video::-webkit-media-controls-volume-slider,
-.autoplay-video::-webkit-media-controls-mute-button,
-.autoplay-video::-webkit-media-controls-toggle-closed-captions-button {
-    display: none !important;
-}
-
-/* Video container styling */
-.video-wrapper {
+   One performance on screen at a time. Slides are stacked and cross-faded
+   rather than slid, which keeps the stage perfectly still while the footage
+   changes - it reads as a single screen playing different clips instead of a
+   carousel of boxes. Replaced a two-up grid of autoplaying tiles.
+   ========================================================================== */
+/* Grid rather than a stack, because the arrows now live BESIDE the stage
+   instead of on top of it. The side columns are sized by the buttons, so the
+   video keeps whatever is left - and the wider max-width is what stops that
+   costing the stage any of its old 980px. */
+.reel {
+    max-width: 1120px;
+    margin: 0 auto;
     position: relative;
-    cursor: pointer;
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+        "prev stage next"
+        "meta meta  meta"
+        "dots dots  dots";
+    align-items: center;
+    --reel-side: 48px;   /* the arrow columns; also where the volume lines up */
+    --reel-gap: 18px;
+    column-gap: var(--reel-gap);
 }
 
-.video-wrapper video {
+.reel-prev  { grid-area: prev; }
+.reel-stage { grid-area: stage; }
+.reel-next  { grid-area: next; }
+.reel-meta  { grid-area: meta; }
+.reel-dots  { grid-area: dots; }
+
+.reel-stage {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--ink-950);      /* letterbox colour while a clip loads */
+    box-shadow: var(--shadow-card);
+    isolation: isolate;
+}
+
+.reel-slide {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.65s ease, visibility 0s linear 0.65s;
+}
+
+.reel-slide.is-active {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.65s ease, visibility 0s;
+}
+
+.reel-video {
+    display: block;
     width: 100%;
     height: 100%;
+    /* Every clip fills the stage edge to edge. Two of the three are already
+       16:9; the FresYes footage is 960x404 (2.38:1) so it is cropped about an
+       eighth off each side to reach 16:9. Centred, because that clip's subject
+       runs down the middle of the frame. */
     object-fit: cover;
+    object-position: center;
 }
 
-.video-item:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-/* Hide native controls until interaction */
-.autoplay-video {
-    display: block;
-    cursor: pointer;
-}
-
-.autoplay-video::-webkit-media-controls {
+/* Native chrome stays out of the way - this is a showcase, not a player */
+.reel-video::-webkit-media-controls {
     display: none !important;
 }
 
-/* Testimonials Section */
-.testimonials-section {
-    background: var(--secondary);
-    border-top: 3px solid var(--primary);
+/* --- prev / next --------------------------------------------------------
+   Secondary button on light: outlined rose, filling on hover. These used to be
+   plated because they sat over the footage; beside it on the paper section
+   they read as raised buttons instead. */
+.reel-nav {
+    width: var(--reel-side, 48px);
+    height: var(--reel-side, 48px);
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--rose-600);
+    background: var(--white);
+    color: var(--rose-600);
+    font-size: 1.05rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.25s ease, color 0.25s ease,
+                border-color 0.25s ease, transform 0.25s ease,
+                box-shadow 0.25s ease;
+}
 
+.reel-nav:hover {
+    background: var(--rose-600);
+    border-color: var(--rose-600);
+    color: var(--white);
+    transform: scale(1.08);
+    box-shadow: var(--lift);
+}
+
+.reel-nav:active {
+    transform: scale(0.97);
+}
+
+.reel-nav:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* --- auto-advance timer --------------------------------------------------
+   A hairline along the bottom of the stage that fills over the dwell time, so
+   the cycling is something the visitor can see coming rather than a clip that
+   swaps for no reason. */
+.reel-timer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    z-index: 2;
+    background: rgba(var(--paper-rgb), 0.22);
+}
+
+.reel-timer-fill {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--grad-rose);
+    transform-origin: left center;
+}
+
+/* --- caption ------------------------------------------------------------- */
+.reel-meta {
+    text-align: center;
+    margin-top: 22px;
+    min-height: 62px;        /* reserve the space so dots never jump on change */
+}
+
+.reel-title {
+    font-family: var(--font-heading);
+    font-size: 1.6rem;
+    letter-spacing: 1px;
+    color: var(--text);
+    margin: 0 0 4px;
+}
+
+.reel-sub {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* --- dots ---------------------------------------------------------------- */
+.reel-dots {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    margin-top: 6px;
+    /* Tall enough to seat the volume control on the same line */
+    min-height: 42px;
+}
+
+.reel-dot {
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    /* chrome-700, not chrome-300: these sit on --paper and indicate state, so
+       they need 3:1. chrome-300 would be 2.1:1. */
+    background: var(--chrome-700);
+    cursor: pointer;
+    transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.reel-dot:hover {
+    background: var(--rose-600);
+    transform: scale(1.2);
+}
+
+.reel-dot[aria-current="true"] {
+    background: var(--rose-500);
+    transform: scale(1.3);
+}
+
+.reel-dot:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+@media (max-width: 768px) {
+    /* The stage takes the full width and the arrows move down beside the dots.
+       Flanking them here would cost the video ~90px of its ~330px. */
+    .reel {
+        grid-template-areas:
+            "stage stage stage"
+            "meta  meta  meta"
+            "prev  dots  next";
+        --reel-side: 40px;
+        --reel-gap: 10px;
+    }
+
+    .reel-stage { border-radius: 12px; }
+
+    .reel-nav { font-size: 0.9rem; }
+
+    .reel-dots { min-height: 0; }
+
+    .reel-title { font-size: 1.35rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reel-slide,
+    .reel-slide.is-active { transition: none; }
+    .reel-timer { display: none; }
+}
+
+/* ==========================================================================
+   VOLUME CONTROL  (shared: the hero background and the performances reel)
+
+   A pill that is a plain round button until it is wanted. The slider is
+   collapsed to zero width and only unfurls on hover, on keyboard focus, or
+   once sound is actually on - which is also what makes it reachable on touch,
+   where there is no hover to rely on: the first tap turns sound on, and the
+   slider is there from then on.
+
+   The plate is themed per host (.vol--reel on light, .vol--hero on the video),
+   but the mechanism below is shared.
+   ========================================================================== */
+/* Registering --v makes it a real percentage rather than a token, which is
+   what lets the filled part of the track TRANSITION. Without this the fill can
+   only jump from one value to the next, which is what makes a slider that is
+   being driven from elsewhere look steppy. Browsers without @property simply
+   get the jump. */
+@property --v {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 80%;
+}
+
+.vol {
+    /* Overridden per skin below; here so a control can never end up with an
+       invisible groove if it is dropped somewhere new without one. */
+    --vol-track: rgba(var(--ink-rgb), 0.3);
+    position: relative;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    transition: padding 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+                background 0.25s ease, border-color 0.25s ease;
+}
+
+.vol-btn {
+    flex: none;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease, transform 0.2s ease;
+}
+
+/* --- the speaker ---------------------------------------------------------
+   Drawn rather than swapped between icons. Each arc has its own opacity, fed
+   a 0..1 value by script.js, so the waves come in and out with the level
+   continuously instead of jumping from none to all three at once. */
+.vol-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+}
+
+.vol-icon svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.vol-spk { fill: currentColor; }
+
+.vol-wave,
+.vol-x {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    transition: opacity 150ms linear;
+}
+
+.vol-w1 { opacity: var(--w1, 0); }
+.vol-w2 { opacity: var(--w2, 0); }
+.vol-w3 { opacity: var(--w3, 0); }
+.vol-x  { opacity: var(--mute, 1); }
+
+/* Under the finger the icon should keep up with the thumb, not trail it */
+.vol.is-dragging .vol-wave,
+.vol.is-dragging .vol-x { transition: opacity 60ms linear; }
+
+.vol-btn:active { transform: scale(0.94); }
+
+.vol-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* --- the slider ----------------------------------------------------------
+   appearance:none on the input, then the track and thumb are drawn by the
+   pseudo-elements. Chrome has no progress pseudo, so the filled portion is a
+   hard-stop gradient driven by --v (written by script.js); Firefox does have
+   ::-moz-range-progress and uses it. */
+.vol-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 0;
+    min-width: 0;
+    height: 14px;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    background: transparent;
+    cursor: pointer;
+    transition: width 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.22s ease,
+                --v 110ms linear;
+}
+
+/* Under the finger the fill must be 1:1 with the pointer - a transition there
+   would read as lag. It is only wanted when the value is arriving from
+   somewhere else, i.e. the other player's control moving in sympathy. */
+.vol.is-dragging .vol-slider {
+    transition: width 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.22s ease;
+}
+
+.vol:not(.vol--vertical):hover .vol-slider,
+.vol:not(.vol--vertical):focus-within .vol-slider,
+.vol:not(.vol--vertical).is-on .vol-slider {
+    width: 88px;
+    opacity: 1;
+    margin: 0 10px 0 8px;
+}
+
+/* --- vertical ------------------------------------------------------------
+   A rotated horizontal input rather than writing-mode: vertical-rl. The
+   standard property only renders a range vertically in Chrome 111+, Firefox
+   129+ and Safari 17.4+; anything older would draw it horizontally inside a
+   narrow box, and there is no way to feature-detect that from CSS (the
+   writing-mode property itself is supported far more widely than the range
+   behaviour). A rotation behaves identically everywhere, and because the value
+   still runs along the element's own axis, -90deg puts the minimum at the
+   bottom and the fill grows upward, which is what a volume slider should do.
+   The gradient, the native Firefox progress and the thumb all follow it. */
+.vol--vertical {
+    flex-direction: column-reverse;   /* button at the bottom, slider above it */
+}
+
+.vol-slider-wrap {
+    position: relative;
+    display: block;
+    width: 24px;
+    height: 0;
+    overflow: hidden;
+    transition: height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vol--vertical .vol-slider {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 92px;        /* its LENGTH - vertical once rotated */
+    height: 24px;       /* its thickness */
+    margin: 0;
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.vol--vertical:hover .vol-slider-wrap,
+.vol--vertical:focus-within .vol-slider-wrap,
+.vol--vertical.is-on .vol-slider-wrap {
+    height: 92px;
+    margin-bottom: 6px;
+}
+
+/* --- a clip with no sound in it ------------------------------------------
+   The LEVEL greys out, because there is no level to set. The mute button does
+   not: disabling it would trap a viewer with the sound switched on until the
+   reel happened to move to a clip that has some. Greyed rather than hidden,
+   too - a control appearing and vanishing as the reel cycles is worse than one
+   that plainly says there is nothing to hear. */
+.vol.is-unavailable:hover .vol-slider,
+.vol.is-unavailable:focus-within .vol-slider,
+.vol.is-unavailable.is-on .vol-slider,
+.vol--vertical.is-unavailable .vol-slider {
+    opacity: 0.4;
+}
+
+.vol.is-unavailable .vol-slider {
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.vol.is-unavailable .vol-slider::-webkit-slider-runnable-track {
+    background: var(--vol-track);
+}
+
+.vol.is-unavailable .vol-slider::-moz-range-progress { background: var(--vol-track); }
+
+.vol.is-unavailable .vol-slider::-webkit-slider-thumb {
+    border-color: var(--chrome-500);
+    background: var(--chrome-100);
+}
+
+.vol.is-unavailable .vol-slider::-moz-range-thumb {
+    border-color: var(--chrome-500);
+    background: var(--chrome-100);
+}
+
+.vol-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg,
+        var(--rose-500) 0 var(--v, 80%),
+        var(--vol-track) var(--v, 80%) 100%);
+}
+
+.vol-slider::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--vol-track);
+}
+
+.vol-slider::-moz-range-progress {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--rose-500);
+}
+
+.vol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;          /* centre a 14px thumb on the 4px track */
+    border-radius: 50%;
+    border: 1px solid var(--rose-600);
+    background: var(--white);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.vol-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--rose-600);
+    background: var(--white);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+}
+
+.vol-slider:hover::-webkit-slider-thumb,
+.vol-slider:active::-webkit-slider-thumb { transform: scale(1.15); }
+
+.vol-slider:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: 999px;
+}
+
+/* --- reel: light plate over the footage --------------------------------- */
+/* Inside the stage, bottom right, growing upward out of the button. Back on a
+   translucent plate because it sits over footage again and has to stay legible
+   against whatever frame is behind it. */
+.vol--reel {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    padding: 4px;
+    border: 1px solid var(--rose-600);
+    background: rgba(var(--paper-rgb), 0.92);
+    box-shadow: var(--shadow-sm);
+    /* The unfilled groove has to be DARKER than this near-white plate or the
+       level is unreadable, and the two contrasts pull against each other: no
+       alpha clears 3:1 both against the plate and against the rose fill. .30
+       is the best split here - 3.1:1 against the fill even over a black frame,
+       which is the pairing that actually conveys the value, and 2.0:1 against
+       the plate. (The plate is translucent over footage, so it sits darker
+       than a solid white one and this has to be lighter than it would be on
+       paper.) The control's own boundary comes from the thumb, 3.7:1 against
+       the groove, and the pill's rose border at 9.4:1 over any frame. */
+    --vol-track: rgba(var(--ink-rgb), 0.30);
+}
+
+.vol--reel .vol-btn {
+    width: 32px;
+    height: 32px;
+    color: var(--rose-600);
+}
+
+.vol--reel:hover { background: var(--paper); box-shadow: var(--lift); }
+.vol--reel .vol-btn:hover { background: rgba(var(--accent-rgb), 0.12); }
+
+.vol--reel.is-on .vol-btn {
+    background: var(--rose-600);
+    color: var(--white);
+}
+
+.vol--reel.is-on .vol-btn:hover { background: var(--rose-500); }
+
+/* --- hero: the same glass plate as the social icons ----------------------
+   Top left of the hero, tucked under the navbar. --nav-offset is the measured
+   bar height written by script.js, so this clears it at every breakpoint
+   rather than assuming one. (The bottom right is not an option regardless:
+   the cart button is fixed there at 60x60 with z-index 999.) */
+.vol--hero {
+    position: absolute;
+    left: 30px;
+    top: calc(var(--nav-offset, 80px) + 16px);
+    padding: 6px;
+    border: 1px solid var(--chrome-300);
+    /* .35 like the social icons is not enough up HERE. They sit at the bottom
+       of the hero where the ink gradient is already at .81; this is near the
+       top where it is only ~.40, so against a bright frame the plate measured
+       4.3:1 behind the icon and the outline all but vanished at 1.2:1. At .7
+       the icon is 9.6:1 and the plate itself carries the edge at 4.4:1, while
+       the chrome outline still carries it against dark frames. */
+    background: rgba(var(--ink-rgb), 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    /* And here the opposite: a near-white groove on the dark glass, so the
+       crimson fill reads against it (4.7:1) and the groove reads against the
+       plate (11.4:1). A half-transparent version of it measured 1.8:1 against
+       the fill - the level was effectively invisible. */
+    --vol-track: rgba(var(--paper-rgb), 0.8);
+}
+
+.vol--hero .vol-btn {
+    width: 36px;
+    height: 36px;
+    color: var(--text-on-dark);
+}
+
+.vol--hero .vol-icon { width: 20px; height: 20px; }
+
+.vol--hero:hover { border-color: var(--rose-300); }
+.vol--hero .vol-btn:hover { background: rgba(var(--accent-rgb), 0.3); color: var(--rose-300); }
+
+.vol--hero.is-on .vol-btn {
+    background: var(--rose-600);
+    color: var(--white);
+}
+
+.vol--hero.is-on .vol-btn:hover { background: var(--rose-500); color: var(--white); }
+
+@media (max-width: 768px) {
+    .vol:hover .vol-slider,
+    .vol:focus-within .vol-slider,
+    .vol.is-on .vol-slider { width: 74px; }
+
+    /* Shorter throw: the stage is only ~180px tall here, so a 92px slider plus
+       the button would fill more than half of it. */
+    .vol--reel {
+        right: 10px;
+        bottom: 10px;
+        padding: 3px;
+    }
+
+    .vol--reel .vol-btn {
+        width: 30px;
+        height: 30px;
+    }
+
+    .vol--vertical .vol-slider { width: 62px; }
+
+    .vol--vertical:hover .vol-slider-wrap,
+    .vol--vertical:focus-within .vol-slider-wrap,
+    .vol--vertical.is-on .vol-slider-wrap {
+        height: 62px;
+        margin-bottom: 4px;
+    }
+
+    .vol-icon { width: 16px; height: 16px; }
+
+    /* The socials sit centred at top:100px on mobile, so the left edge here is
+       clear - they are 42px wide each and start well right of this. */
+    .vol--hero {
+        left: 16px;
+        top: calc(var(--nav-offset, 64px) + 14px);
+        padding: 5px;
+    }
+
+    .vol--hero .vol-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Testimonials Section - DARK */
+.testimonials-section {
+    background: var(--ink-900);
+    color: var(--text-on-dark);
 }
 
 .testimonials-grid {
@@ -611,7 +1543,9 @@ a {
 }
 
 .testimonial-card {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ink-800);
+    color: var(--text-on-dark);
+    border: 1px solid var(--ink-700);
     padding: 30px;
     border-radius: 10px;
     transition: all 0.3s ease;
@@ -619,7 +1553,7 @@ a {
 }
 
 .testimonial-card:hover {
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--lift-dark);
 }
 
 /* Logo Container - Uniform Base */
@@ -656,7 +1590,7 @@ a {
 
 .logo-morenos img {
     transform: scale(2);
-    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.1));
+    filter: drop-shadow(0 1px 1px rgba(var(--ink-rgb), 0.1));
     margin-top: 30px;
 }
 
@@ -736,7 +1670,7 @@ a {
 
 /* Existing Styles (unchanged) */
 .stars {
-    color: var(--highlight);
+    color: var(--rose-300);   /* rose on dark */
     font-size: 1.2rem;
     margin-bottom: 15px;
 }
@@ -745,30 +1679,46 @@ a {
     font-style: italic;
     margin-bottom: 20px;
     position: relative;
+    color: var(--text-on-dark);
+}
+
+/* Rose quote mark. Absolutely positioned so it decorates without
+   displacing the quote text. */
+.testimonial-text::before {
+    content: '\201C';
+    position: absolute;
+    top: -0.45em;
+    left: -0.15em;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 3.2rem;
+    line-height: 1;
+    color: var(--rose-300);
+    opacity: 0.4;
+    pointer-events: none;
 }
 
 .client-info {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--ink-700);
     padding-top: 15px;
 }
 
 .client-name {
     font-weight: 700;
     margin-bottom: 0px;
+    color: var(--text-on-dark);
 }
 
 .client-venue {
     font-size: 0.9rem;
-    opacity: 0.8;
+    color: var(--muted-on-dark);
 }
 
 /* Tour Dots Removed - Using Scrollbar Instead */
-/* ===== Tour Section ===== */
+/* ===== Tour Section — LIGHT (paper-2) ===== */
 .tour-section {
-    background: var(--dark);
-    border-top: 3px solid var(--primary);
-    color: var(--light);
-    padding: 3rem 1.5rem;
+    background: var(--paper-2);
+    color: var(--text);
+    padding: var(--section-padding) 1.5rem;
     margin: 0 auto;
     position: relative;
 }
@@ -777,7 +1727,7 @@ a {
     text-align: center;
     margin-bottom: 3rem;
     font-size: 2.5rem;
-    color: var(--light);
+    color: var(--text-on-dark);
     font-weight: 700;
     letter-spacing: 0.5px;
 }
@@ -795,15 +1745,28 @@ a {
     gap: 2.5rem;
     overflow-x: auto;
     overflow-y: visible;
+
+    /* Cards always settle centred, but a flick is allowed to travel across
+       several of them. `scroll-snap-stop: always` used to force a full stop on
+       EVERY card, so the row could never be thrown - that was the harshness. */
     scroll-snap-type: x mandatory;
-    scroll-snap-stop: always;
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
+
+    /* NO `scroll-behavior: smooth` here.
+       The drag handler writes grid.scrollLeft on every pointermove, and with
+       smooth behaviour each of those writes became its own animated scroll that
+       the next write interrupted - the row lagged behind the cursor and drag
+       felt stuck. Every programmatic scroll in script.js already asks for
+       `behavior: 'smooth'` explicitly, so nothing loses its easing. */
+
+    /* Stop a horizontal flick from triggering browser back-navigation */
+    overscroll-behavior-x: contain;
+
     padding: 0 2rem 20px 2rem; /* Space for scrollbar */
 
     /* Modern scrollbar styles for desktop */
     scrollbar-width: thin;
-    scrollbar-color: var(--primary) rgba(255, 255, 255, 0.1);
+    scrollbar-color: var(--chrome-500) var(--paper);
 }
 
 /* Custom Scrollbar for Webkit browsers (Chrome, Safari, Edge) - All Screens */
@@ -812,23 +1775,23 @@ a {
 }
 
 .tour-grid::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--paper);
     border-radius: 10px;
     margin: 0 40px; /* Margins on left and right */
 }
 
 .tour-grid::-webkit-scrollbar-thumb {
-    background: var(--primary);
+    background: var(--chrome-500);
     border-radius: 10px;
     transition: background 0.3s ease;
 }
 
 .tour-grid::-webkit-scrollbar-thumb:hover {
-    background: #B49BCC; /* Lighter purple on hover */
+    background: var(--chrome-700); /* Darker chrome on hover */
 }
 
 .tour-grid::-webkit-scrollbar-thumb:active {
-    background: #7A5A99; /* Darker purple when dragging */
+    background: var(--rose-600); /* Rose while dragging */
 }
 
 /* Desktop card sizing */
@@ -842,7 +1805,8 @@ a {
 /* MOBILE/TABLET ADJUSTMENTS */
 @media (max-width: 768px) {
     .tour-section {
-        padding: 2rem 0;
+        /* sides drop to 0 so the card row can bleed to the screen edges */
+        padding: var(--section-padding) 0;
     }
 
     .section-title {
@@ -874,7 +1838,7 @@ a {
 /* Extra small mobile */
 @media (max-width: 480px) {
     .tour-section {
-        padding: 1.5rem 0;
+        padding: var(--section-padding) 0;
     }
     
     .section-title {
@@ -892,11 +1856,13 @@ a {
 .tour-date {
     display: flex;
     flex-direction: column;
-    background: rgba(133, 133, 133, 0.151);
+    background: var(--white);
+    color: var(--text);
+    border: 1px solid var(--paper-2);
     border-radius: 14px;
     overflow: hidden;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-card);
     position: relative;
     margin-bottom: 1.5rem;
     margin-top: 1.5rem;
@@ -930,16 +1896,21 @@ a {
     }
 }
 
-/* Highlight styles */
+/* Highlight styles — the "next show" card, rose-tinted on the light section.
+
+   The accent stripe is an INSET SHADOW, not a border. A 5px left border
+   against the 1px the other cards carry kept the outer box at 420px but
+   shrank this card's CONTENT box by 4px and pushed it 2px right, so the date
+   plate, the pills, the address and the map all sat slightly out of line with
+   every other card in the row. An inset shadow paints the same stripe without
+   touching layout, and it follows the 14px corner radius instead of running
+   dead straight past it. */
 .tour-date.highlight {
-    border-left: 5px solid var(--highlight); /* Keep this dynamic */
-    background: linear-gradient(90deg, 
-        rgba(155, 123, 184, 0.15) 0%, /* Light purple */
-        rgba(250, 240, 230, 0.05) 100% /* Soft ivory */
+    background: linear-gradient(90deg,
+        var(--rose-100) 0%,
+        var(--white) 38%
     );
-    box-shadow: 
-        0 6px 16px rgba(155, 123, 184, 0.25), /* Outer glow */
-        inset 0 0 12px rgba(255, 245, 235, 0.4); /* Inner glow */
+    box-shadow: inset 5px 0 0 0 var(--rose-500), var(--shadow-card);
     position: relative;
     z-index: 1;
 }
@@ -951,11 +1922,7 @@ a {
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, 
-        transparent, 
-        rgba(255, 245, 235, 0.7), 
-        transparent
-    );
+    background: var(--grad-chrome);
 }
 
 .tour-date.highlight::after {
@@ -963,10 +1930,10 @@ a {
     position: absolute;
     top: 1.32rem;
     right: 1.5rem;
-    background: rgba(26, 22, 34, 0.55);   /* Dark frosted glass — picks up the card body tone */
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
-    color: #ffffff;                   /* White for contrast on the frosted pill */
+    /* Sits ON the rose date block, so it inverts: a white stub with rose
+       type. Rose-on-rose had almost no separation. 8.8:1. */
+    background: var(--white);
+    color: var(--rose-600);
     padding: 0.4rem 1.3rem;
     border-radius: 6px;
     font-size: 0.82rem;
@@ -974,36 +1941,33 @@ a {
     text-transform: uppercase;
     letter-spacing: 1.3px;
     z-index: 2;
-    /* Multi-layer shadows for depth */
     box-shadow:
-        0 2px 6px rgba(0, 0, 0, 0.28),               /* Soft ambient shadow */
-        inset 0 1px 1px rgba(255, 255, 255, 0.12);   /* Subtle top glint */
-    border: 1px solid rgba(155, 123, 184, 0.55);     /* Faint brand-purple outline */
-    text-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.45);              /* Text depth for legibility */
-    transition: 
+        0 2px 6px rgba(var(--ink-rgb), 0.28),          /* Soft ambient shadow */
+        inset 0 1px 1px rgba(var(--paper-rgb), 0.18);  /* Subtle top glint */
+    transition:
         transform 0.2s ease,
         box-shadow 0.2s ease;
 }
 
 /* ===== ENHANCED CURRENTLY PLAYING CARD ===== */
 .tour-date.currently-playing {
-    /* Enhanced background with better lighting */
-    background: 
-        linear-gradient(145deg, 
-            rgba(20, 20, 20, 0.98) 0%,
-            rgba(35, 35, 35, 0.98) 50%,
-            rgba(25, 25, 25, 0.98) 100%
-        ),
+    /* The one dark card on the light section, so a live gig jumps off the page */
+    background:
         radial-gradient(
             circle at 35% 45%,
-            rgba(155, 123, 184, 0.25) 0%,
-            rgba(155, 123, 184, 0.1) 40%,
+            rgba(var(--accent-rgb), 0.18) 0%,
+            rgba(var(--accent-rgb), 0.07) 40%,
             transparent 70%
+        ),
+        linear-gradient(145deg,
+            var(--ink-900) 0%,
+            var(--ink-800) 50%,
+            var(--ink-900) 100%
         );
-    
+    color: var(--text-on-dark);
+
     /* Border base — animation handles box-shadow + border-color */
-    border: 1px solid rgba(155, 123, 184, 0.4);
+    border: 1px solid rgba(var(--accent-rgb), 0.55);
     position: relative;
     z-index: 10;
     
@@ -1034,25 +1998,21 @@ a {
 @keyframes live-card-pulse {
     0%, 100% {
         transform: translateY(0) translateZ(0);
-        border-color: rgba(155, 123, 184, 0.4);
+        border-color: rgba(var(--accent-rgb), 0.45);
+        /* The pulse is carried by the BORDER and a neutral lift, not by a
+           50-100px red halo bleeding onto the section behind it. */
         box-shadow:
-            0 10px 35px rgba(0, 0, 0, 0.6),
-            0 5px 15px rgba(0, 0, 0, 0.4),
-            0 0 50px rgba(155, 123, 184, 0.3),
-            0 0 100px rgba(155, 123, 184, 0.15),
-            inset 0 1px 3px rgba(255, 255, 255, 0.08),
-            inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+            var(--lift-dark),
+            inset 0 1px 3px rgba(var(--paper-rgb), 0.08),
+            inset 0 -2px 4px rgba(var(--ink-rgb), 0.3);
     }
     50% {
         transform: translateY(-6px) translateZ(0);
-        border-color: rgba(220, 60, 60, 0.5);
+        border-color: var(--rose-300);
         box-shadow:
-            0 16px 45px rgba(0, 0, 0, 0.6),
-            0 8px 20px rgba(0, 0, 0, 0.4),
-            0 0 50px rgba(220, 60, 60, 0.25),
-            0 0 90px rgba(255, 255, 255, 0.1),
-            inset 0 1px 3px rgba(255, 255, 255, 0.12),
-            inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+            var(--lift-dark-lg),
+            inset 0 1px 3px rgba(var(--paper-rgb), 0.12),
+            inset 0 -2px 4px rgba(var(--ink-rgb), 0.3);
     }
 }
 
@@ -1066,35 +2026,27 @@ a {
     min-width: 50px;
     
     /* Modern glass morphism background */
-    background: 
-        linear-gradient(135deg, 
-            rgba(255, 50, 50, 0.95) 0%,
-            rgba(220, 20, 60, 0.98) 50%,
-            rgba(180, 20, 50, 1) 100%
-        );
+    background: var(--grad-rose);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    
+
     /* White text with subtle shadow */
-    color: rgba(255, 255, 255, 0.98);
+    color: var(--white);
     font-size: 0.9rem;
     font-weight: 550;
     text-transform: uppercase;
     letter-spacing: 3.5px;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-    
+    text-shadow: 0 1px 3px rgba(var(--ink-rgb), 0.4);
+
     /* Rounded modern style */
     border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(var(--paper-rgb), 0.25);
     z-index: 9999; /* Increased to ensure it shows above other elements */
-    
-    /* Subtle shadow with red glow */
-    box-shadow: 
-        0 4px 15px rgba(0, 0, 0, 0.4),
-        0 2px 8px rgba(220, 20, 60, 0.5),
-        0 0 25px rgba(255, 50, 50, 0.4),
-        inset 0 1px 2px rgba(255, 255, 255, 0.3),
-        inset 0 -1px 3px rgba(0, 0, 0, 0.2);
+
+    box-shadow:
+        0 4px 15px rgba(var(--ink-rgb), 0.5),
+        inset 0 1px 2px rgba(var(--paper-rgb), 0.3),
+        inset 0 -1px 3px rgba(var(--ink-rgb), 0.2);
     
     /* Pulsing live indicator animation */
     animation: live-indicator-pulse 2.5s ease-in-out infinite;
@@ -1142,11 +2094,11 @@ a {
     left: 0;
     right: 0;
     bottom: 0;
-    background: 
+    background:
         radial-gradient(
             circle at 70% 30%,
-            rgba(255, 255, 255, 0.06) 0%,
-            rgba(255, 255, 255, 0.03) 30%,
+            rgba(var(--chrome-rgb), 0.06) 0%,
+            rgba(var(--chrome-rgb), 0.03) 30%,
             transparent 60%
         );
     animation: subtle-glow-pulse 8s ease-in-out infinite alternate;
@@ -1162,11 +2114,11 @@ a {
     left: 0;
     right: 0;
     bottom: 0;
-    background: 
+    background:
         radial-gradient(
             circle at 25% 70%,
-            rgba(155, 123, 184, 0.08) 0%,
-            rgba(155, 123, 184, 0.04) 40%,
+            rgba(var(--accent-rgb), 0.10) 0%,
+            rgba(var(--accent-rgb), 0.05) 40%,
             transparent 70%
         );
     animation: ambient-breathe 12s ease-in-out infinite alternate-reverse;
@@ -1194,27 +2146,37 @@ a {
 }
 
 /* ===== ENHANCED DATE COMPONENT FOR LIVE CARD ===== */
+/* Real polished chrome, straight off the microphone — this is the only
+   place chrome is used as a fill, which is what marks the live card out. */
 .tour-date.currently-playing .date {
+    /* Stops at --chrome-500. Running on to --chrome-700 left the ink date text
+       at 2.8:1 over the dark end of the plate; --chrome-500 keeps it at 5.8:1. */
     background: linear-gradient(135deg,
-        #D4C4E8 0%,
-        #C4B0DC 25%,
-        #B49BCC 50%,
-        #A88BC0 75%,
-        #9B7BB8 100%
+        var(--white) 0%,
+        var(--chrome-100) 30%,
+        var(--chrome-300) 65%,
+        var(--chrome-500) 100%
     );
 
     /* Enhanced 3D metallic effect */
     box-shadow:
-        0 3px 12px rgba(0, 0, 0, 0.4),
-        inset 0 2px 6px rgba(255, 255, 255, 0.8),
-        inset 0 -2px 6px rgba(80, 50, 100, 0.5),
-        inset 2px 0 4px rgba(255, 255, 255, 0.4),
-        inset -2px 0 4px rgba(80, 50, 100, 0.3);
-    
+        0 3px 12px rgba(var(--ink-rgb), 0.4),
+        inset 0 2px 6px rgba(var(--paper-rgb), 0.8),
+        inset 0 -2px 6px rgba(var(--ink-rgb), 0.5),
+        inset 2px 0 4px rgba(var(--paper-rgb), 0.4),
+        inset -2px 0 4px rgba(var(--ink-rgb), 0.3);
+
     /* Prevent transform inheritance issues */
     transform: translateZ(0);
     position: relative;
     z-index: 5;
+}
+
+/* Ink text on the chrome plate (the rest of the card is light-on-dark) */
+.tour-date.currently-playing .date .month,
+.tour-date.currently-playing .date .day {
+    color: var(--ink-900);
+    text-shadow: 0 1px 0 rgba(var(--paper-rgb), 0.45);
 }
 
 /* ===== STABLE CONTENT RENDERING ===== */
@@ -1247,15 +2209,12 @@ a {
 .tour-date.currently-playing:hover {
     animation-play-state: paused;
     transform: translateY(-8px) translateZ(0) scale(1.02);
-    box-shadow: 
-        0 20px 60px rgba(0, 0, 0, 0.8),
-        0 10px 30px rgba(0, 0, 0, 0.6),
-        0 0 80px rgba(155, 123, 184, 0.6),
-        0 0 160px rgba(155, 123, 184, 0.35),
-        inset 0 3px 8px rgba(255, 255, 255, 0.15),
-        inset 0 -4px 10px rgba(0, 0, 0, 0.5);
-    
-    border-color: rgba(155, 123, 184, 0.6);
+    box-shadow:
+        var(--lift-dark-lg),
+        inset 0 3px 8px rgba(var(--paper-rgb), 0.15),
+        inset 0 -4px 10px rgba(var(--ink-rgb), 0.5);
+
+    border-color: var(--rose-300);
 }
 
 .tour-date.currently-playing:hover .info::before {
@@ -1278,17 +2237,13 @@ a {
         letter-spacing: 1px;
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
-        box-shadow:
-            0 4px 15px rgba(0, 0, 0, 0.4),
-            0 2px 8px rgba(220, 20, 60, 0.5);
+        box-shadow: 0 4px 15px rgba(var(--ink-rgb), 0.5);
     }
 
     /* Keep subtle pulse on mobile, disable heavy breathe animation */
     .tour-date.currently-playing {
         animation: live-card-pulse 3s ease-in-out infinite;
-        box-shadow:
-            0 10px 35px rgba(0, 0, 0, 0.6),
-            0 0 50px rgba(155, 123, 184, 0.3);
+        box-shadow: var(--lift-dark);
     }
 
     .tour-date.currently-playing .info::before {
@@ -1327,8 +2282,8 @@ a {
 .tour-date.highlight:hover::after {
     transform: translateY(1px);       /* Sink slightly */
     box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.3),
-        inset 0 1px 3px rgba(0, 0, 0, 0.25);
+        0 1px 3px rgba(var(--ink-rgb), 0.3),
+        inset 0 1px 3px rgba(var(--ink-rgb), 0.25);
 }
 
 @media (min-width: 1452px) {
@@ -1344,10 +2299,7 @@ a {
 /* Tablet highlight adjustments */
 @media (max-width: 768px) {
     .tour-date.highlight {
-        border-left: 4px solid var(--highlight);
-        box-shadow: 
-            0 4px 12px rgba(155, 123, 184, 0.2),
-            inset 0 0 8px rgba(255, 245, 235, 0.3);
+        box-shadow: inset 4px 0 0 0 var(--rose-500), var(--shadow-card);
     }
     
     .tour-date.highlight::after {
@@ -1362,10 +2314,7 @@ a {
 /* Mobile highlight adjustments */
 @media (max-width: 480px) {
     .tour-date.highlight {
-        border-left: 3px solid var(--highlight);
-        box-shadow: 
-            0 3px 8px rgba(155, 123, 184, 0.15),
-            inset 0 0 6px rgba(255, 245, 235, 0.2);
+        box-shadow: inset 3px 0 0 0 var(--rose-500), var(--shadow-sm);
     }
     
     .tour-date.highlight::after {
@@ -1380,12 +2329,12 @@ a {
 /* Hover effects */
 .tour-date:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 20px rgba(155, 123, 184, 0.3);
+    box-shadow: var(--lift);
 }
 
 @media (max-width: 768px) {
     .tour-date {
-        -webkit-tap-highlight-color: rgba(155, 123, 184, 0.15);
+        -webkit-tap-highlight-color: rgba(var(--accent-rgb), 0.15);
     }
     
     .tour-date:hover {
@@ -1399,8 +2348,8 @@ a {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: var(--primary);
-    color: var(--dark);
+    background: var(--grad-rose);
+    color: var(--white);            /* 7.8:1 on --rose-500 */
     padding: 1rem;
     text-align: center;
     transition: all 0.3s ease;
@@ -1409,20 +2358,20 @@ a {
     position: relative;
 }
 
-/* Container glow (subtle but visible) */
+/* Date plate lifts with the card - no coloured glow */
 .tour-date:hover .date {
-    box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.4);
+    box-shadow: inset 0 -1px 0 rgba(var(--ink-rgb), 0.25);
 }
 
 /* Date text glow (strong but not extreme) */
 .tour-date:hover .month {
-    color: #ffffff;
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+    color: var(--white);
+    text-shadow: 0 0 8px rgba(var(--paper-rgb), 0.7);
 }
 
 .tour-date:hover .day {
-    color: #ffffff;
-    text-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
+    color: var(--white);
+    text-shadow: 0 0 12px rgba(var(--paper-rgb), 0.9);
 }
 
 /* Optional: Add a soft inner glow to container */
@@ -1434,13 +2383,13 @@ a {
     right: 0;
     bottom: 0;
     border-radius: inherit;
-    box-shadow: inset 0 0 10px rgba(255, 255, 255, 0);
+    box-shadow: inset 0 0 10px rgba(var(--paper-rgb), 0);
     transition: box-shadow 0.3s ease;
     pointer-events: none;
 }
 
 .tour-date:hover .date::after {
-    box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.3);
+    box-shadow: inset 0 0 18px rgba(var(--paper-rgb), 0.18);
 }
 
 /* Original time element styles */
@@ -1477,7 +2426,7 @@ a {
         transform: translateX(-50%);
         width: 40px;
         height: 4px;
-        background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        background: linear-gradient(90deg, transparent, var(--rose-500), transparent);
         border-radius: 2px;
         opacity: 0.4;
         animation: scrollHint 3s ease-in-out infinite;
@@ -1517,14 +2466,15 @@ a {
     align-items: center;
     gap: 0.5rem;
     padding: 0.75rem 1.5rem;
-    background: rgba(133, 133, 133, 0.2);
-    border: 2px solid transparent;
+    /* Secondary button on light: outlined rose */
+    background: transparent;
+    border: 2px solid var(--rose-600);
     border-radius: 8px;
-    color: var(--light);
+    color: var(--rose-600);
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
     /* Prevent double-tap zoom on mobile */
     touch-action: manipulation;
     -webkit-user-select: none;
@@ -1532,15 +2482,20 @@ a {
 }
 
 .view-toggle-btn:hover {
-    background: rgba(133, 133, 133, 0.3);
+    background: var(--rose-100);
     transform: translateY(-2px);
 }
 
 .view-toggle-btn.active {
-    background: var(--primary);
-    color: var(--dark);
-    border-color: var(--primary);
-    box-shadow: 0 4px 12px rgba(155, 123, 184, 0.4);
+    background: var(--grad-rose);
+    color: var(--white);
+    border-color: transparent;
+    box-shadow: var(--shadow-sm);
+}
+
+.view-toggle-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .view-toggle-btn i {
@@ -1561,31 +2516,32 @@ a {
     align-items: center;
     margin-bottom: 2rem;
     padding: 1rem 2rem;
-    background: rgba(133, 133, 133, 0.15);
+    background: var(--white);
     border-radius: 12px;
+    box-shadow: var(--shadow-card);
 }
 
 .calendar-month-year {
     font-size: 1.8rem;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--rose-600);       /* 8.8:1 on --white */
     margin: 0;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
 
 .calendar-nav-btn {
-    background: rgba(155, 123, 184, 0.2);
-    border: 2px solid var(--primary);
+    background: transparent;
+    border: 2px solid var(--rose-600);
     border-radius: 50%;
     width: 45px;
     height: 45px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--primary);
+    color: var(--rose-600);
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
     font-size: 1.2rem;
     /* Prevent double-tap zoom on mobile */
     touch-action: manipulation;
@@ -1594,19 +2550,25 @@ a {
 }
 
 .calendar-nav-btn:hover {
-    background: var(--primary);
-    color: var(--dark);
+    background: var(--rose-600);
+    color: var(--white);
     transform: scale(1.1);
+}
+
+.calendar-nav-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 /* Calendar Grid */
 .calendar-grid {
-    background: rgba(133, 133, 133, 0.1);
+    background: var(--white);
     border-radius: 14px;
     padding: 1.5rem;
     margin-bottom: 2rem;
     overflow: hidden;
     max-width: 100%;
+    box-shadow: var(--shadow-card);
 }
 
 .calendar-weekdays {
@@ -1619,7 +2581,7 @@ a {
 .weekday {
     text-align: center;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--text-muted);
     padding: 0.75rem;
     font-size: 0.9rem;
     text-transform: uppercase;
@@ -1641,7 +2603,7 @@ a {
     align-items: center;
     justify-content: center;
     padding: 0.5rem;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--paper);
     border-radius: 8px;
     border: 2px solid transparent;
     cursor: pointer;
@@ -1652,8 +2614,13 @@ a {
 }
 
 .calendar-day:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--paper-2);
     transform: translateY(-2px);
+}
+
+.calendar-day:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .calendar-day.active-popup {
@@ -1666,16 +2633,16 @@ a {
 }
 
 .calendar-day.today {
-    border-color: var(--primary);
-    background: rgba(155, 123, 184, 0.15);
+    border-color: var(--rose-500);
+    background: var(--rose-100);
 }
 
 .calendar-day.has-event {
     background: linear-gradient(135deg,
-        rgba(155, 123, 184, 0.3) 0%,
-        rgba(250, 240, 230, 0.1) 100%
+        var(--rose-100) 0%,
+        var(--paper) 100%
     );
-    border-color: var(--primary);
+    border-color: var(--rose-500);
 }
 
 .calendar-day.has-event::after {
@@ -1686,25 +2653,25 @@ a {
     transform: translateX(-50%);
     width: 6px;
     height: 6px;
-    background: var(--primary);
+    background: var(--rose-500);
     border-radius: 50%;
 }
 
 .calendar-day-number {
     font-size: 1rem;
     font-weight: 600;
-    color: var(--light);
+    color: var(--text);
     margin-bottom: 0.2rem;
 }
 
 .calendar-day.has-event .calendar-day-number {
-    color: var(--primary);
+    color: var(--rose-600);       /* 8.8:1 on --rose-100 tint */
     font-weight: 700;
 }
 
 .calendar-day-events {
     font-size: 0.65rem;
-    color: var(--primary);
+    color: var(--rose-600);
     font-weight: 600;
 }
 
@@ -1716,10 +2683,10 @@ a {
     width: 2em;
     height: 2em;
     border-radius: 50%;
-    background: var(--primary);
-    color: var(--light);
+    background: var(--rose-500);
+    color: var(--white);          /* 7.8:1 */
     font-weight: 700;
-    box-shadow: 0 0 0 3px rgba(155, 123, 184, 0.25), 0 0 14px rgba(155, 123, 184, 0.45);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
 }
 
 .calendar-day.today-flash {
@@ -1727,8 +2694,8 @@ a {
 }
 
 @keyframes calendar-today-flash {
-    0% { box-shadow: 0 0 0 0 rgba(155, 123, 184, 0.8); }
-    100% { box-shadow: 0 0 0 14px rgba(155, 123, 184, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.8); }
+    100% { box-shadow: 0 0 0 14px rgba(var(--accent-rgb), 0); }
 }
 
 /* Month title + Today button */
@@ -1744,10 +2711,10 @@ a {
     align-items: center;
     gap: 0.4rem;
     padding: 0.3rem 0.85rem;
-    border: 1px solid rgba(155, 123, 184, 0.6);
+    border: 1px solid var(--rose-600);
     border-radius: 999px;
-    background: rgba(155, 123, 184, 0.12);
-    color: var(--light);
+    background: transparent;
+    color: var(--rose-600);
     font-family: var(--font-main);
     font-size: 0.72rem;
     font-weight: 700;
@@ -1759,22 +2726,22 @@ a {
 }
 
 .calendar-today-btn i {
-    color: var(--primary);
+    color: var(--rose-600);
     transition: color 0.25s ease;
 }
 
 .calendar-today-btn:hover:not(:disabled) {
-    background: var(--primary);
-    border-color: var(--primary);
+    background: var(--rose-100);
+    border-color: var(--rose-500);
 }
 
 .calendar-today-btn:hover:not(:disabled) i {
-    color: var(--light);
+    color: var(--rose-600);
 }
 
 .calendar-today-btn:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .calendar-today-btn:disabled {
@@ -1789,17 +2756,20 @@ a {
 }
 
 /* Event Details Popup - Shared Popup */
+/* Floating panel stays dark against the light calendar — reads as a tooltip
+   and keeps the rose accent legible. */
 .calendar-event-popup {
     position: fixed;
-    background: rgba(20, 20, 20, 0.98);
+    background: rgba(var(--ink-rgb), 0.97);
+    color: var(--text-on-dark);
     backdrop-filter: blur(10px);
-    border: 2px solid var(--primary);
+    border: 2px solid var(--rose-500);
     border-radius: 8px;
     padding: 0.75rem;
     width: 240px;
     max-width: calc(100vw - 2rem);
     z-index: 10000;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 8px 30px rgba(var(--ink-rgb), 0.7);
     visibility: hidden;
     opacity: 0;
     transition: opacity 0.15s ease, visibility 0.15s ease;
@@ -1808,7 +2778,7 @@ a {
 
 .popup-event {
     padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(155, 123, 184, 0.2);
+    border-bottom: 1px solid var(--ink-700);
 }
 
 .popup-event:last-child {
@@ -1823,14 +2793,14 @@ a {
 .popup-venue {
     font-weight: 700;
     font-size: 1rem;
-    color: var(--primary);
+    color: var(--rose-300);       /* rose on dark — 5.0:1 */
     margin-bottom: 0.4rem;
     line-height: 1.2;
 }
 
 .popup-time-age {
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--text-on-dark);
     margin-bottom: 0.3rem;
     display: flex;
     align-items: center;
@@ -1839,24 +2809,24 @@ a {
 }
 
 .popup-time-age i {
-    color: var(--primary);
+    color: var(--rose-300);
     font-size: 0.8rem;
 }
 
 .popup-age-inline {
     display: inline-block;
     padding: 0.15rem 0.4rem;
-    background: rgba(155, 123, 184, 0.25);
+    background: rgba(var(--accent-rgb), 0.25);
     border-radius: 3px;
     font-size: 0.75rem;
     font-weight: 600;
-    color: var(--primary);
+    color: var(--rose-300);
     margin-left: 0.3rem;
 }
 
 .popup-address {
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--muted-on-dark);
     font-style: normal;
     display: flex;
     align-items: flex-start;
@@ -1865,7 +2835,7 @@ a {
 }
 
 .popup-address i {
-    color: var(--primary);
+    color: var(--chrome-300);
     font-size: 0.75rem;
     margin-top: 0.15rem;
     flex-shrink: 0;
@@ -1883,7 +2853,7 @@ a {
 
 .popup-event-link:hover,
 .popup-event-link:focus-visible {
-    background: rgba(155, 123, 184, 0.15);
+    background: rgba(var(--accent-rgb), 0.22);
     outline: none;
 }
 
@@ -1896,7 +2866,7 @@ a {
     font-weight: 700;
     letter-spacing: 1px;
     text-transform: uppercase;
-    color: var(--primary);
+    color: var(--rose-300);
 }
 
 .popup-view-card i {
@@ -1911,6 +2881,7 @@ a {
 /* Card the visitor jumped to from the calendar - stage light hit */
 .tour-date.card-spotlight {
     outline: 2px solid transparent;
+    box-shadow: var(--shadow-card);
     /* Keeps the ring on the card's own 14px corners - never set border-radius
        here, "inherit" would take the grid's square corners */
     outline-offset: 4px;
@@ -1918,63 +2889,38 @@ a {
     z-index: 3;
 }
 
+/* Chrome flash that settles into a rose halo */
 @keyframes card-spotlight {
     0% {
-        outline-color: rgba(255, 246, 232, 0);
+        outline-color: rgba(var(--chrome-rgb), 0);
         outline-offset: 16px;
-        box-shadow:
-            inset 0 0 40px 6px rgba(255, 246, 232, 0),
-            inset 0 0 0 1px rgba(255, 252, 245, 0),
-            0 0 0 0 rgba(255, 246, 232, 0);
-        filter: brightness(1);
+        box-shadow: var(--shadow-card);
         transform: translateY(0) scale(1);
     }
-    /* the light snaps on */
+    /* the ring snaps on — a clean rose outline plus a neutral lift.
+       The old version fired a 90px red halo that bled across the section. */
     10% {
-        outline-color: rgba(255, 252, 245, 0.95);
+        outline-color: var(--rose-500);
         outline-offset: 4px;
-        box-shadow:
-            inset 0 0 40px 6px rgba(255, 246, 232, 0.45),
-            inset 0 0 0 1px rgba(255, 252, 245, 0.8),
-            0 0 0 5px rgba(255, 246, 232, 0.28),
-            0 0 38px 10px rgba(255, 246, 232, 0.5),
-            0 0 90px 26px rgba(155, 123, 184, 0.55);
-        filter: brightness(1.3);
+        box-shadow: var(--lift-lg);
         transform: translateY(-5px) scale(1.015);
     }
-    /* settles into a purple halo */
     38% {
-        outline-color: rgba(214, 191, 235, 0.9);
+        outline-color: var(--rose-500);
         outline-offset: 4px;
-        box-shadow:
-            inset 0 0 34px 4px rgba(155, 123, 184, 0.4),
-            inset 0 0 0 1px rgba(214, 191, 235, 0.5),
-            0 0 0 3px rgba(155, 123, 184, 0.35),
-            0 0 30px 6px rgba(155, 123, 184, 0.5),
-            0 0 70px 18px rgba(155, 123, 184, 0.35);
-        filter: brightness(1.1);
+        box-shadow: var(--lift);
         transform: translateY(-2px) scale(1.006);
     }
     75% {
-        outline-color: rgba(155, 123, 184, 0.75);
+        outline-color: rgba(var(--accent-rgb), 0.6);
         outline-offset: 4px;
-        box-shadow:
-            inset 0 0 26px 2px rgba(155, 123, 184, 0.25),
-            inset 0 0 0 1px rgba(214, 191, 235, 0.25),
-            0 0 0 2px rgba(155, 123, 184, 0.22),
-            0 0 26px 4px rgba(155, 123, 184, 0.32),
-            0 0 60px 14px rgba(155, 123, 184, 0.2);
-        filter: brightness(1.04);
+        box-shadow: var(--shadow-card);
         transform: none;
     }
     100% {
-        outline-color: rgba(155, 123, 184, 0);
+        outline-color: rgba(var(--accent-rgb), 0);
         outline-offset: 4px;
-        box-shadow:
-            inset 0 0 26px 2px rgba(155, 123, 184, 0),
-            inset 0 0 0 1px rgba(214, 191, 235, 0),
-            0 0 0 0 rgba(155, 123, 184, 0);
-        filter: brightness(1);
+        box-shadow: var(--shadow-card);
         transform: none;
     }
 }
@@ -1982,8 +2928,8 @@ a {
 @media (prefers-reduced-motion: reduce) {
     .tour-date.card-spotlight {
         animation: none;
-        outline-color: rgba(214, 191, 235, 0.9);
-        box-shadow: 0 0 30px 6px rgba(155, 123, 184, 0.45);
+        outline-color: var(--rose-500);
+        box-shadow: var(--shadow-card);
     }
 }
 
@@ -2002,7 +2948,7 @@ a {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    color: var(--light);
+    color: var(--text-muted);
     font-size: 0.9rem;
 }
 
@@ -2010,18 +2956,18 @@ a {
     width: 20px;
     height: 20px;
     border-radius: 4px;
-    border: 2px solid var(--primary);
+    border: 2px solid var(--rose-500);
 }
 
 .legend-color.has-event {
     background: linear-gradient(135deg,
-        rgba(155, 123, 184, 0.3) 0%,
-        rgba(250, 240, 230, 0.1) 100%
+        var(--rose-100) 0%,
+        var(--paper) 100%
     );
 }
 
 .legend-color.current-day {
-    background: rgba(155, 123, 184, 0.15);
+    background: var(--rose-100);
 }
 
 /* Mobile Responsive */
@@ -2167,13 +3113,7 @@ a {
     gap: 1.5rem;
     position: relative;
     flex: 1;
-    background: linear-gradient(135deg, 
-        rgba(255, 255, 255, 0.08) 0%,
-        rgba(255, 255, 255, 0.03) 50%,
-        rgba(255, 255, 255, 0.01) 100%
-    );
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: transparent;
     border-radius: 0 0 14px 14px;
     overflow: hidden;
     height: 100%;
@@ -2195,10 +3135,10 @@ a {
     left: 0;
     right: 0;
     bottom: 0;
-    background: 
-    radial-gradient(circle at 20% 20%, rgba(155, 123, 184, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(180, 155, 204, 0.03) 0%, transparent 50%),
-    radial-gradient(circle at 40% 60%, rgba(250, 240, 230, 0.02) 0%, transparent 50%);
+    background:
+    radial-gradient(circle at 20% 20%, rgba(var(--accent-rgb), 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(var(--accent-rgb), 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 40% 60%, rgba(var(--chrome-rgb), 0.05) 0%, transparent 50%);
 animation: subtleGlow 8s ease-in-out infinite alternate;
     pointer-events: none;
     z-index: 0;
@@ -2225,7 +3165,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     margin-bottom: 0.75rem;
     flex-wrap: wrap;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid var(--paper-2);
     text-align: center; /* Center text content */
     width: 100%; /* Ensure full width */
 }
@@ -2242,16 +3182,15 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     text-align: center;
     margin-bottom: 0.75rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid var(--paper-2);
 }
 
 .venue-header h3 {
     font-size: 1.4rem;
     margin: 0;
-    color: white;
+    color: var(--text);
     line-height: 1.2;
     font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     letter-spacing: 0.3px;
     margin-bottom: 5px;
     transition: all 0.3s ease;
@@ -2259,17 +3198,18 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 
 /* Add subtle glow effect on hover */
 .venue-header h3:hover {
-    color: rgba(255, 255, 255, 0.95);
-    text-shadow: 
-        0 2px 4px rgba(0, 0, 0, 0.3),
-        0 0 8px rgba(255, 255, 255, 0.164);
+    color: var(--rose-600);
 }
 
-/* Base venue-promo styles */
+/* Base venue-promo styles.
+   This pill carries the billing label ("Headlining", "Jake Solo"), not a
+   confirmation status, so it is deliberately NOT leaf: it sits ~10px under
+   the large rose date block, and three green pills in a row against that
+   read exactly like the red-and-green clash to avoid. Chrome instead. */
 .venue-promo {
     font-size: 0.75rem;
-    background: rgba(255, 255, 255, 0.06);
-    color: white;
+    background: var(--chrome-100);
+    color: var(--text);
     padding: 0.4rem 0.8rem;
     border-radius: 20px;
     font-weight: 700;
@@ -2277,9 +3217,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     margin-left: auto;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.08),
-        0 0 0 1px rgba(255, 255, 255, 0.04);
+    box-shadow: 0 1px 3px rgba(var(--ink-rgb), 0.08);
     transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     position: relative;
     overflow: hidden; /* Crucial for containment */
@@ -2297,7 +3235,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     height: 100%;
     background: linear-gradient(90deg,
         transparent 0%,
-        rgba(255, 255, 255, 0.1) 50%,
+        rgba(var(--paper-rgb), 0.55) 50%,
         transparent 100%);
     transition: transform 0.7s cubic-bezier(0.19, 1, 0.22, 1);
     pointer-events: none;
@@ -2314,9 +3252,9 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     right: 0;
     bottom: 0;
     background: linear-gradient(135deg,
-        rgba(255, 255, 255, 0.03) 0%,
-        rgba(255, 255, 255, 0) 50%,
-        rgba(255, 255, 255, 0.03) 100%);
+        rgba(var(--paper-rgb), 0.3) 0%,
+        rgba(var(--paper-rgb), 0) 50%,
+        rgba(var(--paper-rgb), 0.3) 100%);
     opacity: 0;
     transition: opacity 0.4s ease;
     z-index: -1;
@@ -2325,10 +3263,9 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 /* Card hover triggers promo effects */
 .tour-date:hover .venue-promo {
     transform: translateY(-1px);
-    background: rgba(255, 255, 255, 0.1);
     box-shadow:
-        0 2px 6px rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(255, 255, 255, 0.06);
+        0 2px 6px rgba(var(--ink-rgb), 0.14),
+        0 0 0 1px rgba(var(--chrome-rgb), 0.55);
 }
 
 .tour-date:hover .venue-promo::before {
@@ -2363,9 +3300,8 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 .venue-desc {
     font-size: 1rem;
     line-height: 1.6;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--text-muted);
     margin: 0;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     position: relative;
     padding: 0.5rem 0;
     overflow: hidden;
@@ -2381,12 +3317,12 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     top: 0;
     bottom: 0;
     width: 2px;
-    background: linear-gradient(180deg, 
-        var(--primary), 
-        var(--highlight)
+    background: linear-gradient(180deg,
+        var(--rose-500),
+        var(--rose-100)
     );
     border-radius: 1px;
-    opacity: 0.6;
+    opacity: 0.9;
 }
 
 .venue-desc {
@@ -2398,11 +3334,11 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     display: inline-flex; /* Changed from flex to inline-flex */
     gap: 0.75rem;
     font-size: 0.9rem;
-    color: var(--primary);
+    color: var(--rose-600);          /* 7.7:1 on the rose-100 tint */
     padding: 0.75rem;
-    background: #9B7BB828;
+    background: var(--rose-100);
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(var(--accent-rgb), 0.18);
     position: relative;
     overflow: visible; /* Changed from hidden */
     white-space: nowrap; /* Crucial - prevents wrapping */
@@ -2417,7 +3353,6 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     position: relative;
     z-index: 1;
     font-weight: 600;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -2451,9 +3386,9 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     height: 100%;
     background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0),
-    rgba(255, 255, 255, 0.2),
-    rgba(255, 255, 255, 0)
+    rgba(var(--paper-rgb), 0),
+    rgba(var(--paper-rgb), 0.75),
+    rgba(var(--paper-rgb), 0)
 );
     animation: swipeGlow 3s ease-in-out infinite;
     z-index: 0;
@@ -2468,15 +3403,15 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 /* Enhanced Address */
 .venue-address {
     font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--text-muted);
     font-style: normal;
     display: flex;
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--paper);
     border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--paper-2);
     transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
     position: relative;
     overflow: hidden;
@@ -2487,14 +3422,14 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     content: "📍";
     flex-shrink: 0;
     font-size: 1.1rem;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+    filter: drop-shadow(0 1px 2px rgba(var(--ink-rgb), 0.3));
 }
 
 .venue-address:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.15);
+    background: var(--rose-100);
+    border-color: rgba(var(--accent-rgb), 0.25);
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(var(--ink-rgb), 0.12);
 }
 
 /* Enhanced Map Container */
@@ -2505,8 +3440,8 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     height: 160px;
     cursor: pointer;
     box-shadow:
-        0 4px 20px rgba(0, 0, 0, 0.25),
-        0 0 0 1px rgba(255, 255, 255, 0.05);
+        0 4px 20px rgba(var(--ink-rgb), 0.18),
+        0 0 0 1px var(--paper-2);
     position: relative;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -2518,10 +3453,9 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(135deg, 
-        rgba(255, 77, 77, 0.05) 0%,
-        transparent 50%,
-        rgba(0, 204, 255, 0.05) 100%
+    background: linear-gradient(135deg,
+        rgba(var(--accent-rgb), 0.08) 0%,
+        transparent 60%
     );
     z-index: 1;
     pointer-events: none;
@@ -2535,9 +3469,9 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 
 .venue-map-container:hover {
     transform: translateY(-2px);
-    box-shadow: 
-        0 8px 30px rgba(0, 0, 0, 0.3),
-        0 0 0 1px rgba(255, 255, 255, 0.1);
+    box-shadow:
+        0 8px 30px rgba(var(--ink-rgb), 0.24),
+        0 0 0 1px var(--chrome-300);
 }
 
 .venue-map-container iframe {
@@ -2549,8 +3483,8 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 /* Map placeholder while loading */
 .lazy-map:not([src]) {
     background: linear-gradient(135deg,
-        rgba(30, 30, 30, 0.9) 0%,
-        rgba(50, 50, 50, 0.7) 100%);
+        var(--paper-2) 0%,
+        var(--chrome-100) 100%);
 }
 
 /* Loading indicator for maps */
@@ -2560,7 +3494,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
     font-size: 0.85rem;
     pointer-events: none;
     z-index: 0;
@@ -2571,6 +3505,73 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     display: none;
 }
 
+/* ===== LIVE CARD INTERIOR =========================================
+   The gigs section is light, so the card interior above is light-on-white.
+   The "currently playing" card is the one dark card on the section, so its
+   interior inverts back to light-on-dark.
+
+   Note the promo pill goes CHROME here, not leaf: the live card already
+   carries a strong rose glow, a rose border and the rose LIVE badge, and a
+   green pill against all that is exactly the red-and-green clash to avoid.
+   ================================================================== */
+.tour-date.currently-playing .venue-header {
+    border-bottom-color: var(--ink-700);
+}
+
+.tour-date.currently-playing .venue-header h3 {
+    color: var(--text-on-dark);
+}
+
+.tour-date.currently-playing .venue-header h3:hover {
+    color: var(--rose-300);
+}
+
+.tour-date.currently-playing .venue-desc {
+    color: var(--muted-on-dark);
+}
+
+.tour-date.currently-playing .venue-promo {
+    background: rgba(var(--chrome-rgb), 0.14);
+    color: var(--chrome-300);           /* 8.4:1 on --ink-900 */
+    box-shadow: 0 1px 3px rgba(var(--ink-rgb), 0.35);
+}
+
+.tour-date.currently-playing:hover .venue-promo {
+    box-shadow:
+        0 2px 6px rgba(var(--ink-rgb), 0.4),
+        0 0 0 1px rgba(var(--chrome-rgb), 0.3);
+}
+
+.tour-date.currently-playing .event-meta {
+    background: rgba(var(--accent-rgb), 0.22);
+    color: var(--rose-300);             /* 5.0:1 */
+    border-color: rgba(var(--accent-rgb), 0.4);
+}
+
+.tour-date.currently-playing .venue-address {
+    background: var(--ink-800);
+    border-color: var(--ink-700);
+    color: var(--muted-on-dark);
+}
+
+.tour-date.currently-playing .venue-address:hover {
+    background: rgba(var(--accent-rgb), 0.18);
+    border-color: rgba(var(--accent-rgb), 0.4);
+}
+
+.tour-date.currently-playing .venue-map-container {
+    box-shadow:
+        0 4px 20px rgba(var(--ink-rgb), 0.5),
+        0 0 0 1px var(--ink-700);
+}
+
+.tour-date.currently-playing .venue-map-container::after {
+    color: var(--muted-on-dark);
+}
+
+.tour-date.currently-playing .lazy-map:not([src]) {
+    background: linear-gradient(135deg, var(--ink-800) 0%, var(--ink-700) 100%);
+}
 
 /* Responsive Enhancements */
 @media (max-width: 768px) {
@@ -2649,21 +3650,28 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     transition: all 0.2s ease;
     white-space: nowrap;
     flex: 1;
-    background-color: var(--primary);
-    color: white; /* Adding white text for better contrast */
+    background: var(--grad-rose);
+    color: var(--white); /* 7.8:1 on --rose-500 */
     border: none; /* Removing default border */
     cursor: pointer; /* Adding pointer cursor on hover */
 }
 
 /* Hover effect */
 .btn:hover {
-    background-color: var(--primary); /* Using your primary purple color */
     transform: translateY(-2px); /* Keeping the lift effect */
-    box-shadow:
-        0 4px 8px rgba(155, 123, 184, 0.3), /* Purple shadow for depth */
-        0 0 12px rgba(155, 123, 184, 0.2); /* Additional glow effect */
-    color: var(--light); /* Ensuring text stays white */
+    box-shadow: var(--lift);
+    color: var(--white);
     border-color: transparent; /* Removing any border artifacts */
+}
+
+.btn:active {
+    transform: translateY(0);
+    background: var(--rose-700);
+}
+
+.btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 /* Responsive Adjustments */
@@ -2671,7 +3679,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 
 @media (max-width: 768px) {
     .tour-section {
-        padding: 2rem 0.5rem;
+        padding: var(--section-padding) 0;
     }
     
     .tour-grid {
@@ -2729,14 +3737,13 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 .form-group label {
     display: block;
     margin-bottom: 3px;
-    color: rgba(255, 255, 255, 0.95);
+    color: var(--text-on-dark);
     font-weight: 500;
     font-size: 0.95rem;
     letter-spacing: 0.3px;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* Input Fields - Glass style */
+/* Input Fields — white field, chrome border, rose focus */
 .form-group input,
 .form-group select,
 .form-group textarea {
@@ -2744,19 +3751,15 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     padding: 1rem;
     margin-top: 0rem;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border-input);   /* 3.16:1 on --white */
+    background: var(--white);
     font-family: var(--font-main);
     font-size: 1rem;
     line-height: 1.5;
-    color: #2c3e50;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--text);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     box-sizing: border-box;
-    box-shadow: 
-        0 2px 8px rgba(0, 0, 0, 0.04),
-        inset 0 1px 2px rgba(255, 255, 255, 0.3);
+    box-shadow: 0 2px 8px rgba(var(--ink-rgb), 0.06);
 }
 
 /* Input focus states */
@@ -2764,19 +3767,26 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 .form-group select:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: rgba(255, 255, 255, 0.4);
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow: 
-        0 4px 16px rgba(0, 0, 0, 0.08),
-        0 0 0 3px rgba(255, 255, 255, 0.1),
-        inset 0 1px 2px rgba(255, 255, 255, 0.4);
+    border-color: var(--rose-500);
+    background: var(--white);
+    box-shadow: var(--focus-ring);
     transform: translateY(-1px);
+}
+
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+    background: var(--paper-2);
+    border-color: var(--chrome-300);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
 /* Placeholder styling */
 .form-group input::placeholder,
 .form-group textarea::placeholder {
-    color: rgba(44, 62, 80, 0.6);
+    color: var(--text-muted);
     font-size: 0.95rem;
 }
 
@@ -2799,18 +3809,19 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     max-width: 300px;
     padding: 2rem 2rem 1.2rem 2rem; /* CHANGED: Added extra top padding */
     margin: 1.5rem auto 0;
-    background: linear-gradient(135deg, var(--primary), rgba(var(--primary-rgb), 0.8));
-    color: white;
+    /* was linear-gradient(135deg, var(--primary), rgba(var(--primary-rgb), 0.8))
+       — --primary-rgb was never defined, so the whole declaration was invalid
+       and the button rendered with no background at all. */
+    background: var(--grad-rose);
+    color: var(--white);
     border: none;
     border-radius: 12px;
     font-family: var(--font-main);
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 
-        0 4px 16px rgba(0, 0, 0, 0.15),
-        0 0 0 1px rgba(255, 255, 255, 0.1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 16px rgba(var(--ink-rgb), 0.15);
     position: relative;
     z-index: 1;
     text-transform: uppercase;
@@ -2834,17 +3845,18 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
 /* Submit button hover effect */
 .form-submit:hover {
     transform: translateY(-2px);
-    box-shadow: 
-        0 8px 24px rgba(0, 0, 0, 0.2),
-        0 0 0 1px rgba(255, 255, 255, 0.15);
-    background: linear-gradient(135deg, var(--primary), var(--primary));
+    box-shadow: var(--lift-dark);
 }
 
 .form-submit:active {
     transform: translateY(0);
-    box-shadow: 
-        0 4px 12px rgba(0, 0, 0, 0.15),
-        0 0 0 1px rgba(255, 255, 255, 0.1);
+    background: var(--rose-700);
+    box-shadow: 0 4px 12px rgba(var(--ink-rgb), 0.15);
+}
+
+.form-submit:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 /* Responsive Adjustments */
@@ -2874,27 +3886,13 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     }
 }
 
-/* Enhanced glass effect for better browsers */
-@supports (backdrop-filter: blur(20px)) {
-    
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-        background: rgba(255, 255, 255, 0.75);
-    }
-    
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-        background: rgba(255, 255, 255, 0.9);
-    }
-}
+/* The old @supports block here made input backgrounds translucent white for
+   a glass look. Fields are now solid --white so the 3:1 border and the body
+   text inside them stay compliant, so there is nothing left to override. */
 
 /* Responsive Fixes */
 @media (max-width: 768px) {
-    .section {
-        padding: 70px 0;
-    }
+    /* .section padding override removed - --section-padding is fluid now */
 
     .menu-toggle {
         display: block;
@@ -2908,12 +3906,12 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
         max-width: 300px;
         height: 100vh; /* fallback for older browsers */
         height: calc(var(--stable-vh, 1vh) * 100);
-        background: var(--dark);
+        background: var(--ink-900);
         flex-direction: column;
         align-items: center;
         justify-content: center;
         transition: all 0.3s ease;
-        box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+        box-shadow: -5px 0 20px rgba(var(--ink-rgb), 0.3);
     }
 
     .nav-links.active {
@@ -2956,20 +3954,30 @@ body {
     margin-bottom: 30px;
 }
 
-/* Form Embed Container (Critical for styling) */
+/* Book The Band — LIGHT section.
+   NOTE: the form itself is a Fillout.com iframe. Nothing in this stylesheet
+   reaches inside it — its fields, labels, focus rings and error states are
+   configured in the Fillout dashboard. Only the wrapper is themed here. */
+.contact-section {
+    background: var(--ink-900);
+    color: var(--text-on-dark);
+}
+
+/* Form Embed Container (Critical for styling)
+
+   The Fillout form currently renders on its own DARK charcoal background, so
+   the wrapper is dark too and the panel reads as a deliberate stage on paper
+   rather than a grey box floating in white.
+
+   >> If you re-theme the form to light in the Fillout dashboard, swap the two
+      marked lines to `var(--white)` and `var(--paper-2)`. <<                 */
 .form-embed-container {
     max-width: 1000px; /* Wider form area */
     margin: 0 auto;
-    background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    background: var(--ink-800);          /* light form -> var(--white)   */
     border-radius: 24px; /* Maintains rounded corners */
-    border: 1px solid rgba(255,255,255,0.2);
-    box-shadow: 
-        0 12px 40px rgba(0,0,0,0.15),
-        inset 0 1px 1px rgba(255,255,255,0.08),
-        inset 0 -1px 1px rgba(0,0,0,0.05),
-        0 0 0 1px rgba(0,0,0,0.03);
+    border: 1px solid var(--ink-700);    /* light form -> var(--paper-2) */
+    box-shadow: 0 1px 2px rgba(var(--ink-rgb), .08), 0 18px 44px -14px rgba(var(--ink-rgb), .3);
     overflow: hidden; /* Ensures rounded corners clip iframe */
 }
 
@@ -3017,13 +4025,10 @@ body {
    Merchandise Section (Now matches testimonials background)
    ====================== */
 .merch-section {
-    background: var(--secondary);
+    background: var(--ink-900);
     position: relative;
     overflow: hidden;
-    padding: 100px 0;
-    border-top: 3px solid var(--primary);
-
-
+    padding: var(--section-padding) 0;
 }
 
 /* ======================
@@ -3044,8 +4049,9 @@ body {
     flex: 0 1 480px;
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--ink-800);
+    box-shadow: 0 20px 60px rgba(var(--ink-rgb), 0.55);
+    border: 1px solid var(--ink-700);
 }
 
 .merch-showcase-image .merch-image {
@@ -3066,7 +4072,7 @@ body {
 
 .merch-showcase-details h3 {
     font-size: 2.2rem;
-    color: var(--light);
+    color: var(--text-on-dark);
     font-family: var(--font-heading);
     letter-spacing: 1.5px;
     margin-bottom: 12px;
@@ -3074,7 +4080,7 @@ body {
 
 .merch-tagline {
     font-size: 1.1rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--muted-on-dark);
     margin-bottom: 24px;
     font-style: italic;
     letter-spacing: 0.5px;
@@ -3102,7 +4108,7 @@ body {
 .merch-info h3 {
     font-size: 1.3rem;
     margin-bottom: 10px;
-    color: var(--light);
+    color: var(--text-on-dark);
     font-family: var(--font-heading);
     letter-spacing: 1px;
 }
@@ -3110,7 +4116,7 @@ body {
 .merch-price {
     font-size: 1.2rem;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--rose-300);       /* rose on dark — 5.0:1 on --ink-900 */
     margin-bottom: 15px;
 }
 
@@ -3126,16 +4132,17 @@ body {
     flex: 1;
     padding: 10px;
     border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
+    border: 1px solid var(--border-on-dark);   /* 5.8:1 on --ink-900 */
+    background: var(--ink-800);
+    color: var(--text-on-dark);
     font-family: var(--font-main);
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+    /* chevron in --chrome-300 */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23adafb0'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
     background-repeat: no-repeat;
     background-position: right 10px center;
     background-size: 12px;
@@ -3143,24 +4150,31 @@ body {
 }
 
 .merch-size:hover {
-    background-color: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-color: var(--rose-300);
+    color: var(--rose-300);
+    box-shadow: 0 2px 8px rgba(var(--ink-rgb), 0.3);
     transform: translateY(-1px);
 }
 
 /* Style the dropdown options */
 .merch-size option {
-    background: var(--dark);
-    color: white;
+    background: var(--ink-800);
+    color: var(--text-on-dark);
     padding: 10px;
 }
 
 /* Style the dropdown when focused */
-.merch-size:focus {
+.merch-size:focus-visible {
     outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(155, 123, 184, 0.3);
+    border-color: var(--rose-500);
+    box-shadow: var(--focus-ring);
+}
+
+.merch-size:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    border-color: var(--ink-700);
+    color: var(--muted-on-dark);
 }
 
 /* Style for Internet Explorer */
@@ -3171,32 +4185,32 @@ body {
 /* Firefox needs extra styling */
 @-moz-document url-prefix() {
     .merch-size {
-        color: white !important;
-        text-shadow: 0 0 0 white;
+        color: var(--text-on-dark) !important;
     }
     .merch-size option {
-        background: var(--dark);
+        background: var(--ink-800);
     }
 }
 
 /* Safari and Chrome need this for the arrow color */
 @media screen and (-webkit-min-device-pixel-ratio:0) {
     .merch-size {
-        color: white;
+        color: var(--text-on-dark);
     }
     .merch-size option {
-        background: var(--dark);
-        color: white;
+        background: var(--ink-800);
+        color: var(--text-on-dark);
     }
 }
 
 /* Keep existing hover styles */
 
+/* Primary action on the merch section */
 .btn-cart {
     flex: 2;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--grad-rose);
+    color: var(--white);           /* 7.8:1 on --rose-500 */
+    border: 1px solid transparent;
     padding: 10px;
     border-radius: 6px;
     font-weight: 600;
@@ -3204,14 +4218,30 @@ body {
     letter-spacing: 1px;
     font-size: 0.8rem;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
 }
 
 .btn-cart:hover {
-    background: var(--primary);
-    border-color: var(--primary);
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(155, 123, 184, 0.3);
+    box-shadow: var(--lift-dark);
+}
+
+.btn-cart:active {
+    transform: translateY(0);
+    background: var(--rose-700);
+}
+
+.btn-cart:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.btn-cart:disabled {
+    background: var(--ink-700);
+    color: var(--muted-on-dark);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 /* ======================
@@ -3221,31 +4251,27 @@ body {
     text-align: center;
     margin-top: 80px;
     padding: 50px;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ink-800);
     border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--ink-700);
     position: relative;
     max-width: 800px;
     margin-left: auto;
     margin-right: auto;
     transition: all 0.3s ease;
-    box-shadow: 
-        0 10px 30px rgba(0, 0, 0, 0.1),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: 0 10px 30px rgba(var(--ink-rgb), 0.35);
 }
 
 .merch-cta:hover {
     transform: translateY(-5px);
-    box-shadow: 
-        0 15px 40px rgba(0, 0, 0, 0.2),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 15px 40px rgba(var(--ink-rgb), 0.5);
+    border-color: rgba(var(--accent-rgb), 0.35);
 }
 
 .merch-cta h3 {
     font-size: 2rem;
     margin-bottom: 20px;
-    color: white;
+    color: var(--text-on-dark);
     font-family: var(--font-heading);
     letter-spacing: 1px;
     position: relative;
@@ -3260,12 +4286,12 @@ body {
     transform: translateX(-50%);
     width: 60px;
     height: 3px;
-    background: var(--primary);
+    background: var(--grad-rose);
 }
 
 .merch-cta p {
     font-size: 1.1rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--muted-on-dark);
     max-width: 600px;
     margin: 0 auto 30px;
     line-height: 1.6;
@@ -3273,9 +4299,7 @@ body {
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
-    .merch-section {
-        padding: 70px 0;
-    }
+    /* .merch-section padding override removed - uses --section-padding */
 
     .merch-showcase {
         flex-direction: column;
@@ -3349,36 +4373,39 @@ body {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background: var(--primary);
-    color: var(--light);
+    background: var(--grad-rose);
+    color: var(--white);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.5rem;
     cursor: pointer;
-    box-shadow: 0 5px 20px rgba(155, 123, 184, 0.4);
+    box-shadow: var(--lift-dark);
     z-index: 999;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
     border: none;
 }
 
 .cart-btn:hover {
     transform: translateY(-3px) scale(1.05);
-    box-shadow: 
-        0 8px 30px rgba(155, 123, 184, 0.8),
-        0 0 20px rgba(255, 236, 179, 0.8);
-    background-color: var(--primary); /* Ensures solid color */
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5); /* Added text glow */
+    box-shadow: var(--lift-dark-lg);
 }
 
+.cart-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* Chrome badge against the rose button — keeps the count legible without
+   adding a second accent colour. */
 .cart-count {
     position: absolute;
     top: -5px;
     right: -5px;
     width: 25px;
     height: 25px;
-    background: var(--highlight);
-    color: var(--dark);
+    background: var(--chrome-100);
+    color: var(--ink-900);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -3400,7 +4427,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(var(--ink-rgb), 0.7);
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
     z-index: 1000;
@@ -3421,13 +4448,14 @@ body {
     width: 100%;
     max-width: 500px;
     height: 100%;
-    background: var(--dark);
-    box-shadow: -5px 0 30px rgba(0, 0, 0, 0.3);
+    background: var(--ink-900);
+    color: var(--text-on-dark);
+    box-shadow: -5px 0 30px rgba(var(--ink-rgb), 0.5);
     z-index: 1001;
     transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     display: flex;
     flex-direction: column;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 1px solid var(--ink-700);
 }
 
 .cart-sidebar.active {
@@ -3439,13 +4467,13 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--ink-700);
 }
 
 .cart-header h3 {
     font-size: 1.5rem;
     margin: 0;
-    color: var(--light);
+    color: var(--text-on-dark);
     font-family: var(--font-heading);
     letter-spacing: 1px;
 }
@@ -3453,10 +4481,10 @@ body {
 .close-cart {
     background: none;
     border: none;
-    color: var(--light);
+    color: var(--chrome-300);
     font-size: 1.3rem;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
     width: 40px;
     height: 40px;
     display: flex;
@@ -3466,8 +4494,14 @@ body {
 }
 
 .close-cart:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--accent-rgb), 0.18);
+    color: var(--rose-300);
     transform: rotate(90deg);
+}
+
+.close-cart:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .empty-cart {
@@ -3476,7 +4510,7 @@ body {
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--muted-on-dark);
     font-size: 1.1rem;
 }
 
@@ -3498,7 +4532,7 @@ body {
 .cart-item {
     display: flex;
     margin: 20px 20px 20px 20px; /* Add margin instead */
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ink-800);
     border-radius: 10px;
     overflow: hidden;
     transition: all 0.3s ease;
@@ -3514,7 +4548,7 @@ body {
 }
 
 .cart-item:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--ink-700);
 }
 
 .cart-item-img {
@@ -3536,20 +4570,20 @@ body {
 .cart-item-title {
     font-size: 1rem;
     margin-bottom: 5px;
-    color: var(--light);
+    color: var(--text-on-dark);
     font-weight: 600;
 }
 
 .cart-item-price {
     font-size: 0.9rem;
-    color: var(--primary);
+    color: var(--rose-300);
     margin-bottom: 10px;
     font-weight: 700;
 }
 
 .cart-item-size {
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--muted-on-dark);
     margin-bottom: 10px;
 }
 
@@ -3559,14 +4593,19 @@ body {
     right: 10px;
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--muted-on-dark);
     cursor: pointer;
     font-size: 0.9rem;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
 }
 
 .cart-item-remove:hover {
-    color: var(--primary);
+    color: var(--rose-300);
+}
+
+.cart-item-remove:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .quantity-controls {
@@ -3579,19 +4618,26 @@ body {
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    color: var(--light);
+    background: var(--ink-700);
+    border: 1px solid var(--border-on-dark);
+    color: var(--text-on-dark);
     font-size: 1rem;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
 }
 
 .quantity-btn:hover {
-    background: var(--primary);
+    background: var(--rose-500);
+    border-color: var(--rose-500);
+    color: var(--white);
+}
+
+.quantity-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .quantity-value {
@@ -3603,7 +4649,7 @@ body {
 
 .cart-footer {
     padding: 10px;
-    border-top: 2px solid rgba(255, 255, 255, 0.1);
+    border-top: 2px solid var(--ink-700);
 
 }
 
@@ -3617,13 +4663,13 @@ body {
 }
 
 .total-price {
-    color: var(--primary);
+    color: var(--rose-300);
 }
 
 .btn-checkout {
     width: 100%;
-    background: var(--primary);
-    color: white;
+    background: var(--grad-rose);
+    color: var(--white);
     border: none;
     border-radius: 50px;
     font-weight: 600;
@@ -3636,7 +4682,25 @@ body {
 
 .btn-checkout:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(155, 123, 184, 0.6);
+    box-shadow: var(--lift-dark);
+}
+
+.btn-checkout:active {
+    transform: translateY(0);
+    background: var(--rose-700);
+}
+
+.btn-checkout:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.btn-checkout:disabled {
+    background: var(--ink-700);
+    color: var(--muted-on-dark);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 /* Cart Item Animation */
@@ -3659,7 +4723,7 @@ body {
 .checkout-form .checkout-header,
 .checkout-form .section-header {
   font-family: var(--font-heading);
-  color: var(--light);
+  color: var(--text-on-dark);
   text-transform: uppercase;
   letter-spacing: 1px;
   margin: 0;
@@ -3669,14 +4733,14 @@ body {
 
 .checkout-form .checkout-header {
   font-size: 1.3rem;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid var(--ink-700);
   margin-bottom: 8px;
 }
 
 .checkout-form .section-header {
   font-size: 1.1rem;
   padding-left: 0.5rem;
-border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+border-bottom: 2px solid var(--ink-700);
 
 }
 
@@ -3703,9 +4767,9 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     width: calc(100% - 30px);
     margin: 15px auto;
     padding: 18px;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ink-800);
     border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--ink-700);
     display: none;
     box-sizing: border-box;
     overflow-y: auto;
@@ -3752,24 +4816,36 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .checkout-form select {
     width: 100%;
     padding: 7px 10px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: var(--light); /* Default text color */
+    background: var(--white);
+    border: 1px solid var(--border-input);   /* 3.16:1 on --white */
+    color: var(--text);
     font-size: 0.75rem;
     height: 34px;
     transition: all 0.15s ease;
     box-sizing: border-box;
 }
 
+/* Fields are solid --white now, so the old `color: black on :focus` hack
+   (needed when the field was translucent) is gone. */
 .checkout-form input:focus,
 .checkout-form select:focus {
-    color: black; /* Black text when focused */
+    outline: none;
+    border-color: var(--rose-500);
+    box-shadow: var(--focus-ring);
+}
+
+.checkout-form input:disabled,
+.checkout-form select:disabled {
+    background: var(--paper-2);
+    border-color: var(--chrome-300);
+    color: var(--text-muted);
+    cursor: not-allowed;
 }
 
 .checkout-form label {
     display: block;
     margin-bottom: 3px;
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--muted-on-dark);   /* 6.7:1 on --ink-900 */
     font-size: 0.65rem;
     font-weight: 500;
 }
@@ -3909,7 +4985,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .back-to-shipping {
     background: none;
     border: none;
-    color: var(--light);
+    color: var(--chrome-300);
     font-size: 1.2rem;
     cursor: pointer;
     padding: 8px;
@@ -3924,8 +5000,14 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .back-to-shipping:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--accent-rgb), 0.18);
+    color: var(--rose-300);
     transform: translateX(-2px);
+}
+
+.back-to-shipping:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 /* Ensure the title stays centered */
@@ -3935,7 +5017,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     transform: translateX(-50%); /* Fine-tune centering */
     margin: 0;
     font-size: 1.3rem;
-    color: var(--light);
+    color: var(--text-on-dark);
     font-family: var(--font-heading);
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -3946,13 +5028,13 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     display: flex;
     align-items: center;
     gap: 6px;
-    color: #4CAF50;
+    color: var(--leaf-400);   /* 6.3:1 on --ink-900 - green stays a garnish */
     font-size: 0.8rem;
     font-weight: 600;
 }
 
 .security-badge i {
-    color: #4CAF50;
+    color: var(--leaf-400);
 }
 
 /* Card Preview */
@@ -3964,12 +5046,15 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .card-front {
     width: 100%;
     height: 160px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* Untyped card preview: an ink card, not a fake brand. The .visa /
+       .mastercard / .amex / .discover gradients below are real issuer
+       marks and are deliberately left alone. */
+    background: linear-gradient(135deg, var(--ink-800) 0%, var(--ink-700) 100%);
     border-radius: 16px;
     padding: 24px;
-    color: white;
+    color: var(--text-on-dark);
     position: relative;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 32px rgba(var(--ink-rgb), 0.45);
     transition: all 0.3s ease;
     overflow: hidden;
 }
@@ -4057,7 +5142,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .credit-card-form .form-group label {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--text-on-dark);
     font-size: 0.8rem;
     font-weight: 600;
 }
@@ -4073,10 +5158,10 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .credit-card-form select {
     width: 100%;
     padding: 16px;
-    background: rgba(255, 255, 255, 0.95);
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    background: var(--white);
+    border: 2px solid var(--border-input);   /* 3.16:1 on --white */
     border-radius: 12px;
-    color: #2c3e50; /* Default: dark text */
+    color: var(--text);
     font-size: 1rem;
     font-family: var(--font-main);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -4087,37 +5172,53 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .credit-card-form input:focus,
 .credit-card-form select:focus {
     outline: none;
-    border-color: var(--primary);
-    background: rgba(255, 255, 255, 1);
-    box-shadow: 0 0 0 4px rgba(255, 77, 77, 0.1);
+    border-color: var(--rose-500);
+    background: var(--white);
+    box-shadow: var(--focus-ring);
     transform: translateY(-1px);
-    color: #2c3e50; /* Dark text on focus (normal state) */
+    color: var(--text);
 }
 
-/* Error state - white text (even on focus) */
+.credit-card-form input:disabled,
+.credit-card-form select:disabled {
+    background: var(--paper-2);
+    border-color: var(--chrome-300);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+/* Error state.
+   The old rule forced `color: white !important` over a 5%-tint white field,
+   which made whatever the visitor had typed effectively invisible. The field
+   stays white and the text stays --text; only the border and ring signal the
+   error. */
 .credit-card-form input.error,
 .credit-card-form select.error {
-    border-color: #e74c3c;
-    background-color: rgba(231, 76, 60, 0.05);
-    color: white !important; /* Force white text */
+    border-color: var(--error);
+    background-color: var(--white);
+    color: var(--text);
 }
 
 .credit-card-form input.error:focus,
 .credit-card-form select.error:focus {
-    color: white !important; /* Keep white on focus */
-    border-color: #e74c3c; /* Keep red border */
-    background-color: rgba(231, 76, 60, 0.1); /* Slightly darker red */
-    box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.1); /* Red glow */
+    color: var(--text);
+    border-color: var(--error);
+    box-shadow: 0 0 0 3px rgba(var(--error-rgb), .3);
 }
 
-/* Valid state (optional - adjust if needed) */
+/* Valid state — leaf border only, no green fill and no green text */
 .credit-card-form input.valid,
 .credit-card-form select.valid {
-    color: white !important; /* Keep white on focus */
-    border-color: #3ce750; /* Keep red border */
-    background-color: #3ce75022; /* Slightly darker red */
-    box-shadow: 0 0 0 4px #3ce7502a; /* Red glow */
-}    
+    color: var(--text);
+    border-color: var(--leaf-600);
+    background-color: var(--white);
+}
+
+.credit-card-form input.valid:focus,
+.credit-card-form select.valid:focus {
+    border-color: var(--leaf-600);
+    box-shadow: 0 0 0 3px rgba(var(--leaf-rgb), .28);
+}
 
 /* Card Number Input */
 .card-number-group .input-wrapper {
@@ -4147,7 +5248,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .error-message {
-    color: #e74c3c;
+    color: var(--error-on-dark);   /* 7.3:1 on --ink-900; --error fails there */
     font-size: 0.8rem;
     min-height: 1em;
     margin-top: 0px;
@@ -4160,7 +5261,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .cvc-tooltip i {
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--chrome-300);
     cursor: help;
     font-size: 0.9rem;
 }
@@ -4169,10 +5270,11 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     position: absolute;
     bottom: 100%;
     right: 0;
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
+    background: var(--ink-950);
+    color: var(--text-on-dark);
     padding: 12px;
     border-radius: 8px;
+    border: 1px solid var(--ink-700);
     font-size: 0.8rem;
     white-space: nowrap;
     opacity: 0;
@@ -4180,7 +5282,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     transform: translateY(10px);
     transition: all 0.3s ease;
     z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(var(--ink-rgb), 0.5);
 }
 
 .tooltip-content::after {
@@ -4189,7 +5291,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     top: 100%;
     right: 16px;
     border: 6px solid transparent;
-    border-top-color: rgba(0, 0, 0, 0.9);
+    border-top-color: var(--ink-950);
 }
 
 .cvc-tooltip:hover .tooltip-content {
@@ -4200,7 +5302,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 /* Error Messages */
 .error-message {
-    color: #e74c3c;
+    color: var(--error-on-dark);
     font-size: 0.8rem;
     font-weight: 500;
     max-height: 20px;
@@ -4226,7 +5328,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 /* Billing Section */
 .billing-section {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--ink-700);
     padding-top: 5px;
 }
 
@@ -4241,7 +5343,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .billing-header h4 {
     margin: 0;
-    color: var(--light);
+    color: var(--text-on-dark);
     font-size: 1.1rem;
     font-family: var(--font-heading);
     text-transform: uppercase;
@@ -4255,7 +5357,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     gap: 8px;
     cursor: pointer;
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--text-on-dark);
     user-select: none;
 }
 
@@ -4266,16 +5368,20 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .checkmark {
     width: 20px;
     height: 20px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: var(--ink-800);
+    border: 2px solid var(--border-on-dark);   /* 5.8:1 on --ink-900 */
     border-radius: 4px;
     position: relative;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
 }
 
 .checkbox-wrapper input[type="checkbox"]:checked + .checkmark {
-    background: var(--primary);
-    border-color: var(--primary);
+    background: var(--rose-500);
+    border-color: var(--rose-500);
+}
+
+.checkbox-wrapper input[type="checkbox"]:focus-visible + .checkmark {
+    box-shadow: var(--focus-ring);
 }
 
 .checkbox-wrapper input[type="checkbox"]:checked + .checkmark::after {
@@ -4284,7 +5390,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: white;
+    color: var(--white);
     font-size: 0.8rem;
     font-weight: bold;
 }
@@ -4311,9 +5417,10 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Security Info */
+/* Trust panel - the one place a green surface appears, kept to a faint tint */
 .security-info {
-    background: rgba(76, 175, 80, 0.1);
-    border: 1px solid rgba(76, 175, 80, 0.3);
+    background: rgba(var(--leaf-rgb), 0.12);
+    border: 1px solid rgba(var(--leaf-rgb), 0.35);
     border-radius: 12px;
     padding: 20px;
     margin: 32px 0;
@@ -4331,7 +5438,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     display: flex;
     align-items: center;
     gap: 6px;
-    color: #4CAF50;
+    color: var(--leaf-400);   /* 6.3:1 on --ink-900 */
     font-size: 0.8rem;
     font-weight: 600;
 }
@@ -4342,7 +5449,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .security-text {
     text-align: center;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--text-on-dark);
     font-size: 0.85rem;
     line-height: 1.4;
     margin: 0;
@@ -4350,7 +5457,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 /* Order Summary Mini */
 .order-summary-mini {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--ink-800);
     border-radius: 12px;
     overflow: hidden;
     margin: 24px 0;
@@ -4366,12 +5473,12 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .summary-header:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--ink-700);
 }
 
 .summary-header h4 {
     margin: 0;
-    color: var(--light);
+    color: var(--text-on-dark);
     font-size: 1rem;
     font-weight: 600;
 }
@@ -4379,7 +5486,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .toggle-summary {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--chrome-300);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -4408,7 +5515,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .summary-items {
     padding: 0 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--ink-700);
 }
 
 .summary-item {
@@ -4416,12 +5523,12 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     justify-content: space-between;
     align-items: center;
     padding: 12px 0;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--text-on-dark);
     font-size: 0.9rem;
 }
 
 .summary-item:not(:last-child) {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--ink-700);
 }
 
 .summary-totals {
@@ -4433,15 +5540,15 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     justify-content: space-between;
     align-items: center;
     padding: 8px 0;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--muted-on-dark);
     font-size: 0.9rem;
 }
 
 .total-line.total {
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    border-top: 1px solid var(--ink-700);
     margin-top: 8px;
     padding-top: 16px;
-    color: var(--light);
+    color: var(--text-on-dark);
     font-weight: 700;
     font-size: 1.1rem;
 }
@@ -4456,30 +5563,64 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     width: 3px;
 }
 
+.payment-content::-webkit-scrollbar-track {
+    background: var(--ink-900);
+}
+
+.payment-content::-webkit-scrollbar-thumb {
+    background: var(--chrome-500);
+    border-radius: 3px;
+}
+
+/* Secondary button on dark: outlined chrome, rose on hover */
+.credit-card-form .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--chrome-300);
+    color: var(--text-on-dark);
+}
+
 .credit-card-form .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: transparent;
+    border-color: var(--rose-300);
+    color: var(--rose-300);
     transform: translateY(-2px);
 }
 
+.credit-card-form .btn-secondary:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
 .payment-btn {
-    background: linear-gradient(135deg, var(--primary) 0%, #B49BCC 100%);
-    color: white;
+    background: var(--grad-rose);
+    color: var(--white);
     flex: 1;
     min-height: 56px;
     position: relative;
-    box-shadow: 0 4px 16px rgba(155, 123, 184, 0.3);
+    box-shadow: var(--shadow-sm);
 }
 
 .payment-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(255, 77, 77, 0.4);
+    box-shadow: var(--lift-dark);
+}
+
+.payment-btn:active:not(:disabled) {
+    transform: translateY(0);
+    background: var(--rose-700);
+}
+
+.payment-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .payment-btn:disabled {
-    opacity: 0.7;
+    background: var(--ink-700);
+    color: var(--muted-on-dark);
     cursor: not-allowed;
     transform: none;
+    box-shadow: none;
 }
 
 .payment-btn .btn-text {
@@ -4504,8 +5645,8 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .spinner {
     width: 24px;
     height: 24px;
-    border: 3px solid rgba(255, 255, 255, 0.3);
-    border-top: 3px solid white;
+    border: 3px solid rgba(var(--paper-rgb), 0.3);
+    border-top: 3px solid var(--white);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -4603,14 +5744,14 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .billing-address-form .checkout-header {
     font-family: var(--font-heading);
     padding-top: 8px;
-    color: var(--light);
+    color: var(--text-on-dark);
     text-transform: uppercase;
     letter-spacing: 1px;
     margin: 0;
     position: relative;
     text-align: center;
     font-size: 1rem;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 2px solid var(--ink-700);
     margin-bottom: 8px;
     padding-bottom: 8px;
 }
@@ -4629,10 +5770,9 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .billing-address-form select {
     width: 100%;
     padding: 7px 10px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 4px;
-    color: var(--light);
+    background: var(--white);
+    border: 1px solid var(--border-input);   /* 3.16:1 on --white */
+    color: var(--text);
     font-size: 0.75rem;
     height: 34px;
     transition: all 0.15s ease;
@@ -4642,13 +5782,24 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .billing-address-form input:focus,
 .billing-address-form select:focus {
-    color: black;
+    outline: none;
+    color: var(--text);
+    border-color: var(--rose-500);
+    box-shadow: var(--focus-ring);
+}
+
+.billing-address-form input:disabled,
+.billing-address-form select:disabled {
+    background: var(--paper-2);
+    border-color: var(--chrome-300);
+    color: var(--text-muted);
+    cursor: not-allowed;
 }
 
 .billing-address-form label {
     display: block;
     margin-bottom: 3px;
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--muted-on-dark);
     font-size: 0.65rem;
     font-weight: 500;
 }
@@ -4657,10 +5808,10 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .form-actions-container {
     position: sticky;
     bottom: 0;
-    background: var(--dark);
+    background: var(--ink-900);
     padding: 5px;
     z-index: 100;
-    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 -5px 15px rgba(var(--ink-rgb), 0.4);
 }
 
 .form-actions {
@@ -4687,7 +5838,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 /* Keep all your existing billing section styles exactly as they are */
 .billing-section {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--ink-700);
     padding-top: 5px;
 }
 
@@ -4714,15 +5865,15 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 /* Footer */
 .footer {
-    background: linear-gradient(135deg, var(--secondary) 0%, rgba(0, 0, 0, 0.9) 100%);
+    background: var(--ink-950);
     padding: 40px 0 40px;
-    color: var(--light);
+    color: var(--text-on-dark);
     position: relative;
     margin-top: 50px;
-    border-top: 3px solid var(--primary);
     width: 100%;
 }
 
+/* Thin chrome line across the top of the footer */
 .footer::before {
     content: '';
     position: absolute;
@@ -4730,18 +5881,28 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--primary), transparent);
-    opacity: 0.6;
+    background: var(--grad-chrome);
 }
 
 .footer-content {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    /* Columns are their natural height rather than stretched, so the two text
+       columns keep their headings on the same line and the logo can be centred
+       independently below. */
+    align-items: start;
     gap: 40px;
     margin-bottom: 40px;
     max-width: 100%;
     margin-left: auto;
     margin-right: auto;
+}
+
+/* The logo column has no heading to line up with, and its art is roughly half
+   the height of the link list beside it - left at the top of the row it hung
+   ~52px above the optical centre. Centre it in its own track only. */
+.footer-about {
+    align-self: center;
 }
 
 .footer-section {
@@ -4758,14 +5919,14 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .footer-about h3 {
     font-size: 1.5rem;
     margin-bottom: 10px;
-    color: var(--primary);
+    color: var(--rose-300);   /* rose on dark - 5.4:1 on --ink-950 */
     font-weight: 600;
     position: relative;
 }
 
 .footer-about p {
     line-height: 1.6;
-    opacity: 0.9;
+    color: var(--muted-on-dark);
     margin-bottom: 15px;
 }
 
@@ -4773,7 +5934,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .footer-contact h3 {
     font-size: 1.5rem;
     margin-bottom: 15px;
-    color: var(--primary);
+    color: var(--rose-300);
     font-weight: 600;
     position: relative;
 }
@@ -4786,13 +5947,26 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     left: 0;
     width: 40px;
     height: 2px;
-    background: var(--primary);
+    background: var(--grad-rose);
 }
 
 .footer-links ul {
     list-style: none;
     padding: 0;
     margin: 0;
+}
+
+/* Six links stacked in one column made this block twice the height of the
+   other two, which is what left the big void under Contact and forced the
+   whole footer ~110px taller than it needed to be. Two short columns balance
+   the three tracks against each other. Single column on mobile, where the
+   layout is already stacked and centred. */
+@media (min-width: 769px) {
+    .footer-links ul {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 24px;
+    }
 }
 
 .footer-links li {
@@ -4805,7 +5979,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     content: '▸';
     position: absolute;
     left: 0;
-    color: var(--primary);
+    color: var(--rose-300);
     font-size: 0.8rem;
     transition: transform 0.3s ease;
 }
@@ -4815,43 +5989,46 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .footer-links a {
-    color: var(--light);
+    color: var(--text-on-dark);
     text-decoration: none;
-    transition: all 0.3s ease;
-    opacity: 0.9;
+    transition: all 0.25s ease;
 }
 
 .footer-links a:hover {
-    color: var(--primary);
-    opacity: 1;
+    color: var(--rose-300);
     padding-left: 5px;
+}
+
+.footer-links a:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: 3px;
 }
 
 .footer-contact p {
     display: flex;
     align-items: center;
     margin-bottom: 12px;
-    opacity: 0.9;
-    transition: opacity 0.3s ease;
+    color: var(--muted-on-dark);
+    transition: color 0.3s ease;
 }
 
 .footer-contact p:hover {
-    opacity: 1;
+    color: var(--text-on-dark);
 }
 
 .footer-contact i {
     margin-right: 12px;
     width: 20px;
     text-align: center;
-    color: var(--primary);
+    color: var(--rose-300);
     font-size: 1.1rem;
 }
 
 .footer-bottom {
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: 1px solid var(--ink-700);
     padding: 30px 20px 20px;
     text-align: center;
-    background: rgba(0, 0, 0, 0.116);
     margin-top: 20px;
 }
 
@@ -4863,12 +6040,12 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .social-links a {
-    color: var(--light);
+    color: var(--chrome-300);   /* 8.9:1 on --ink-950 */
     font-size: 1.3rem;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
     padding: 10px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ink-800);
     width: 45px;
     height: 45px;
     display: flex;
@@ -4878,34 +6055,56 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .social-links a:hover {
-    color: var(--primary);
-    background: rgba(255, 255, 255, 0.2);
+    color: var(--rose-300);
+    background: rgba(var(--accent-rgb), 0.18);
     transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 5px 15px rgba(var(--ink-rgb), 0.5);
+}
+
+.social-links a:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .copyright {
     font-size: 0.9rem;
-    opacity: 0.7;
-    color: var(--light);
+    color: var(--muted-on-dark);   /* was opacity .7 on white = 3.4:1 */
     line-height: 1.5;
 }
 
 .copyright a {
-    color: var(--primary);
+    color: var(--rose-300);
     text-decoration: none;
-    transition: opacity 0.3s ease;
+    transition: color 0.3s ease;
 }
 
 .copyright a:hover {
-    opacity: 0.8;
+    color: var(--rose-100);
+}
+
+/* Below ~933px three 250px tracks no longer fit, so auto-fit dropped to two
+   columns and left Contact orphaned on a second row with its heading 309px
+   below the others. Make that band a deliberate layout instead: the logo spans
+   the full width on top, links and contact sit side by side underneath.
+   Upper bound is 949px rather than the exact 933px threshold so rounding in
+   the 90%-width container can never reopen the gap. */
+@media (min-width: 769px) and (max-width: 949px) {
+    .footer-content {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .footer-about {
+        grid-column: 1 / -1;
+        align-self: auto;
+        margin-bottom: 8px;
+    }
 }
 
 @media (max-width: 768px) {
     .footer {
         padding: 40px 0 15px;
     }
-    
+
     .footer-content {
         grid-template-columns: 1fr;
         gap: 30px;
@@ -4972,11 +6171,16 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 .btn-locked {
     opacity: 0.6;
     cursor: not-allowed !important;
-    background: #666 !important;
+    background: var(--chrome-700) !important;
+    color: var(--white) !important;
+    box-shadow: none !important;
+    transform: none !important;
 }
 
 .btn-locked:hover {
-    background: #666 !important;
+    background: var(--chrome-700) !important;
+    box-shadow: none !important;
+    transform: none !important;
 }
 
 /* Navbar centered without logo */
@@ -5007,8 +6211,10 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     transition: transform 1s ease;
 }
 
+/* All hero logo sizes scaled to ~85% of their previous values. The loader
+   mark is pinned to this element's measured rect, so it follows automatically. */
 .hero-logo-img {
-    max-width: 700px;
+    max-width: 595px;
     width: 100%;
     height: auto;
 }
@@ -5016,45 +6222,44 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 /* Desktop - Large screens (1200px and up) */
 @media (min-width: 1200px) {
     .hero-logo-img {
-        max-width: 45rem;
-        width: 45rem;
-
+        max-width: 38rem;
+        width: 38rem;
     }
 }
 
 /* Desktop - Medium screens (992px to 1199px) */
 @media (min-width: 992px) and (max-width: 1199px) {
     .hero-logo-img {
-        max-width: 600px;
+        max-width: 510px;
     }
 }
 
 /* Tablet - Landscape (768px to 991px) */
 @media (min-width: 768px) and (max-width: 991px) {
     .hero-logo-img {
-        max-width: 500px;
+        max-width: 425px;
     }
 }
 
 /* Tablet - Portrait / Mobile Large (576px to 767px) */
 @media (min-width: 576px) and (max-width: 767px) {
     .hero-logo-img {
-        max-width: 700px;
+        max-width: 595px;
     }
 }
 
 /* Mobile - Medium (480px to 575px) */
 @media (min-width: 480px) and (max-width: 575px) {
     .hero-logo-img {
-        max-width: 350px;
+        max-width: 300px;
     }
 }
 
 /* Mobile - Small (up to 479px) */
 @media (max-width: 479px) {
     .hero-logo-img {
-        max-width: 400px;
-        width: 400px;
+        max-width: 340px;
+        width: 340px;
     }
 }
 
@@ -5067,10 +6272,9 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         margin-left: auto;
     }
 }
-/* Testimonials Section - Carousel Version */
+/* Testimonials Section - Carousel Version (DARK) */
 .testimonials-section {
-    background: var(--secondary);
-    border-top: 3px solid var(--primary);
+    background: var(--ink-900);
 }
 
 /* Testimonials Carousel Container */
@@ -5103,16 +6307,14 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     flex: 0 0 calc(100% - 40px); /* Each card takes full width minus margin space */
     min-height: 400px; /* Ensure consistent height */
     height: 500px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--ink-800);
+    color: var(--text-on-dark);
     padding: 40px;
     border-radius: 16px;
     margin: 0 20px; /* Add margins for spacing between cards */
     transition: all 0.3s ease;
     position: relative;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--ink-700);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -5121,8 +6323,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .testimonials-carousel .testimonial-card:hover {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-    background: rgba(255, 255, 255, 0.15);
+    box-shadow: var(--lift-dark);
 }
 
 /* Ensure proper spacing for testimonial content */
@@ -5140,7 +6341,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
 .testimonials-carousel .client-info {
     margin-top: 20px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--ink-700);
     padding-top: 15px;
 }
 
@@ -5149,9 +6350,10 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: var(--light);
+    /* Secondary button on dark: outlined chrome, rose on hover */
+    background: transparent;
+    border: 1px solid var(--chrome-300);
+    color: var(--text-on-dark);
     width: 50px;
     height: 50px;
     border-radius: 50%;
@@ -5160,18 +6362,20 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     align-items: center;
     justify-content: center;
     font-size: 1.2rem;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    transition: all 0.25s ease;
     z-index: 10;
 }
 
 .carousel-nav:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: var(--primary);
-    color: var(--primary);
+    background: rgba(var(--accent-rgb), 0.18);
+    border-color: var(--rose-300);
+    color: var(--rose-300);
     transform: translateY(-50%) scale(1.1);
-    box-shadow: 0 4px 20px rgba(155, 123, 184, 0.3);
+}
+
+.carousel-nav:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .carousel-nav:active {
@@ -5198,7 +6402,8 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
+    /* On --ink-900 these need 3:1 as state indicators: chrome-500 is 5.8:1 */
+    background: var(--chrome-500);
     border: none;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -5206,14 +6411,19 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .carousel-dots .dot:hover {
-    background: rgba(255, 255, 255, 0.5);
+    background: var(--rose-300);
     transform: scale(1.2);
 }
 
+.carousel-dots .dot:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
 .carousel-dots .dot.active {
-    background: var(--primary);
+    background: var(--rose-300);   /* rose-500 is only 2.4:1 on --ink-900 */
     transform: scale(1.3);
-    box-shadow: 0 0 0 3px rgba(155, 123, 184, 0.3);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3);
 }
 
 .carousel-dots .dot.active::after {
@@ -5224,7 +6434,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     right: -3px;
     bottom: -3px;
     border-radius: 50%;
-    border: 1px solid var(--primary);
+    border: 1px solid var(--rose-300);
     animation: dotPulse 2s infinite;
     opacity: 0;
 }
@@ -5373,23 +6583,29 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background: rgba(155, 123, 184, 0.15);
-    border: 1px solid rgba(155, 123, 184, 0.45);
+    /* Secondary on dark: chrome outline over the hero video, rose on hover */
+    background: rgba(var(--ink-rgb), 0.35);
+    border: 1px solid var(--chrome-300);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    color: var(--light);
+    color: var(--text-on-dark);
     font-size: 1.2rem;
     text-decoration: none;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 12px rgba(155, 123, 184, 0.1);
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 12px rgba(var(--ink-rgb), 0.35);
 }
 
 .hero-socials a:hover {
-    background: rgba(155, 123, 184, 0.3);
-    border-color: rgba(155, 123, 184, 0.7);
-    color: #fff;
+    background: rgba(var(--accent-rgb), 0.25);
+    border-color: var(--rose-300);
+    color: var(--rose-300);
     transform: translateY(-3px);
-    box-shadow: 0 6px 20px rgba(155, 123, 184, 0.35);
+    box-shadow: var(--lift-dark);
+}
+
+.hero-socials a:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 @media (max-width: 768px) {
@@ -5409,11 +6625,12 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     }
 }
 
-/* Social Feed Section */
+/* Social Feed Section - LIGHT. The Facebook and Instagram embeds inside
+   render on their own white background, so a light section is the only one
+   they sit in cleanly. */
 .social-feed-section {
-    background: var(--secondary);
-    border-top: 3px solid var(--primary);
-    border-bottom: 3px solid var(--primary);
+    background: var(--paper);
+    color: var(--text);
 }
 
 .social-feed-grid {
@@ -5426,12 +6643,11 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .social-feed-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(155, 123, 184, 0.2);
+    background: var(--white);
+    border: 1px solid var(--paper-2);
     border-radius: 12px;
     overflow: hidden;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-card);
     width: 500px;
     max-width: 100%;
 }
@@ -5441,11 +6657,11 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     align-items: center;
     gap: 10px;
     padding: 15px 20px;
-    border-bottom: 1px solid rgba(155, 123, 184, 0.15);
+    border-bottom: 1px solid var(--paper-2);
     font-family: var(--font-heading);
     font-size: 1.3rem;
     letter-spacing: 1px;
-    color: var(--primary);
+    color: var(--rose-600);   /* 9.4:1 on --white */
 }
 
 .social-feed-card-header i {
@@ -5488,12 +6704,12 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .instagram-post-wrapper::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--paper-2);
     border-radius: 4px;
 }
 
 .instagram-post-wrapper::-webkit-scrollbar-thumb {
-    background: rgba(155, 123, 184, 0.4);
+    background: var(--chrome-700);   /* 3:1 minimum on --paper-2 */
     border-radius: 4px;
 }
 
@@ -5569,23 +6785,23 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     }
 
     .hamburger.active {
-        background: rgba(155, 123, 184, 0.18);
+        background: rgba(var(--accent-rgb), 0.2);
     }
 
     .hamburger:focus-visible {
-        outline: 2px solid var(--primary);
-        outline-offset: 2px;
+        outline: none;
+        box-shadow: var(--focus-ring);
     }
 
-    /* Backdrop: blurred black with a soft purple stage light */
+    /* Backdrop: blurred ink with a soft rose stage light */
     .nav-overlay {
         display: block;
         position: fixed;
         inset: 0;
         background:
-            radial-gradient(120% 70% at 100% 0%, rgba(155, 123, 184, 0.28), transparent 60%),
-            radial-gradient(90% 60% at 0% 100%, rgba(155, 123, 184, 0.14), transparent 65%),
-            rgba(8, 6, 12, 0.93);
+            radial-gradient(120% 70% at 100% 0%, rgba(var(--accent-rgb), 0.28), transparent 60%),
+            radial-gradient(90% 60% at 0% 100%, rgba(var(--accent-rgb), 0.14), transparent 65%),
+            rgba(var(--ink-rgb), 0.95);
         backdrop-filter: blur(18px);
         -webkit-backdrop-filter: blur(18px);
         opacity: 0;
@@ -5661,7 +6877,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     .nav-menu.open .nav-links li:nth-child(6) { transition-delay: 0.32s; }
 
     .nav-menu .nav-links li:not(.nav-cta) {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        border-bottom: 1px solid var(--ink-700);
     }
 
     /* Big numbered stage links */
@@ -5677,7 +6893,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         letter-spacing: 1.5px;
         line-height: 1;
         text-align: left;
-        color: var(--light);
+        color: var(--text-on-dark);
         transition: color 0.25s ease, transform 0.25s ease;
     }
 
@@ -5689,7 +6905,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         font-size: 0.8rem;
         font-weight: 700;
         letter-spacing: 2px;
-        color: var(--primary);
+        color: var(--rose-300);
     }
 
     /* Current section marker */
@@ -5700,15 +6916,14 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         height: 9px;
         margin-left: auto;
         border-radius: 50%;
-        background: var(--primary);
-        box-shadow: 0 0 12px rgba(155, 123, 184, 0.9);
+        background: var(--rose-500);
         opacity: 0;
         transform: scale(0);
         transition: opacity 0.25s ease, transform 0.25s ease;
     }
 
     .nav-menu .nav-links li:not(.nav-cta) a.active {
-        color: var(--primary);
+        color: var(--rose-300);
     }
 
     .nav-menu .nav-links li:not(.nav-cta) a.active::after {
@@ -5729,9 +6944,9 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         gap: 12px;
         padding: 18px 24px;
         border-radius: 999px;
-        background: linear-gradient(135deg, #b89bd3 0%, var(--primary) 55%, #7c5b9b 100%);
-        box-shadow: 0 10px 30px rgba(155, 123, 184, 0.35);
-        color: var(--light);
+        background: var(--grad-rose);
+        box-shadow: var(--lift-dark);
+        color: var(--white);
         font-family: var(--font-main);
         font-size: 1rem;
         font-weight: 700;
@@ -5754,12 +6969,12 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 
     @media (hover: hover) {
         .nav-menu .nav-links li:not(.nav-cta) a:hover {
-            color: var(--primary);
+            color: var(--rose-300);
             transform: translateX(6px);
         }
 
         .nav-menu .nav-links li.nav-cta a:hover {
-            box-shadow: 0 14px 38px rgba(155, 123, 184, 0.5);
+            box-shadow: var(--lift-dark-lg);
         }
 
         .nav-menu .nav-links li.nav-cta a:hover::after {
@@ -5792,9 +7007,9 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         gap: 8px;
         padding: 16px 18px;
         text-align: center;
-        border: 1px solid rgba(155, 123, 184, 0.35);
+        border: 1px solid rgba(var(--accent-rgb), 0.45);
         border-radius: 16px;
-        background: rgba(155, 123, 184, 0.08);
+        background: rgba(var(--accent-rgb), 0.1);
         transition: background 0.25s ease, border-color 0.25s ease;
     }
 
@@ -5803,8 +7018,13 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     }
 
     .nav-next-show:hover {
-        background: rgba(155, 123, 184, 0.15);
-        border-color: rgba(155, 123, 184, 0.6);
+        background: rgba(var(--accent-rgb), 0.2);
+        border-color: rgba(var(--accent-rgb), 0.7);
+    }
+
+    .nav-next-show:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
     }
 
     .nav-next-label {
@@ -5815,7 +7035,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         font-weight: 700;
         letter-spacing: 3px;
         text-transform: uppercase;
-        color: var(--primary);
+        color: var(--rose-300);
     }
 
     .nav-next-label::before {
@@ -5824,7 +7044,7 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         height: 7px;
         border-radius: 50%;
         flex-shrink: 0;
-        background: var(--primary);
+        background: var(--rose-500);
         animation: nav-live-pulse 1.8s ease-out infinite;
     }
 
@@ -5839,14 +7059,14 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         font-size: 0.8rem;
         font-weight: 600;
         letter-spacing: 1px;
-        color: rgba(255, 255, 255, 0.65);
+        color: var(--muted-on-dark);
     }
 
     .nav-next-venue {
         font-family: var(--font-heading);
         font-size: 1.35rem;
         letter-spacing: 1px;
-        color: var(--light);
+        color: var(--text-on-dark);
     }
 
     .nav-menu-social {
@@ -5860,17 +7080,23 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         place-items: center;
         width: 48px;
         height: 48px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--chrome-300);
+        background: var(--ink-800);
         border-radius: 50%;
-        color: var(--light);
+        color: var(--chrome-300);
         font-size: 1.05rem;
         transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
     }
 
     .nav-menu-social a:hover {
-        background: var(--primary);
-        border-color: var(--primary);
+        background: rgba(var(--accent-rgb), 0.2);
+        border-color: var(--rose-300);
+        color: var(--rose-300);
+    }
+
+    .nav-menu-social a:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
     }
 }
 
@@ -5887,8 +7113,8 @@ border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 @keyframes nav-live-pulse {
-    0% { box-shadow: 0 0 0 0 rgba(155, 123, 184, 0.7); }
-    100% { box-shadow: 0 0 0 9px rgba(155, 123, 184, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.7); }
+    100% { box-shadow: 0 0 0 9px rgba(var(--accent-rgb), 0); }
 }
 
 @media (max-width: 1236px) and (prefers-reduced-motion: reduce) {

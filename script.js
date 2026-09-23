@@ -121,26 +121,55 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // How far a scrolled-to section must clear the fixed navbar.
+    //
+    // This was a hardcoded 80px "Navbar height", but the bar is not 80px at any
+    // breakpoint - it is ~50px scrolled on desktop, 82px in the 769-1236px
+    // hamburger band and 60px on mobile. At 900-1236px that meant a clicked
+    // section landed about 2px ABOVE the bottom of the navbar, i.e. tucked
+    // behind it.
+    //
+    // Measured from the navbar with .scrolled applied, because the page is
+    // always in that state by the time a jump finishes. Reading it live means
+    // it keeps working if the navbar padding is ever changed again.
+    function navOffset() {
+        const nav = document.querySelector('.navbar');
+        if (!nav) return 80;
+        const had = nav.classList.contains('scrolled');
+        if (!had) nav.classList.add('scrolled');
+        const h = nav.getBoundingClientRect().height;   // same frame, so no flicker
+        if (!had) nav.classList.remove('scrolled');
+        return Math.round(h) + 14;                      // + a small breathing gap
+    }
+
+    // Publish it for scroll-margin-top (styles.css) so native hash landings
+    // and programmatic scrollIntoView clear the bar too.
+    function syncNavOffset() {
+        document.documentElement.style.setProperty('--nav-offset', navOffset() + 'px');
+    }
+    syncNavOffset();
+    window.addEventListener('resize', syncNavOffset);
+
     // Smooth scrolling for navigation links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function(e) {
         const targetId = this.getAttribute('href');
-        
+
         // Skip if href is just "#" or empty
         if (targetId === '#' || targetId.length <= 1) {
             return;
         }
-        
+
         e.preventDefault();
-        
+
         const targetElement = document.querySelector(targetId);
-        
+
         if (targetElement) {
-            const offset = 80; // Navbar height
+            const offset = navOffset();
             const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - offset;
-            
+
             window.scrollTo({
-                top: targetPosition,
+                top: Math.max(0, targetPosition),
                 behavior: 'smooth'
             });
         }
@@ -840,101 +869,259 @@ window.addEventListener('load', function() {
     window.mapLoader = new MapLazyLoader();
 
     // =============================================
-    // TOUR GRID INTERACTION - Desktop only
-    // Click-drag to scroll with momentum.
-    // Trackpad/wheel uses native browser scroll (no JS override).
+    // TOUR GRID INTERACTION
+    //
+    // Cards always come to rest centred, but the landing is a JS tween rather
+    // than CSS scroll-snap.
+    //
+    // Native `scroll-snap-type: mandatory` is what made this feel harsh: its
+    // animation timing is not controllable, it fires the moment a scroll ends
+    // no matter how far it has to travel, and re-arming it after a programmatic
+    // scroll re-snaps instantly, so any sub-pixel drift showed up as a jerk.
+    // Chrome's own `behavior: 'smooth'` has the same problem in miniature - one
+    // fixed curve whatever the distance.
+    //
+    // So snapping is turned off and the settle is owned here: an ease-out over
+    // a duration that scales with how far it has to go. Short corrections are
+    // quick and almost invisible, long ones glide. One engine serves drag,
+    // flick, wheel, trackpad and touch, so every input settles identically.
     // =============================================
-    if (screen.width > 768) {
+    (function () {
         const grid = document.querySelector('.tour-grid');
-        if (grid) {
-            let isDragging = false;
-            let hasDragged = false;
-            let startX = 0;
-            let scrollStart = 0;
-            let velocity = 0;
-            let animating = false;
-            let lastX = 0;
-            let lastTime = 0;
-            const friction = 0.93;
-            const maxMomentum = 80;
+        if (!grid) return;
 
-            // Grab cursor on grid and all children
-            grid.style.cursor = 'grab';
+        const isDesktop = screen.width > 768;
+        const reduceMotion = window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-            grid.addEventListener('mousedown', (e) => {
-                // Don't drag on iframes (maps) or interactive elements
-                if (e.target.tagName === 'IFRAME') return;
+        // Hand snapping over to JS. The CSS keeps `x mandatory` as a no-script
+        // fallback; from here on this code owns where a card comes to rest.
+        grid.style.scrollSnapType = 'none';
 
-                isDragging = true;
-                hasDragged = false;
-                startX = e.clientX;
-                scrollStart = grid.scrollLeft;
-                lastX = e.clientX;
-                lastTime = Date.now();
-                velocity = 0;
+        let settleRaf = null;
+        let idleTimer = null;
+        let pointerHeld = false;
+        let touchHeld = false;
+        // True while the desktop drag's momentum is driving the scroll. The
+        // idle-settle below must not fire during it - both would be writing
+        // scrollLeft on the same frames and the card landed ~80px out.
+        let coasting = false;
 
-                grid.style.cursor = 'grabbing';
-                document.body.style.userSelect = 'none';
+        // ---- geometry ------------------------------------------------------
+        // Measured from bounding rects, NOT offsetLeft: .tour-section is
+        // position:relative, so it is the cards' offsetParent and offsetLeft is
+        // relative to the section rather than to this scroller. clientWidth is
+        // the padding box, which is what a centred card is centred against.
+        function cardCentres() {
+            const max = grid.scrollWidth - grid.clientWidth;
+            const gr = grid.getBoundingClientRect();
+            return Array.prototype.slice.call(grid.querySelectorAll('.tour-date'))
+                .filter(c => c.offsetWidth > 0)
+                .map(c => {
+                    const r = c.getBoundingClientRect();
+                    return grid.scrollLeft + (r.left - gr.left) + r.width / 2 - grid.clientWidth / 2;
+                })
+                .map(v => Math.max(0, Math.min(v, max)));
+        }
 
-                // Stop any ongoing momentum
-                animating = false;
+        function nearestCentre(to) {
+            const list = cardCentres();
+            if (!list.length) return null;
+            return list.reduce((a, b) => Math.abs(b - to) < Math.abs(a - to) ? b : a);
+        }
 
-                e.preventDefault();
-            });
+        // ---- the settle tween ----------------------------------------------
+        function stopSettle() {
+            if (settleRaf) { cancelAnimationFrame(settleRaf); settleRaf = null; }
+        }
 
-            window.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
+        function settle() {
+            const target = nearestCentre(grid.scrollLeft);
+            if (target === null) return;
 
-                var dx = e.clientX - startX;
-                if (Math.abs(dx) > 3) hasDragged = true;
+            const start = grid.scrollLeft;
+            const dist = target - start;
+            if (Math.abs(dist) < 0.5) return;
 
-                grid.scrollLeft = scrollStart - dx;
+            if (reduceMotion) { grid.scrollLeft = target; return; }
 
-                // Track velocity for throw momentum
-                var now = Date.now();
-                var dt = now - lastTime;
-                if (dt > 0) {
-                    velocity = (lastX - e.clientX) / dt * 16;
+            // Distance-proportional duration. A 10px nudge should not take the
+            // same 400ms as a half-card correction - that fixed duration is a
+            // big part of why a snap reads as a yank.
+            const duration = Math.min(820, Math.max(300, Math.abs(dist) * 2.8));
+            const t0 = performance.now();
+
+            // easeInOutCubic - soft at BOTH ends. An ease-out alone still
+            // lurches on its first frame (a 120px correction moved 34px in one
+            // frame), and that initial jolt is exactly what reads as a snap.
+            // Starting gently means the card appears to drift into place.
+            const ease = t => t < 0.5
+                ? 4 * t * t * t
+                : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+            stopSettle();
+            settleRaf = requestAnimationFrame(function step(now) {
+                const p = Math.min((now - t0) / duration, 1);
+                grid.scrollLeft = start + dist * ease(p);
+                if (p < 1) {
+                    settleRaf = requestAnimationFrame(step);
+                } else {
+                    settleRaf = null;
                 }
+            });
+        }
+
+        // ---- settle whenever scrolling goes quiet ---------------------------
+        // Covers wheel, trackpad and native touch momentum as well as the drag
+        // below, so every way of moving the row ends the same way.
+        function scheduleSettle(delay) {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                if (pointerHeld || touchHeld || coasting || settleRaf) return;
+                settle();
+            }, delay);
+        }
+
+        grid.addEventListener('scroll', () => {
+            // Ignore the scroll events our own tween or momentum generates.
+            if (settleRaf || pointerHeld || coasting) return;
+            scheduleSettle(touchHeld ? 260 : 150);
+        }, { passive: true });
+
+        grid.addEventListener('touchstart', () => {
+            touchHeld = true;
+            clearTimeout(idleTimer);
+            stopSettle();
+        }, { passive: true });
+
+        grid.addEventListener('touchend', () => {
+            touchHeld = false;
+            // Momentum carries on after the finger lifts; the scroll handler
+            // keeps pushing the timer out until it actually stops.
+            scheduleSettle(260);
+        }, { passive: true });
+
+        // ---- desktop click-drag --------------------------------------------
+        // Touch is left to native scrolling, which has better momentum than
+        // anything reproducible here; it just borrows the settle above.
+        if (!isDesktop) return;
+
+        let dragging = false;
+        let hasDragged = false;
+        let startX = 0;
+        let scrollStart = 0;
+        let lastX = 0;
+        let lastTime = 0;
+        let velocity = 0;
+        let coastId = null;
+
+        const FRICTION = 0.95;
+        const MAX_V = 55;      // px per frame
+        // Hand over to the settle once momentum is down to ~1px a frame. Below
+        // that the coast is an imperceptible crawl that was adding ~300ms of
+        // dead time before the card started moving to centre - and because the
+        // settle eases in, the hand-over itself is invisible.
+        const STOP_V = 1.2;
+
+        grid.style.cursor = 'grab';
+
+        function coast() {
+            grid.scrollLeft += velocity;
+            velocity *= FRICTION;
+
+            // Kill momentum at the ends instead of grinding against them
+            const max = grid.scrollWidth - grid.clientWidth;
+            if (grid.scrollLeft <= 0 || grid.scrollLeft >= max - 0.5) velocity = 0;
+
+            if (Math.abs(velocity) < STOP_V) {
+                coastId = null;
+                coasting = false;
+                settle();
+                return;
+            }
+            coastId = requestAnimationFrame(coast);
+        }
+
+        grid.addEventListener('pointerdown', (e) => {
+            if (e.pointerType !== 'mouse') return;      // touch stays native
+            if (e.target.tagName === 'IFRAME') return;  // let maps have their drags
+            if (e.button !== 0) return;
+
+            dragging = true;
+            pointerHeld = true;
+            hasDragged = false;
+            startX = e.clientX;
+            scrollStart = grid.scrollLeft;
+            lastX = e.clientX;
+            lastTime = performance.now();
+            velocity = 0;
+
+            if (coastId) { cancelAnimationFrame(coastId); coastId = null; }
+            coasting = false;
+            clearTimeout(idleTimer);
+            stopSettle();
+
+            grid.style.cursor = 'grabbing';
+            document.body.style.userSelect = 'none';
+            // NO preventDefault() here. On pointerdown it suppresses the
+            // compatibility mouse events AND the click, so every plain click
+            // inside the grid was swallowed. Text selection is handled by
+            // user-select above; native image/link dragging by dragstart below.
+        });
+
+        // Stop the browser starting a native drag of a card image or link
+        grid.addEventListener('dragstart', (e) => e.preventDefault());
+
+        window.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+
+            const dx = e.clientX - startX;
+            if (Math.abs(dx) > 3) hasDragged = true;
+
+            // 1:1 with the cursor
+            grid.scrollLeft = scrollStart - dx;
+
+            const now = performance.now();
+            const dt = now - lastTime;
+            if (dt > 0) {
+                // Blend with the previous reading so one jittery frame cannot
+                // throw the whole gesture.
+                const v = (lastX - e.clientX) / dt * 16;
+                velocity = velocity * 0.7 + v * 0.3;
                 lastX = e.clientX;
                 lastTime = now;
-            });
-
-            window.addEventListener('mouseup', () => {
-                if (!isDragging) return;
-                isDragging = false;
-                grid.style.cursor = 'grab';
-                document.body.style.userSelect = '';
-
-                // Throw momentum — let it fly
-                velocity = Math.max(-maxMomentum, Math.min(maxMomentum, velocity));
-                if (Math.abs(velocity) > 2 && !animating) {
-                    animating = true;
-                    coast();
-                }
-            });
-
-            function coast() {
-                if (!animating) return;
-                grid.scrollLeft += velocity;
-                velocity *= friction;
-                if (Math.abs(velocity) < 0.5) {
-                    animating = false;
-                    return;
-                }
-                requestAnimationFrame(coast);
             }
+        }, { passive: true });
 
-            // Block click events that fire after a drag
-            grid.addEventListener('click', (e) => {
-                if (hasDragged) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    hasDragged = false;
-                }
-            }, true);
+        function endDrag() {
+            if (!dragging) return;
+            dragging = false;
+            pointerHeld = false;
+            grid.style.cursor = 'grab';
+            document.body.style.userSelect = '';
+
+            velocity = Math.max(-MAX_V, Math.min(MAX_V, velocity));
+
+            if (Math.abs(velocity) > STOP_V) {
+                coasting = true;
+                coastId = requestAnimationFrame(coast);
+            } else if (hasDragged) {
+                settle();
+            }
         }
-    }
+
+        window.addEventListener('pointerup', endDrag);
+        window.addEventListener('pointercancel', endDrag);
+
+        // Block click events that fire after a drag
+        grid.addEventListener('click', (e) => {
+            if (hasDragged) {
+                e.preventDefault();
+                e.stopPropagation();
+                hasDragged = false;
+            }
+        }, true);
+    })();
 
     // =============================================
     // FACEBOOK EMBED MOBILE FIT
@@ -1985,7 +2172,7 @@ function showPaymentSuccess() {
         window.paypal.Buttons({
             style: {
                 layout: 'vertical',
-                color: 'blue',
+                color: 'black',   // PayPal preset - 'blue' clashed with the rose/ink palette
                 shape: 'rect',
                 label: 'paypal'
             },
@@ -2634,13 +2821,12 @@ class ProgressBar {
       const diff = this.progressTarget - this.currentProgress;
       if (Math.abs(diff) > 0.01) {
         this.currentProgress += diff * this.animationSpeed;
-        
-        // Update width with eased ends
-        this.ribbon.style.width = `${Math.min(100, Math.max(0, this.currentProgress))}%`;
-        
-        // Dynamic glow intensity with bounds checking
-        const glowIntensity = Math.min(1, Math.max(0.7, 0.7 + (this.currentProgress / 120)));
-        this.ribbon.style.setProperty('--glow-intensity', glowIntensity);
+
+        // The rail is vertical and revealed with clip-path (see styles.css), so
+        // this writes a percentage rather than setting a width. --glow-intensity
+        // is gone with the blur layers it used to drive.
+        const p = Math.min(100, Math.max(0, this.currentProgress));
+        this.ribbon.style.setProperty('--p', `${p}%`);
       }
       
       if (this.isAnimating) {
@@ -3476,83 +3662,174 @@ function initTourCalendar() {
 // =============================================
 (function() {
     const loader = document.getElementById('site-loader');
-    if (!loader) return;
+    if (!loader) {
+        // No preloader on the page - nothing will ever hand over, so release
+        // the hero sweep immediately or it would never run at all.
+        document.documentElement.classList.add('site-entered');
+        return;
+    }
 
     const logo = loader.querySelector('.loader-logo');
-    const wave = loader.querySelector('.loader-wave');
+    // The logo sits inside a .logo-shimmer wrapper that carries the specular
+    // sweep and the colour-reveal mask. --load goes on the WRAPPER so both the
+    // greyscale <img> and the colour .loader-logo-fill read the same value.
+    const logoFade = (logo && logo.closest('.logo-shimmer')) || logo;
     const isMobile = screen.width <= 768;
     let dismissed = false;
     let windowLoaded = false;
     let warmUpDone = false;
 
+    // Preloader progress. Drives the colour-reveal: the logo sits greyscale
+    // and its colour floods up from the bottom as --load goes 0 -> 1. The
+    // sound-wave bars and the "Loading" caption that used to live here are
+    // gone; the reveal is the whole loading indicator now.
+    // The progress sources are lumpy: the desktop ramp ticks every 50ms (20fps)
+    // and blends a stepped iframe count into a smooth time curve. Writing that
+    // straight to --load makes the bloom visibly stutter. So progress only sets
+    // a TARGET, and a rAF loop eases the displayed value toward it every frame.
+    // That is what makes the spill silky rather than steppy.
+    var targetLoad = 0;
+    var shownLoad = 0;
+    var rafId = null;
+
     function updateLogo(t) {
         if (!logo) return;
-        logo.style.opacity = t.toFixed(3);
-        var spread = Math.round(t * 25);
-        var blur = Math.round(t * 45);
-        var a1 = (t * 0.6).toFixed(2);
-        var a2 = (t * 0.25).toFixed(2);
-        logo.style.filter =
-            'drop-shadow(0 0 ' + spread + 'px rgba(155,123,184,' + a1 + ')) ' +
-            'drop-shadow(0 0 ' + blur + 'px rgba(155,123,184,' + a2 + '))';
+        // Never let the bloom retreat, even if a source reports lower.
+        if (t > targetLoad) targetLoad = t;
+    }
 
-        // Sync wave opacity and glow with logo
-        if (wave) {
-            var waveOpacity = (0.25 + t * 0.55).toFixed(3); // 0.25 → 0.8
-            wave.style.opacity = waveOpacity;
-            var wSpread = Math.round(t * 15);
-            var wBlur = Math.round(t * 30);
-            var wa1 = (t * 0.5).toFixed(2);
-            var wa2 = (t * 0.2).toFixed(2);
-            wave.style.filter =
-                'drop-shadow(0 0 ' + wSpread + 'px rgba(155,123,184,' + wa1 + ')) ' +
-                'drop-shadow(0 0 ' + wBlur + 'px rgba(155,123,184,' + wa2 + '))';
-        }
+    function renderLoad() {
+        var gap = targetLoad - shownLoad;
+        // Exponential follow - fast enough to keep up, slow enough to smooth.
+        shownLoad += gap * 0.075;
+        if (gap < 0.0004) shownLoad = targetLoad;
+        if (logoFade) logoFade.style.setProperty('--load', shownLoad.toFixed(4));
+        matchHeroSize();   // keeps the mark locked on the hero through the warm-up scroll
+        rafId = requestAnimationFrame(renderLoad);
     }
 
     function dismiss() {
         if (dismissed) return;
         dismissed = true;
         updateLogo(1);
+        matchHeroSize();
 
-        // Match loader logo to hero logo size and position
-        var heroLogo = document.querySelector('.hero-logo-img');
-        if (heroLogo && logo) {
-            var heroRect = heroLogo.getBoundingClientRect();
-            logo.style.width = heroRect.width + 'px';
-            logo.style.maxWidth = heroRect.width + 'px';
-            logo.style.height = 'auto';
-        }
+        // Let the colour finish spilling before anything else happens. Without
+        // this the fade can start while the bloom is still mid-flight and the
+        // last of the reveal is never seen. Capped so a stalled frame can't
+        // hang it.
+        var waitStart = Date.now();
+        (function awaitBloom() {
+            if (shownLoad < 0.995 && Date.now() - waitStart < 900) {
+                requestAnimationFrame(awaitBloom);
+                return;
+            }
 
-        loader.classList.add('loaded');
-        setTimeout(() => {
-            loader.classList.add('fade-out');
-            setTimeout(() => loader.remove(), 800);
-        }, 300);
+            // Colour is home. One slow sweep plus the glow's breath, then hand
+            // over. ENTRY_SWEEP_MS covers the longer of the two animations in
+            // styles.css (loader-glow-breath, 1.35s).
+            var ENTRY_SWEEP_MS = 1350;
+            if (logoFade) logoFade.classList.add('reveal-done');
+
+            setTimeout(() => {
+                loader.classList.add('loaded');
+                loader.classList.add('fade-out');
+                // Releases the hero logo's ambient sweep (styles.css). Held
+                // until now so its first pass is always keyframe 0% - leftward,
+                // the opposite of the rightward hand-off sweep above.
+                document.documentElement.classList.add('site-entered');
+                setTimeout(() => {
+                    if (rafId) cancelAnimationFrame(rafId);
+                    loader.remove();
+                }, 800);
+            }, ENTRY_SWEEP_MS - 300); // let the fade start as the breath settles
+        })();
     }
 
-    // Match loader logo size to hero logo
+    // Lock the loader mark onto the hero mark.
+    //
+    // Matching width alone was not enough - the two were the same SIZE but not
+    // in the same PLACE, because the loader centres its logo in the viewport
+    // while the hero logo sits inside .hero-content with its own margins. So
+    // instead of sizing, take the hero logo's real bounding rect and pin the
+    // loader wrapper to it with position:fixed. The two marks are then exactly
+    // one on one, and the hand-off at the end of loading is seamless.
+    var lastRect = { l: NaN, t: NaN, w: NaN, h: NaN };
+
     function matchHeroSize() {
         var heroLogo = document.querySelector('.hero-logo-img');
-        if (heroLogo && logo) {
-            var heroRect = heroLogo.getBoundingClientRect();
-            if (heroRect.width > 0) {
-                logo.style.width = heroRect.width + 'px';
-                logo.style.maxWidth = heroRect.width + 'px';
-                logo.style.height = 'auto';
-                logo.classList.add('sized');
-            }
+        if (!heroLogo || !logo || !logoFade) return;
+        var r = heroLogo.getBoundingClientRect();
+        if (r.width <= 0) return;
+
+        // DOCUMENT coordinates, not viewport ones.
+        //
+        // forceRenderMaps() warm-scrolls the page down to the tour section and
+        // back to force the map iframes in. getBoundingClientRect() is
+        // viewport-relative, so during that scroll the hero logo's rect goes
+        // thousands of pixels negative - and because this mark is position:fixed
+        // and re-synced every frame, it followed the hero straight off the top
+        // of the screen and only came back when the scroll returned. That was
+        // the logo "disappearing and reappearing" mid-load.
+        //
+        // Adding scrollY/scrollX makes the value scroll-invariant, and since the
+        // page rests at the top when the loader hands over, it is also exactly
+        // where the hero logo will be sitting at that moment.
+        var docTop = r.top + window.scrollY;
+        var docLeft = r.left + window.scrollX;
+
+        if (Math.abs(docLeft - lastRect.l) < 0.5 && Math.abs(docTop - lastRect.t) < 0.5 &&
+            Math.abs(r.width - lastRect.w) < 0.5 && Math.abs(r.height - lastRect.h) < 0.5) {
+            return;
         }
+        lastRect = { l: docLeft, t: docTop, w: r.width, h: r.height };
+
+        logoFade.style.position = 'fixed';
+        logoFade.style.left = docLeft + 'px';
+        logoFade.style.top = docTop + 'px';
+        logoFade.style.width = r.width + 'px';
+        logoFade.style.height = r.height + 'px';
+        logoFade.style.margin = '0';
+
+        logo.style.width = '100%';
+        logo.style.height = '100%';
+        logo.style.maxWidth = 'none';
+        logo.classList.add('sized');
+
+        // The wrapper starts at opacity 0 (styles.css) so nothing shows before
+        // the mark has been placed. Reveal it once, here - progress is carried
+        // by --load from now on, not by opacity.
+        logoFade.style.opacity = '1';
     }
-    // Try immediately and on load
+    // Try immediately and on load. Started here rather than beside renderLoad()
+    // because that loop calls matchHeroSize(), which reads lastRect - declared
+    // just above, so the loop must not run before this point.
     matchHeroSize();
     window.addEventListener('load', matchHeroSize);
     window.addEventListener('resize', matchHeroSize);
+    renderLoad();
+
+    // Same ease-in-out the desktop ramp uses, so both paths fill identically.
+    function easeInOut(t) {
+        return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
 
     if (isMobile) {
-        updateLogo(0.5);
+        // Mobile used to sit at a flat 0.5 and then snap to 1 on load, which
+        // left the colour fill frozen half way. Run a real time-based ramp so
+        // the reveal actually animates. The dismiss triggers below are
+        // untouched - only the visual progress changed.
         var mobileStart = Date.now();
         var mobileMinDisplay = 2500;
+        var mobileRamp = 2600;
+
+        updateLogo(0);
+        var mobileRampId = setInterval(function () {
+            if (dismissed) { clearInterval(mobileRampId); return; }
+            var t = Math.min((Date.now() - mobileStart) / mobileRamp, 1);
+            updateLogo(Math.min(easeInOut(t), 0.95)); // dismiss() sets 100%
+        }, 50);
+
         function mobileDismiss() {
             var elapsed = Date.now() - mobileStart;
             if (elapsed < mobileMinDisplay) {
@@ -3605,9 +3882,7 @@ function initTourCalendar() {
         // Time progress — ease-in-out so it starts slow, builds in the middle, slows at end
         var elapsed = Date.now() - startTime;
         var timeT = Math.min(elapsed / expectedDuration, 1);
-        var timeEased = timeT < 0.5
-            ? 2 * timeT * timeT
-            : 1 - Math.pow(-2 * timeT + 2, 2) / 2;
+        var timeEased = easeInOut(timeT);
 
         // Warm-up bump
         var warmUpBonus = warmUpDone ? 0.05 : 0;
@@ -3673,3 +3948,729 @@ function initTourCalendar() {
     setTimeout(dismiss, 12000);
 })();
 
+// =============================================
+// AUDIO COORDINATOR
+//
+// Two things on this page can make noise - the hero background and the
+// performances reel - and they must never do it at the same time. Whichever
+// one is asked for sound claims it here and every other player is told to go
+// quiet. The level is shared as well, so setting it in one place sets it in
+// both, and each clip carries a data-gain trim measured from its own loudness
+// (ffmpeg ebur128) so moving between them is a change of scene, not of volume.
+// =============================================
+const SiteAudio = (function () {
+    const players = new Map();   // id -> { silence(), apply(gain) }
+    const ramps = new WeakMap();
+    let level = 0.8;             // 0..1, the slider's own position
+    let restore = 0.8;           // where to come back to after a mute
+
+    // Perceived loudness tracks roughly the square of amplitude, so a slider
+    // sitting at half should be a quarter of the gain. A linear map feels dead
+    // across the bottom half and barely moves across the top.
+    const curve = p => p * p;
+
+    const api = {
+        register(id, player) { players.set(id, player); },
+
+        // Only ever called from a user gesture. Everyone else goes quiet first.
+        claim(id) { players.forEach((p, key) => { if (key !== id) p.silence(); }); },
+
+        get level() { return level; },
+        get gain() { return curve(level); },
+        set level(p) {
+            level = Math.max(0, Math.min(1, p));
+            if (level > 0) restore = level;   // remember it for the next unmute
+            players.forEach(player => player.apply(curve(level)));
+        },
+
+        // Muting takes the level to zero as well - a control reading 80% while
+        // nothing can be heard is just wrong - and unmuting puts back whatever
+        // it was before rather than guessing.
+        mute() { api.level = 0; },
+        unmute() { api.level = level > 0 ? level : (restore > 0 ? restore : 0.8); },
+
+        // The per-clip trim written into the markup as data-gain.
+        trim(v) {
+            const g = v && v.dataset ? parseFloat(v.dataset.gain) : NaN;
+            return isFinite(g) && g > 0 ? Math.min(1, g) : 1;
+        },
+
+        // What this particular clip's volume should be right now.
+        target(v) { return curve(level) * api.trim(v); },
+
+        stopRamp(v) {
+            if (!v) return;
+            const r = ramps.get(v);
+            if (r) { cancelAnimationFrame(r); ramps.delete(v); }
+        },
+
+        // Volume is ramped, never snapped. Cutting a clip's audio dead while
+        // its picture is still dissolving is the thing that makes a video
+        // carousel feel cheap, and jumping straight to full lands as a thump.
+        ramp(v, to, ms, done) {
+            if (!v) return;
+            api.stopRamp(v);
+            const from = v.volume;
+            const end = Math.max(0, Math.min(1, to));
+            if (ms <= 0 || Math.abs(end - from) < 0.001) {
+                v.volume = end;
+                if (done) done();
+                return;
+            }
+            const t0 = performance.now();
+            const step = (now) => {
+                const t = Math.min(1, (now - t0) / ms);
+                const e = t * t * (3 - 2 * t);   // smoothstep: gentle at both ends
+                v.volume = Math.max(0, Math.min(1, from + (end - from) * e));
+                if (t < 1) {
+                    ramps.set(v, requestAnimationFrame(step));
+                } else {
+                    ramps.delete(v);
+                    if (done) done();
+                }
+            };
+            ramps.set(v, requestAnimationFrame(step));
+        },
+    };
+
+    return api;
+})();
+
+// Wires one .vol pill - mute button plus slider - and hands back the functions
+// that repaint it. The host owns what on/off actually means for its video;
+// this only knows how to show it and how to report that it was used.
+function volumeUI(root, host) {
+    const btn = root.querySelector('.vol-btn');
+    const slider = root.querySelector('.vol-slider');
+    if (!btn || !slider) return { paint: function () {}, setAvailable: function () {} };
+
+    const sliderLabel = slider.getAttribute('aria-label') || 'Volume';
+    let dragging = false;
+    let available = true;
+    let pendingOn = false;
+    let frame = null;
+
+    function render() {
+        frame = null;
+        const on = pendingOn;
+        const pct = Math.round(SiteAudio.level * 100);
+        root.classList.toggle('is-on', !!on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.setAttribute('aria-label', on ? host.onLabel : host.offLabel);
+
+        // Each arc fades in across its own slice of the range, so the speaker
+        // grows with the level rather than snapping from bare to three waves.
+        // The cross-over bands overlap deliberately: at any given level at
+        // least one arc is part way in, which is what reads as movement.
+        const live = on && available;
+        const band = (lo, hi) => live ? Math.max(0, Math.min(1, (SiteAudio.level - lo) / (hi - lo))) : 0;
+        root.style.setProperty('--w1', band(0.01, 0.30).toFixed(3));
+        root.style.setProperty('--w2', band(0.26, 0.64).toFixed(3));
+        root.style.setProperty('--w3', band(0.60, 0.97).toFixed(3));
+        // The cross only means "muted by choice". A clip with no audio shows a
+        // bare speaker instead - nothing was switched off, there is just nothing
+        // there - so those two states do not look the same.
+        root.style.setProperty('--mute', (!on || (available && pct === 0)) ? '1' : '0');
+        // Writing the value back into the slider the pointer is holding fights
+        // the drag - the thumb stutters against its own input. The browser is
+        // already drawing the right position there.
+        if (!dragging && +slider.value !== pct) slider.value = pct;
+        slider.setAttribute('aria-valuetext', pct + '%');
+        slider.style.setProperty('--v', pct + '%');
+    }
+
+    // A drag fires input far faster than the screen refreshes; coalescing to
+    // one write per frame is what keeps the fill gliding instead of thrashing.
+    function paint(on) {
+        pendingOn = !!on;
+        if (frame) return;
+        frame = requestAnimationFrame(render);
+    }
+
+    // Only the level is taken away on a silent clip - see the note on
+    // .vol.is-unavailable in the stylesheet for why the button stays live.
+    function setAvailable(yes) {
+        available = !!yes;
+        root.classList.toggle('is-unavailable', !available);
+        slider.disabled = !available;
+        slider.setAttribute('aria-label', available ? sliderLabel : host.noneLabel);
+        root.setAttribute('title', available ? '' : host.noneLabel);
+        paint(pendingOn);
+    }
+
+    btn.addEventListener('click', host.toggle);
+
+    // Dragging or arrowing the slider is itself a user gesture, so a viewer who
+    // reaches straight for the level while muted gets sound - which is plainly
+    // what they were asking for.
+    slider.addEventListener('input', () => {
+        if (!available) return;
+        SiteAudio.level = slider.value / 100;
+        host.level();
+    });
+
+    slider.addEventListener('pointerdown', () => {
+        dragging = true;
+        root.classList.add('is-dragging');
+    });
+    const endDrag = () => {
+        if (!dragging) return;
+        dragging = false;
+        root.classList.remove('is-dragging');
+    };
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+
+    return { paint: paint, setAvailable: setAvailable };
+}
+
+// How much of an element is on screen, normalised 0..1 and eased, used as a
+// loudness factor. An element taller than the viewport can never reach a ratio
+// of 1, so the ratio is measured against the most it could possibly be.
+const AUDIO_THRESHOLDS = Array.from({ length: 21 }, (_, i) => i / 20);
+
+function presenceOf(entry) {
+    const h = entry.boundingClientRect.height;
+    const max = h > 0 ? Math.min(1, (entry.rootBounds ? entry.rootBounds.height : window.innerHeight) / h) : 1;
+    const ratio = max > 0 ? Math.min(1, entry.intersectionRatio / max) : 0;
+    // A wide window on purpose. Holding full volume until the player is half
+    // gone and then dropping it over the last stretch is a lurch; starting to
+    // dim as soon as it is genuinely on its way out spreads the same fade over
+    // most of the scroll, which is what makes it feel like a fade at all.
+    const LO = 0.10, HI = 0.85;
+    if (ratio <= LO) return 0;
+    if (ratio >= HI) return 1;
+    const t = (ratio - LO) / (HI - LO);
+    return t * t * (3 - 2 * t);
+}
+
+// Whether a clip actually carries sound. A missing audio track is detectable,
+// though every engine spells it differently. A track that is present but
+// silent is not detectable from script at all, so those carry data-audio="none"
+// in the markup instead - measured offline with ffmpeg's ebur128 filter.
+// The fallback is "assume sound": better than greying out a working control.
+function clipHasAudio(v) {
+    if (!v) return false;
+    if (v.dataset && v.dataset.audio === 'none') return false;
+    if (typeof v.mozHasAudio === 'boolean') return v.mozHasAudio;
+    if (v.audioTracks && typeof v.audioTracks.length === 'number') return v.audioTracks.length > 0;
+    return true;
+}
+
+// =============================================
+// HERO BACKGROUND SOUND
+//
+// The hero video is wallpaper, so it autoplays muted the way every background
+// video has to. This adds the option of hearing it, under the same rules as
+// the reel: muted is only ever cleared inside the click, the level fades
+// rather than snapping, and it drops to silence the moment the hero leaves the
+// screen, the tab is hidden, or the reel takes the sound.
+// =============================================
+(function () {
+    const hero = document.getElementById('home');
+    const root = hero && hero.querySelector('.vol--hero');
+    const video = hero && hero.querySelector('.hero-video');
+    if (!root || !video) return;
+
+    const FADE_MS = 650;
+    let on = false;        // the visitor has asked for hero sound
+    let presence = 1;      // 0..1, how much of the hero is on screen
+
+    // Everything routes through this, so scrolling away dims the sound in
+    // proportion rather than switching it off at a trip-wire.
+    const levelFor = () => SiteAudio.target(video) * presence;
+    const audible = () => on && presence > 0;
+
+    // Come up from zero every time, so returning to the hero is never a blast.
+    function liftIn(ms) {
+        SiteAudio.stopRamp(video);
+        video.volume = 0;
+        video.muted = false;
+        const p = video.play();
+        if (p && p.catch) p.catch(() => {});
+        SiteAudio.ramp(video, levelFor(), ms === undefined ? FADE_MS : ms);
+    }
+
+    function turnOff() {
+        on = false;
+        SiteAudio.mute();          // the level goes to zero with it
+        SiteAudio.ramp(video, 0, 320, () => { video.muted = true; video.volume = 1; });
+        paint(false);
+    }
+
+    function turnOn() {
+        SiteAudio.claim('hero');
+        on = true;
+        SiteAudio.unmute();        // back to whatever the level was before
+        paint(true);
+        if (presence <= 0) return;
+        SiteAudio.stopRamp(video);
+        video.volume = 0;
+        video.muted = false;
+        const p = video.play();
+        const up = () => SiteAudio.ramp(video, levelFor(), FADE_MS);
+        if (p && p.then) {
+            p.then(up, () => {
+                // The browser refused audible playback. Go back to muted rather
+                // than leave a control claiming sound that nobody can hear.
+                on = false;
+                video.muted = true;
+                video.volume = 1;
+                paint(false);
+            });
+        } else {
+            up();
+        }
+    }
+
+    const ui = volumeUI(root, {
+        onLabel: 'Turn hero sound off',
+        offLabel: 'Turn hero sound on',
+        noneLabel: 'This video has no sound',
+        toggle: () => { if (on) turnOff(); else turnOn(); },
+        // A short glide rather than a snap: stepping the gain straight to a new
+        // value on every input event is audible as a zip.
+        level: () => {
+            if (!on) turnOn();
+            else if (audible()) SiteAudio.ramp(video, levelFor(), 90);
+        },
+    });
+    const paint = ui.paint;
+
+    SiteAudio.register('hero', {
+        silence: () => { if (on) turnOff(); },
+        apply: () => {
+            if (audible()) SiteAudio.ramp(video, levelFor(), 90);
+            paint(on);
+        },
+    });
+
+    paint(false);
+
+    // Grey the control out if this file turns out to carry no sound.
+    const checkAudio = () => ui.setAvailable(clipHasAudio(video));
+    if (video.readyState >= 1) checkAudio();
+    video.addEventListener('loadedmetadata', checkAudio);
+
+    // Scrolling away dims the hero in proportion to how much of it is still on
+    // screen, across 21 thresholds, each one easing to the next over 240ms. The
+    // result is a continuous fade tied to the scroll rather than a cut.
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                presence = document.hidden ? 0 : presenceOf(e);
+                if (!on) return;
+                if (presence > 0) {
+                    if (video.muted || video.paused) liftIn(240);
+                    else SiteAudio.ramp(video, levelFor(), 240);
+                } else {
+                    // Already near zero from the ramp above; this just lands it
+                    // and mutes, so nothing bleeds once the hero is gone.
+                    SiteAudio.ramp(video, 0, 200, () => {
+                        if (presence <= 0) video.muted = true;
+                    });
+                }
+            });
+        }, { threshold: AUDIO_THRESHOLDS }).observe(hero);
+    }
+
+    // The global background-video handler replays everything when the tab comes
+    // back. Parking the volume at zero on the way out means that can never land
+    // as a blast, whichever listener runs first.
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            presence = 0;
+            SiteAudio.stopRamp(video);
+            video.volume = 0;
+        } else {
+            const r = hero.getBoundingClientRect();
+            const vh = window.innerHeight;
+            const shown = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+            presence = presenceOf({
+                boundingClientRect: r,
+                intersectionRatio: r.height > 0 ? shown / r.height : 0,
+                rootBounds: { height: vh },
+            });
+            if (on && presence > 0) liftIn();
+        }
+    });
+})();
+
+// =============================================
+// LIVE PERFORMANCES REEL
+//
+// Single-player showcase: one clip on screen, cross-fading on a timer, with
+// prev/next and dots. Owns its own playback - the videos use .reel-video, not
+// .autoplay-video, so the global "play every video" handler above never
+// touches them and two clips can never run at once.
+//
+// Clips are loaded on demand: only the visible one is fetched in full, and the
+// next is warmed to metadata so the cross-fade has something to show.
+//
+// Sound is off until someone asks for it. Every browser refuses audible
+// autoplay without a user gesture, so the clips carry `muted` in the markup -
+// that is the only reason they play at all on arrival - and the only place
+// muted is ever cleared is inside the sound button's click handler. Once it is
+// on, the picture and the audio cross-fade on the same curve, and a clip runs
+// to its natural end rather than being cut off at the 9s muted dwell.
+// =============================================
+(function () {
+    const reel = document.getElementById('reel');
+    if (!reel) return;
+
+    const slides = Array.from(reel.querySelectorAll('.reel-slide'));
+    if (!slides.length) return;
+
+    const stage    = reel.querySelector('.reel-stage');
+    const titleEl  = reel.querySelector('.reel-title');
+    const subEl    = reel.querySelector('.reel-sub');
+    const dotsWrap = reel.querySelector('.reel-dots');
+    const fill     = reel.querySelector('.reel-timer-fill');
+    const prevBtn  = reel.querySelector('.reel-prev');
+    const nextBtn  = reel.querySelector('.reel-next');
+    const volRoot  = reel.querySelector('.vol--reel');
+
+    const DWELL = 9000;   // ms a muted clip holds before advancing
+    const FADE_MS = 650;  // matches the .reel-slide opacity transition exactly
+    const reduceMotion = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let index = slides.findIndex(s => s.classList.contains('is-active'));
+    if (index < 0) index = 0;
+
+    let paused = false;      // pointer/focus is on the reel
+    let offscreen = false;   // section scrolled out of view, or tab hidden
+    let presence = 1;        // 0..1, how much of the stage is on screen
+    let soundOn = false;     // only ever set true from a user gesture
+    let elapsed = 0;
+    let last = 0;
+    let rafId = null;
+    let handoff = null;      // timeout that retires the outgoing clip
+
+    // ---- dots -----------------------------------------------------------
+    const dots = slides.map((slide, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'reel-dot';
+        b.setAttribute('aria-label', 'Show ' + (slide.dataset.title || 'performance ' + (i + 1)));
+        b.addEventListener('click', () => go(i, true));
+        dotsWrap.appendChild(b);
+        return b;
+    });
+
+    const videoOf = i => slides[i] && slides[i].querySelector('video');
+
+    function warm(i, level) {
+        const v = videoOf(i);
+        if (!v) return;
+        if (v.getAttribute('preload') === 'none') {
+            v.setAttribute('preload', level);
+            if (level === 'auto') v.load();
+        }
+    }
+
+    // ---- playback helpers ---------------------------------------------------
+    // play() can reject - autoplay policy, or a load that was interrupted by a
+    // fast click through the dots - and an unhandled rejection there shows up
+    // as a console error on a page that is working fine. Always swallow it.
+    function play(v) {
+        if (!v) return;
+        const p = v.play();
+        if (p && p.catch) p.catch(() => {});
+    }
+
+    // Ramps and the shared level live in SiteAudio, so the hero and the reel
+    // fade on the same curve and answer to the same slider. presence folds the
+    // scroll-away fade into every target, so nothing else has to think about it.
+    const stopRamp = v => SiteAudio.stopRamp(v);
+    const rampVolume = (v, to, ms, done) => SiteAudio.ramp(v, to, ms, done);
+    const levelFor = v => SiteAudio.target(v) * presence;
+
+    // Park a clip: silent, muted, paused, rewound volume. It is re-armed by go().
+    function retire(v) {
+        if (!v) return;
+        stopRamp(v);
+        v.pause();
+        v.muted = true;
+        v.volume = 1;
+    }
+
+    function go(i, manual) {
+        const n = slides.length;
+        const next = ((i % n) + n) % n;
+        const from = index;
+        const changing = next !== from;
+
+        if (handoff) { clearTimeout(handoff); handoff = null; }
+
+        slides.forEach((slide, k) => {
+            const v = slide.querySelector('video');
+            const on = k === next;
+            slide.classList.toggle('is-active', on);
+            if (!v) return;
+
+            if (on) {
+                warm(k, 'auto');
+                stopRamp(v);
+                // Muted, a clip loops as wallpaper. Audible, it runs once and
+                // hands over at its own ending - see tick().
+                v.loop = !soundOn;
+                v.muted = !soundOn;
+                if (soundOn) {
+                    if (changing) { try { v.currentTime = 0; } catch (_) {} }
+                    v.volume = 0;
+                    play(v);
+                    rampVolume(v, levelFor(v), FADE_MS);
+                } else {
+                    v.volume = 1;
+                    play(v);
+                }
+            } else if (k === from && changing) {
+                // Leave the outgoing clip running underneath the dissolve so the
+                // picture stays live and the sound tails off; retire() below
+                // stops it once the cross-fade has finished.
+                rampVolume(v, 0, FADE_MS);
+            } else {
+                retire(v);
+            }
+        });
+
+        if (changing) {
+            const outgoing = videoOf(from);
+            handoff = setTimeout(() => { handoff = null; retire(outgoing); }, FADE_MS);
+        }
+
+        index = next;
+        if (titleEl) titleEl.textContent = slides[next].dataset.title || '';
+        if (subEl) subEl.textContent = slides[next].dataset.sub || '';
+        dots.forEach((d, k) => d.setAttribute('aria-current', k === next ? 'true' : 'false'));
+        // The control greys out on a clip with nothing to hear. soundOn is left
+        // alone, so it comes straight back on the next clip that does have it.
+        volUI.setAvailable(clipHasAudio(videoOf(next)));
+
+        warm((next + 1) % n, 'metadata');   // ready the one after this
+        resetTimer();
+        if (manual) restart();
+    }
+
+    // ---- auto-advance timer ---------------------------------------------
+    function resetTimer() {
+        elapsed = 0;
+        last = 0;
+        if (fill) fill.style.width = '0%';
+    }
+
+    function tick(now) {
+        if (!last) last = now;
+        const dt = now - last;
+        last = now;
+
+        if (!offscreen) {
+            const v = videoOf(index);
+            // With sound on the clip itself is the timeline: the bar tracks real
+            // playback and the hand-over starts one fade-length before the end,
+            // so the next clip is already coming up as this one finishes rather
+            // than the song being chopped off at nine seconds.
+            // A silent clip has no performance to sit through, so it keeps the
+            // 9s showcase dwell even when sound is on.
+            const byClip = soundOn && v && clipHasAudio(v) && isFinite(v.duration) && v.duration > 2;
+
+            if (byClip) {
+                // Note this runs even while held: the clip is genuinely still
+                // playing under the cursor, so freezing the bar and then
+                // snapping it forward on mouseleave would just be a lie. Only
+                // the hand-over waits for the hold to end.
+                if (fill) fill.style.width = Math.min(100, (v.currentTime / v.duration) * 100) + '%';
+                if (!paused && (v.ended || v.duration - v.currentTime <= FADE_MS / 1000)) {
+                    go(index + 1, false);
+                    rafId = requestAnimationFrame(tick);
+                    return;
+                }
+            } else if (!paused) {
+                elapsed += dt;
+                if (fill) fill.style.width = Math.min(100, (elapsed / DWELL) * 100) + '%';
+                if (elapsed >= DWELL) {
+                    go(index + 1, false);
+                    rafId = requestAnimationFrame(tick);
+                    return;
+                }
+            }
+        }
+        rafId = requestAnimationFrame(tick);
+    }
+
+    function restart() {
+        if (rafId) cancelAnimationFrame(rafId);
+        resetTimer();
+        if (!reduceMotion) rafId = requestAnimationFrame(tick);
+    }
+
+    // ---- sound --------------------------------------------------------------
+    // Chrome, Safari and Firefox all block audible playback that nobody asked
+    // for, and Safari will additionally reject the play() promise outright. So:
+    // muted is cleared only in here, inside the click, and if play() still
+    // refuses we go straight back to muted instead of leaving a control that
+    // claims sound is on while nothing is audible.
+    function setSound(on) {
+        const v = videoOf(index);
+        soundOn = on;
+        if (on) {
+            SiteAudio.claim('reel');   // the hero cannot also be playing
+            SiteAudio.unmute();        // back to whatever the level was before
+        } else {
+            SiteAudio.mute();          // the level goes to zero with it
+        }
+        paintVol(soundOn);
+        if (!v) return;
+
+        v.loop = !on;
+        if (on) {
+            stopRamp(v);
+            v.volume = 0;
+            v.muted = false;
+            const p = v.play();
+            const fadeUp = () => rampVolume(v, levelFor(v), FADE_MS);
+            if (p && p.then) {
+                p.then(fadeUp, () => {
+                    soundOn = false;
+                    v.muted = true;
+                    v.volume = 1;
+                    v.loop = true;
+                    paintVol(false);
+                });
+            } else {
+                fadeUp();
+            }
+        } else {
+            rampVolume(v, 0, FADE_MS, () => { v.muted = true; v.volume = 1; });
+        }
+
+        // The dwell rule itself changes with sound, so start the clock over.
+        restart();
+    }
+
+    const volUI = volRoot ? volumeUI(volRoot, {
+        onLabel: 'Turn sound off',
+        offLabel: 'Turn sound on',
+        noneLabel: 'This clip has no sound',
+        toggle: () => setSound(!soundOn),
+        // A short glide, not a snap: stepping the gain straight to each new
+        // value as the thumb moves is audible as a zip.
+        level: () => {
+            if (!soundOn) { setSound(true); return; }
+            const v = videoOf(index);
+            if (v) rampVolume(v, levelFor(v), 90);
+        },
+    }) : { paint: function () {}, setAvailable: function () {} };
+    const paintVol = volUI.paint;
+
+    SiteAudio.register('reel', {
+        silence: () => { if (soundOn) setSound(false); },
+        apply: () => {
+            const v = videoOf(index);
+            if (soundOn && v) rampVolume(v, levelFor(v), 90);
+            paintVol(soundOn);
+        },
+    });
+
+    // Re-arm audio without a jump-scare when a clip is resumed rather than started.
+    function resume(v) {
+        if (!v) return;
+        if (soundOn) {
+            stopRamp(v);
+            v.muted = false;
+            v.volume = 0;
+            play(v);
+            rampVolume(v, levelFor(v), FADE_MS);
+        } else {
+            play(v);
+        }
+    }
+
+    // Backstop for the natural end of an audible clip. tick() normally hands
+    // over a fade-length early, but with prefers-reduced-motion there is no
+    // rAF loop at all, and without this the clip would simply stop dead.
+    slides.forEach((slide, k) => {
+        const v = slide.querySelector('video');
+        if (!v) return;
+        v.addEventListener('ended', () => {
+            if (k !== index || !soundOn || offscreen) return;
+            // Being held (hover, or keyboard focus) means "stay on this one", so
+            // run it again rather than either advancing or freezing on the last
+            // frame. loop is off while audible, so this is the only way back.
+            if (paused) { try { v.currentTime = 0; } catch (_) {} play(v); return; }
+            go(index + 1, false);
+        });
+    });
+
+    // ---- input ------------------------------------------------------------
+    if (prevBtn) prevBtn.addEventListener('click', () => go(index - 1, true));
+    if (nextBtn) nextBtn.addEventListener('click', () => go(index + 1, true));
+
+    // Hovering, or tabbing in with the keyboard, holds the current clip.
+    //
+    // Hover and focus are tracked separately on purpose. Treating any focusin
+    // as "pause" meant a single mouse click on a dot or arrow left that control
+    // focused, so `reel.contains(document.activeElement)` stayed true and the
+    // reel never resumed cycling again. :focus-visible is only true for
+    // keyboard focus, which is the case that actually wants the reel to wait.
+    let hovering = false;
+    let keyFocus = false;
+    const syncPaused = () => { paused = hovering || keyFocus; };
+
+    reel.addEventListener('mouseenter', () => { hovering = true; syncPaused(); });
+    reel.addEventListener('mouseleave', () => { hovering = false; syncPaused(); });
+
+    reel.addEventListener('focusin', () => {
+        const el = document.activeElement;
+        let visible = false;
+        try { visible = !!(el && el.matches && el.matches(':focus-visible')); } catch (_) {}
+        keyFocus = visible;
+        syncPaused();
+    });
+    reel.addEventListener('focusout', () => { keyFocus = false; syncPaused(); });
+
+    reel.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); go(index - 1, true); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); go(index + 1, true); }
+    });
+
+    // ---- only run while it is actually on screen --------------------------
+    // 21 thresholds, so the sound dims in proportion to how much of the stage
+    // is still showing instead of cutting out at a single trip-wire. Each step
+    // eases to the next over 240ms, which is what joins them into one fade.
+    if ('IntersectionObserver' in window && stage) {
+        new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                presence = document.hidden ? 0 : presenceOf(entry);
+                offscreen = presence <= 0;
+                const v = videoOf(index);
+                if (!v) return;
+                if (presence > 0) {
+                    if (v.paused) resume(v);
+                    else if (soundOn) rampVolume(v, levelFor(v), 240);
+                } else if (!v.paused) {
+                    // Let the last of it die away before the picture stops, so
+                    // scrolling past never clips the audio off mid-note.
+                    rampVolume(v, 0, 260, () => { if (presence <= 0) v.pause(); });
+                }
+            });
+        }, { threshold: AUDIO_THRESHOLDS }).observe(stage);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        const v = videoOf(index);
+        if (document.hidden) {
+            offscreen = true;
+            if (v) { stopRamp(v); v.pause(); }
+        } else {
+            offscreen = false;
+            resume(v);
+        }
+    });
+
+    // ---- start ------------------------------------------------------------
+    paintVol(false);
+    go(index, false);
+    if (!reduceMotion) rafId = requestAnimationFrame(tick);
+})();
