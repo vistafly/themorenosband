@@ -132,13 +132,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Measured from the navbar with .scrolled applied, because the page is
     // always in that state by the time a jump finishes. Reading it live means
     // it keeps working if the navbar padding is ever changed again.
+    //
+    // Transitions are switched off around the measurement. The navbar animates
+    // its padding, so with them on, adding .scrolled and reading the height in
+    // the same breath returned the height at the START of the transition - the
+    // unscrolled one. On a phone that read 80px at load and 74px on the first
+    // resize (the address bar sliding away), so the hero volume control, which
+    // is placed from this value, visibly jumped 6px as you began to scroll.
     function navOffset() {
         const nav = document.querySelector('.navbar');
         if (!nav) return 80;
         const had = nav.classList.contains('scrolled');
+        const transition = nav.style.transition;
+        nav.style.transition = 'none';
         if (!had) nav.classList.add('scrolled');
         const h = nav.getBoundingClientRect().height;   // same frame, so no flicker
         if (!had) nav.classList.remove('scrolled');
+        void nav.offsetHeight;                          // settle back while transitions are still off
+        nav.style.transition = transition;
         return Math.round(h) + 14;                      // + a small breathing gap
     }
 
@@ -2832,7 +2843,11 @@ const SCRUB = {
     OPEN_DELAY: 70,           // hover intent: brushing the edge on the way elsewhere does not open it
     CLOSE_AFTER: 450,         // linger after the pointer leaves
     CLOSE_AFTER_TOUCH: 1200,  // longer after a touch scrub, so a name can still be tapped
-    FOLLOW_MS: 55,            // time constant of the page catching up with a drag
+    FOLLOW_MS: 55,            // time constant of the page catching up with a mouse drag
+    TOUCH_TRACK_S: 0.04,      // a finger drag: how quickly the page picks up the finger's speed ...
+    TOUCH_EASE_S: 0.045,      // ... the ease that closes whatever gap is left ...
+    TOUCH_MAX_V: 8000,        // ... never faster than this, px/s (a wild flick; ordinary drags stay under it) ...
+    TOUCH_MAX_A: 60000,       // ... and getting up to speed no quicker than this, px/s²
     FILL_MS: 70,              // time constant of the fill catching up with ordinary scrolling
     SNAP_PX: 12,              // let go within this many px of a segment's top and it settles on its heading
     SNAP_PX_TOUCH: 18,
@@ -2873,7 +2888,10 @@ class SectionScrubber {
         this.press = null;       // a mouse / pen button held down on the scrubber
         this.touch = null;       // a finger on the scrubber, arming or armed
 
-        this.mode = 'idle';      // 'idle' | 'drag' | 'glide'
+        this.mode = 'idle';      // 'idle' | 'drag' | 'chase' (a finger let go, page still catching up) | 'glide'
+        this.vel = 0;            // touch drag / chase: the page's speed, px/s
+        this.tv = 0;             // touch drag: the finger's own speed, as page px/s, smoothed
+        this.lastTo = 0;         // touch drag: last frame's target, to measure that speed
         this.byTouch = false;    // the current (or last) drag is a finger's
         this.at = 0;             // drag: where the page has been eased to (px)
         this.to = 0;             // drag: where it is headed (px)
@@ -2976,29 +2994,27 @@ class SectionScrubber {
         requestAnimationFrame(() => this.measure());
     }
 
-    // Each segment runs from where its section becomes current (enter) to
-    // where the next one does, so it covers exactly the stretch of scrolling
-    // during which that section is the one on screen. Each pill sits beside
-    // the MIDDLE of its segment - which spaces them far more evenly than the
-    // boundaries would - nudged apart only if two would touch on the OPEN
-    // rail: pushed down clear of the pill above, then pulled back up from the
-    // bottom.
+    // Every section gets an EQUAL share of the rail, whatever its height;
+    // within its segment the rail maps evenly onto the stretch of scrolling
+    // during which that section is the one on screen (enter to the next
+    // enter). See railToScroll. Each pill sits beside the middle of its
+    // segment, nudged apart only if two would touch on the OPEN rail - which,
+    // with equal segments, only happens if there are too many to fit.
     layout() {
         const secs = this.sections, n = secs.length;
-        const max = this.maxScroll || 1;
         secs.forEach((s, i) => {
             s.end = i + 1 < n ? secs[i + 1].enter : this.maxScroll;
-            s.frac = s.enter / max;
+            s.frac = i / n;
             s.seg.style.setProperty('--a', (s.frac * 100).toFixed(3) + '%');
-            s.seg.style.setProperty('--len', ((s.end - s.enter) / max * 100).toFixed(3) + '%');
-            s.fill = -1;                          // repaint the fills against the new lengths
+            s.seg.style.setProperty('--len', (100 / n).toFixed(3) + '%');
+            s.fill = -1;                          // repaint the fills against the new ranges
         });
 
         const h = this.probe.offsetHeight || 400;
         const pill = secs[0].item.offsetHeight || 26;
         const step = pill + (this.coarse.matches ? SCRUB.PILL_GAP_TOUCH : SCRUB.PILL_GAP);
         const lo = pill / 2, hi = h - pill / 2;   // keep whole pills within the rail's height
-        const ys = secs.map(s => (s.enter + s.end) / 2 / max * h);
+        const ys = secs.map((s, i) => (i + 0.5) / n * h);
         ys[0] = Math.max(ys[0], lo);
         for (let i = 1; i < n; i++) ys[i] = Math.max(ys[i], ys[i - 1] + step);
         ys[n - 1] = Math.min(ys[n - 1], hi);
@@ -3009,6 +3025,30 @@ class SectionScrubber {
             s.at = ys[i] / h;
             s.item.style.setProperty('--y', (s.at * 100).toFixed(3) + '%');
         });
+    }
+
+    // Rail position (0..1) <-> scroll position (px). Equal segments, each
+    // mapped evenly onto its own section. Proportional segments - each as long
+    // as its section is tall - ran from 6% of the rail to 25% on a phone, and
+    // Performances got 8%: the reel scrolled out of view, and its sound faded
+    // away, in 45px of finger travel (74px now), while Book Now took an age.
+    // This way a tall section scrubs a little faster and a short one a little
+    // slower, and every chapter gets the same room under the finger.
+    railToScroll(f) {
+        const secs = this.sections, n = secs.length;
+        const x = clamp01(f) * n;
+        const i = Math.min(n - 1, Math.floor(x));
+        return secs[i].enter + (x - i) * (secs[i].end - secs[i].enter);
+    }
+
+    scrollToRail(y) {
+        const i = this.sectionAt(y), s = this.sections[i];
+        const t = s.end > s.enter ? clamp01((y - s.enter) / (s.end - s.enter)) : 1;
+        return (i + t) / this.sections.length;
+    }
+
+    railSection(f) {
+        return Math.min(this.sections.length - 1, Math.floor(clamp01(f) * this.sections.length));
     }
 
     bind() {
@@ -3069,7 +3109,7 @@ class SectionScrubber {
 
         // Any other attempt to scroll takes the page back from a glide in flight
         const takeBack = e => {
-            if (this.mode === 'glide' && !root.contains(e.target)) this.stopGlide();
+            if ((this.mode === 'glide' || this.mode === 'chase') && !root.contains(e.target)) this.stopGlide();
         };
         window.addEventListener('wheel', takeBack, { passive: true });
         window.addEventListener('touchstart', takeBack, { passive: true });
@@ -3148,7 +3188,7 @@ class SectionScrubber {
         } else if (!cancelled) {
             // A click: a name goes to its section, the rail to that point in the page
             if (p.name >= 0) this.glideTo(this.sections[p.name].start);
-            else this.glideTo(this.snap(this.fracAt(e.clientY) * this.maxScroll));
+            else this.glideTo(this.snap(this.railToScroll(this.fracAt(e.clientY))));
         }
         // Let go somewhere else: nothing is hovering the scrubber any more
         const over = document.elementFromPoint(e.clientX, e.clientY);
@@ -3267,7 +3307,7 @@ class SectionScrubber {
     // current, so a heading still on its way up the screen is not skipped.
     key(e) {
         const secs = this.sections;
-        const base = this.mode === 'glide' ? this.glide.to : window.scrollY;
+        const base = this.mode === 'glide' ? this.glide.to : this.mode === 'chase' ? this.to : window.scrollY;
         let to;
         switch (e.key) {
             case 'ArrowDown': case 'ArrowRight': case 'PageDown': {
@@ -3296,8 +3336,9 @@ class SectionScrubber {
         this.stopGlide();
         this.mode = 'drag';
         this.byTouch = byTouch;
-        this.at = this.to = window.scrollY;
-        this.frac = this.maxScroll ? this.at / this.maxScroll : 0;
+        this.vel = this.tv = 0;
+        this.at = this.to = this.lastTo = window.scrollY;
+        this.frac = this.scrollToRail(this.at);
         this.anchor = null;
         this.speed = 1;
         this.root.classList.add('is-dragging');
@@ -3329,7 +3370,7 @@ class SectionScrubber {
             this.root.classList.toggle('is-fine', speed < 1);
             if (speed < 1) this.chip.textContent = speed === 0.5 ? 'Half-speed scrub' : 'Quarter-speed scrub';
         }
-        this.to = this.frac * this.maxScroll;
+        this.to = this.railToScroll(this.frac);
     }
 
     endDrag() {
@@ -3339,19 +3380,75 @@ class SectionScrubber {
         this.anchor = null;
         this.root.classList.remove('is-dragging', 'is-fine');
         this.html.classList.remove('is-scrub-drag');
-        this.glideTo(this.snap(this.to));
+        const to = this.snap(this.to);
+        if (this.byTouch && !this.reduced.matches) {
+            // A finger usually lets go with the page still catching up. Keep
+            // chasing at the same capped speed rather than handing over to a
+            // glide: its ease-out starts fast, and would lurch the page forward
+            // at the very moment of release.
+            // The finger has stopped, so stop carrying its speed: the rest is
+            // closing the gap, which then never runs the wrong way towards a
+            // snap point behind it.
+            this.to = this.lastTo = to;
+            this.tv = 0;
+            this.mode = 'chase';
+            this.wake();
+        } else {
+            this.glideTo(to);
+        }
+    }
+
+    // A finger drag. The page moves WITH the finger - at the finger's own
+    // speed, measured frame to frame - and an ease closes whatever gap is left.
+    // A first version only chased the gap, so the page had to fall behind
+    // before it moved at all, and fell further behind the faster the finger
+    // went: a quarter of a second late, half a second to catch up.
+    //
+    // Two limits keep it smooth: a top speed, and a cap on how quickly it gets
+    // up to speed. A finger can fling the target the length of the page in one
+    // frame, and following that 1:1 moved the page hundreds of px a frame,
+    // which on a phone reads as judder, not speed. Ordinary drags stay under
+    // both. Slowing down and turning round are never held back, and it never
+    // steps past the target, so it stops where the finger does. True while
+    // still moving.
+    chase(dt) {
+        const s = dt / 1000;
+        if (s > 0) {
+            const raw = (this.to - this.lastTo) / s;
+            this.tv += (raw - this.tv) * (1 - Math.exp(-s / SCRUB.TOUCH_TRACK_S));
+        }
+        this.lastTo = this.to;
+        const gap = this.to - this.at;
+        // Caught up. Carry on at the finger's speed rather than stopping dead:
+        // from a standstill it would have to speed up again under the cap
+        // next frame, and stop-start every frame is a stutter.
+        if (Math.abs(gap) < 0.5) { this.at = this.to; this.vel = this.tv; return Math.abs(this.tv) > 5; }
+        const want = Math.max(-SCRUB.TOUCH_MAX_V, Math.min(SCRUB.TOUCH_MAX_V, this.tv + gap / SCRUB.TOUCH_EASE_S));
+        if (Math.sign(want) !== Math.sign(this.vel)) this.vel = 0;           // turning round: from a standstill
+        if (Math.abs(want) > Math.abs(this.vel)) {                           // speeding up: limited
+            this.vel += Math.sign(want) * Math.min(SCRUB.TOUCH_MAX_A * dt / 1000, Math.abs(want) - Math.abs(this.vel));
+        } else {
+            this.vel = want;                                                  // slowing down: not
+        }
+        const next = this.at + this.vel * s;
+        this.at = gap > 0 ? Math.min(next, this.to) : Math.max(next, this.to);   // never past the target
+        if (this.at === this.to) this.vel = Math.sign(this.tv) === Math.sign(gap) ? this.tv : 0;
+        return this.at !== this.to || Math.abs(this.tv) > 5;
     }
 
     // Let go at the top of a segment - anywhere from just above it down to
     // where its heading lands, a little way inside it - and the page settles
     // with that heading just under the navbar. Anywhere else, it stays
     // exactly where it was let go.
+    // Measured on the rail, where the finger is, not in page px: segments are
+    // equal on the rail but map onto very different amounts of page.
     snap(y) {
         const h = this.rect ? this.rect.height : this.rail.getBoundingClientRect().height;
         if (!h) return y;
-        const tol = (this.byTouch ? SCRUB.SNAP_PX_TOUCH : SCRUB.SNAP_PX) / h * this.maxScroll;
+        const tol = (this.byTouch ? SCRUB.SNAP_PX_TOUCH : SCRUB.SNAP_PX) / h;
+        const f = this.scrollToRail(y);
         for (const s of this.sections) {
-            if (y >= s.enter - tol && y <= s.start + tol) return s.start;
+            if (f >= s.frac - tol && f <= this.scrollToRail(s.start) + tol) return s.start;
         }
         return y;
     }
@@ -3374,10 +3471,12 @@ class SectionScrubber {
         this.wake();
     }
 
+    // Stops a glide, or the chase after a finger let go
     stopGlide() {
-        if (this.mode !== 'glide') return;
+        if (this.mode !== 'glide' && this.mode !== 'chase') return;
         this.mode = 'idle';
         this.glide = null;
+        this.vel = 0;
         this.settle();
     }
 
@@ -3414,15 +3513,24 @@ class SectionScrubber {
         // before anything below writes, so it never forces a second layout.
         if (this.open || this.mode !== 'idle' || busy) this.rect = this.rail.getBoundingClientRect();
 
-        if (this.mode === 'drag') {
-            if (this.pointer) this.steer(this.rect);
-            // Eased rather than 1:1. A long page over a short rail turns one px
-            // of pointer into ten or more of page, and jumping that far on every
-            // event reads as judder; 55ms is too short to be felt as lag.
-            const k = instant ? 1 : 1 - Math.exp(-dt / SCRUB.FOLLOW_MS);
-            this.at += (this.to - this.at) * k;
-            if (Math.abs(this.to - this.at) < 0.5) this.at = this.to; else busy = true;
+        if (this.mode === 'drag' || this.mode === 'chase') {
+            if (this.mode === 'drag' && this.pointer) this.steer(this.rect);
+            if (instant) {
+                this.at = this.to;
+                this.vel = 0;
+            } else if (this.byTouch) {
+                if (this.chase(dt)) busy = true;
+            } else {
+                // A mouse: eased rather than 1:1. A long page over a short rail
+                // turns one px of pointer into ten or more of page, and jumping
+                // that far on every event reads as judder; 55ms is too short to
+                // be felt as lag.
+                const k = 1 - Math.exp(-dt / SCRUB.FOLLOW_MS);
+                this.at += (this.to - this.at) * k;
+                if (Math.abs(this.to - this.at) < 0.5) this.at = this.to; else busy = true;
+            }
             window.scrollTo(0, this.at);
+            if (this.mode === 'chase' && this.at === this.to) { this.mode = 'idle'; this.settle(); }
         } else if (this.mode === 'glide') {
             const g = this.glide;
             const t = clamp01((now - g.t0) / g.dur);
@@ -3458,7 +3566,7 @@ class SectionScrubber {
     // one, where the knob is. Only touches the DOM where something changed.
     // Returns true while the knob is still gliding.
     paint(y, p, dt) {
-        const secs = this.sections, max = this.maxScroll, r = this.rect;
+        const secs = this.sections, r = this.rect;
         const cur = this.sectionAt(y);
 
         // The knob: the scrub's target while dragging. Otherwise, with the
@@ -3473,11 +3581,11 @@ class SectionScrubber {
         let tf = -1, tgt = -1, pick = -1;
         if (this.mode === 'drag') {
             tf = this.frac;
-            tgt = this.sectionAt(tf * max);
+            tgt = this.railSection(tf);
         } else if (this.pointer && this.open && r && r.height) {
             pick = this.pickAt(this.pointer.x, this.pointer.y);
             if (pick >= 0) { tgt = pick; tf = secs[pick].at; }
-            else { tf = clamp01((this.pointer.y - r.top) / r.height); tgt = this.sectionAt(tf * max); }
+            else { tf = clamp01((this.pointer.y - r.top) / r.height); tgt = this.railSection(tf); }
         }
         const pointing = tf >= 0;
         if ((pick >= 0) !== this.picking) {

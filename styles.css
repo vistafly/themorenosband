@@ -886,6 +886,14 @@ html.is-scrub-drag * {
 }
 
 @media (max-width: 768px) {
+    /* Pinned from the TOP at half the small viewport, not centred between
+       top:0 and bottom:0. The box a fixed element is laid out in grows and
+       shrinks as a phone's address bar comes and goes; centred in it, the
+       rail slid by half the bar's height - against content that moved by the
+       whole of it, and against the menu button, pinned to the top, which moved
+       with the content. Anchored to 50svh it moves with everything else. The
+       negative top margin does the centring, and follows the height as the
+       rail opens. */
     .scrubber {
         --line: 2px;
         --gap: 2px;
@@ -894,6 +902,15 @@ html.is-scrub-drag * {
         --pill-h: 30px;
         --rest-h: clamp(90px, 20vh, 180px);
         --open-h: clamp(260px, 56vh, 480px);
+        top: 50vh;
+        top: 50svh;
+        bottom: auto;
+        margin: calc(var(--rest-h) / -2) 0 0;
+        transition: height 0.55s var(--ease-out), margin-top 0.55s var(--ease-out);
+    }
+
+    .scrubber.is-open {
+        margin-top: calc(var(--open-h) / -2);
     }
 
     /* 4px open, as on desktop, not 3: an odd width puts the rail's centre on
@@ -2181,11 +2198,14 @@ html.is-scrub-drag * {
 
     .vol-icon { width: 16px; height: 16px; }
 
-    /* The socials sit centred at top:100px on mobile, so the left edge here is
-       clear - they are 42px wide each and start well right of this. */
+    /* First in the phone's top row - volume, socials, menu - see "PHONES: NO
+       HEADER BAR" at the end of this file. 1px border + 5px padding + 32px
+       button + 5px + 1px = the row's 44px. Placed at a fixed --row-top, not
+       from --nav-offset: that is re-measured on resize, and it moved this
+       control every time the address bar came or went. */
     .vol--hero {
         left: 16px;
-        top: calc(var(--nav-offset, 64px) + 14px);
+        top: var(--row-top, 14px);
         padding: 5px;
     }
 
@@ -6935,25 +6955,30 @@ border-bottom: 2px solid var(--ink-700);
     }
 }
 
+/* Phones: a further ~85% of the sizes above (595 / 300 / 340px), so the mark
+   sits back a little from the new row of buttons across the top. The loading
+   animation needs no rule of its own - its logo is pinned to this one's
+   measured rect (matchHeroSize in script.js), so it shrinks with it. */
+
 /* Tablet - Portrait / Mobile Large (576px to 767px) */
 @media (min-width: 576px) and (max-width: 767px) {
     .hero-logo-img {
-        max-width: 595px;
+        max-width: 505px;
     }
 }
 
 /* Mobile - Medium (480px to 575px) */
 @media (min-width: 480px) and (max-width: 575px) {
     .hero-logo-img {
-        max-width: 300px;
+        max-width: 255px;
     }
 }
 
 /* Mobile - Small (up to 479px) */
 @media (max-width: 479px) {
     .hero-logo-img {
-        max-width: 340px;
-        width: 340px;
+        max-width: 290px;
+        width: 290px;
     }
 }
 
@@ -7303,19 +7328,21 @@ border-bottom: 2px solid var(--ink-700);
     box-shadow: var(--focus-ring);
 }
 
+/* Phones: centred in the top row, between the volume control and the menu
+   button, and the same 44px as both (see "PHONES: NO HEADER BAR") */
 @media (max-width: 768px) {
     .hero-socials {
-        gap: 14px;
+        gap: 12px;
         bottom: auto;
-        top: 100px;
+        top: var(--row-top, 14px);
         left: 50%;
         transform: translateX(-50%);
         flex-direction: row;
     }
 
     .hero-socials a {
-        width: 42px;
-        height: 42px;
+        width: var(--row-size, 44px);
+        height: var(--row-size, 44px);
         font-size: 1rem;
     }
 }
@@ -7823,5 +7850,73 @@ border-bottom: 2px solid var(--ink-700);
 
     .nav-next-label::before {
         animation: none;
+    }
+}
+
+/* ==========================================================================
+   PHONES: NO HEADER BAR
+   On a phone the bar held nothing but the menu button, and cost a strip
+   across the top of every screen. It is gone. What is left is one row of
+   44px glass buttons along the top edge:
+
+       [ volume ]        [ f ][ ig ][ yt ]        [ menu ]
+
+   The volume control and the socials belong to the hero and scroll away with
+   it. The menu button belongs to the navbar: it stays fixed, and still slides
+   away while scrolling down and comes back on the way up (ImmersiveNav).
+   ========================================================================== */
+@media (max-width: 768px) {
+    :root {
+        --row-top: 14px;      /* the row's distance from the top of the screen */
+        --row-size: 44px;     /* every button in it */
+    }
+
+    /* The navbar stays - it carries the menu button, the full-screen menu and
+       the hide-on-scroll - but draws nothing, and lets taps through: it spans
+       the full width, and would otherwise sit on top of the hero's socials.
+       The button and the open menu's backdrop take their taps back (the menu
+       panel already does, via .nav-menu.open). Its height still sets
+       --nav-offset, so a section scrolled to lands clear of the button. */
+    .navbar,
+    .navbar.scrolled {
+        padding: var(--row-top) 0;
+        background: transparent;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        box-shadow: none;
+        pointer-events: none;
+    }
+
+    .navbar .container {
+        padding: 0 16px;
+    }
+
+    .navbar .hamburger,
+    .navbar .nav-overlay.active {
+        pointer-events: auto;
+    }
+
+    /* The same smoked glass as the volume control and the socials */
+    .hamburger {
+        width: var(--row-size);
+        height: var(--row-size);
+        border: 1px solid var(--glass-smoke-edge);
+        background: var(--glass-smoke);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        box-shadow: var(--glass-smoke-lift);
+    }
+
+    /* Narrower lines to sit inside the circle. The X is unaffected: its
+       translate brings the lines together vertically, whatever their width. */
+    .hamburger span {
+        width: 20px;
+    }
+
+    /* Open, it is the close button over the menu: lit, like the sound button
+       when the sound is on */
+    .hamburger.active {
+        background: var(--glass-hot);
+        border-color: var(--glass-hot-edge);
     }
 }
