@@ -50,7 +50,8 @@
     <!-- Styles and Fonts -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <!-- ?v= is a cache-buster for local work: bump it (or delete both) before publishing -->
+    <link rel="stylesheet" href="styles.css?v=20260925e">
 
     <!-- Structured Data (Schema.org) -->
     <script type="application/ld+json">
@@ -1390,9 +1391,6 @@
         .loader-logo-glow { display: none; }
     }
 </style>
-<div class="luxe-scroll-track">
-  <div class="luxe-progress-ribbon"></div>
-</div>
    <!-- Updated navbar without logo -->
 <nav class="navbar" aria-label="Main navigation">
     <div class="container">
@@ -1432,11 +1430,20 @@
     </div>
 </nav>
 
-   <header class="hero" id="home">
-    <!-- Video background element. data-gain trims it to match the performance
-         clips: measured at -11.4 LUFS against their -14, so -2.6dB = 0.741. -->
-    <video class="hero-video" autoplay loop muted playsinline data-gain="0.741">
+   <header class="hero" id="home" data-scrub="Home">
+    <!-- Background sequence. The two clips play one after the other on a loop,
+         cross-fading; there is deliberately no control for it - this is scenery,
+         not a player. Only the first is fetched up front, the second is warmed
+         ten seconds before it is needed. data-gain trims each to match: the
+         first measured -11.4 LUFS against the site's -14 target (-2.6dB =
+         0.741), the second -14.9, which is close enough to leave alone. -->
+    <video class="hero-video is-active" autoplay muted playsinline
+           preload="auto" data-gain="0.741">
         <source src="images/hero-background.mp4" type="video/mp4">
+    </video>
+    <video class="hero-video" muted playsinline
+           preload="none" data-gain="1">
+        <source src="images/hero-river.mp4" type="video/mp4">
     </video>
 
     <div class="vol vol--hero">
@@ -1457,6 +1464,14 @@
 
     <div class="hero-content">
         <div class="hero-logo logo-shimmer">
+    <!-- Blurred, saturated copies of the logo sitting behind it, so the halo is
+         the logo's own colours - chrome at the mic, crimson at the rose, white
+         at the wordmark. Two layers, driven separately by script.js and only
+         while the hero sound is on: a wide bloom that swells with the bass
+         (--glow) and a tight core that flashes on percussive hits (--hit).
+         One layer on its own just throbs; the pair is what reads as music. -->
+    <span class="hero-logo-glow" aria-hidden="true"></span>
+    <span class="hero-logo-glow hero-logo-glow--core" aria-hidden="true"></span>
     <img src="images/morenos-logo.png" alt="The Morenos — Est. 2013" width="1410" height="934" class="hero-logo-img">
     <h1 class="visually-hidden">The Moreno's Band - Live Music Entertainment in Fresno and Central Valley California</h1>
     <p class="visually-hidden">The Moreno's Band is the Central Valley's premier family band, performing live music across Fresno, Visalia, Clovis, and beyond. We play Top 40, Oldies, Latin, Country, and more at bars, wineries, casinos, and private events. Book us for your wedding, party, or venue — check our upcoming gigs, watch live performances, read testimonials, and shop band merch.</p>
@@ -1480,7 +1495,7 @@
 </header>
 
 <!-- Video Gallery -->
-<section id="videos" class="section videos-section">
+<section id="videos" class="section videos-section" data-scrub="Performances">
     <div class="container">
         <div class="section-header">
             <h2 class="section-title">Live Performances</h2>
@@ -1568,7 +1583,7 @@
 </section>
 
    <!-- Testimonials Section -->
-<section id="testimonials" class="section testimonials-section">
+<section id="testimonials" class="section testimonials-section" data-scrub="Testimonials">
     <div class="container">
         <div class="section-header">
             <h2 class="section-title">Client Testimonials</h2>
@@ -1593,7 +1608,7 @@
                     <!-- Card 2 - Cru Winery -->
                     <div class="testimonial-card">
                         <div class="testimonial-logo logo-cru">
-                            <img src="images/Cru.png" alt="Cru Winery Logo">
+                            <img src="images/Cru-cropped.png" alt="Cru Winery Logo">
                         </div>
                         <p class="testimonial-text">"TheMorenosBand brought the perfect vibe to our winery's summer event! Their mix of classic and modern tunes had guests clapping along all night—we'll definitely book them again."</p>
                         <div class="client-info">
@@ -1602,10 +1617,12 @@
                         </div>
                     </div>
 
-                    <!-- Card 3 - Morenos -->
+                    <!-- Card 3 - Private event (no venue logo, so a generic
+                         person icon; alt is empty because the name below
+                         already says who it is) -->
                     <div class="testimonial-card">
-                        <div class="testimonial-logo logo-morenos">
-                            <img loading="lazy" src="images/testimonialsplaceholder.jpg" alt="TheMorenosBand Logo">
+                        <div class="testimonial-logo logo-person">
+                            <img loading="lazy" src="images/Person%20Icon.webp" alt="" width="550" height="550">
                         </div>
                         <p class="testimonial-text">"We hired TheMorenosBand for a private birthday party, and they made it unforgettable. Easy to work with, took requests, and kept the dance floor packed. 10/10!"</p>
                         <div class="client-info">
@@ -1635,7 +1652,7 @@
 </section>
 
 <!-- Tour Dates Section -->
-<div id="tour" class="tour-section">
+<div id="tour" class="tour-section" data-scrub="Upcoming Gigs">
     <div class="section-header">
         <h2 class="section-title">Where to find us!</h2>
     </div>
@@ -2510,7 +2527,7 @@
 </div>
 
 <!-- Merchandise Section -->
-<section id="merch" class="section merch-section">
+<section id="merch" class="section merch-section" data-scrub="Merch">
     <div class="container">
         <div class="section-header">
             <h2 class="section-title">Band Merch</h2>
@@ -2542,7 +2559,7 @@
 </section>
 
 <!-- Social Feed Section -->
-<section id="social-feed" class="section social-feed-section">
+<section id="social-feed" class="section social-feed-section" data-scrub="Follow Us">
     <div class="container">
         <div class="section-header">
             <h2 class="section-title">Follow Us</h2>
@@ -2585,7 +2602,7 @@
     </div>
 </section>
 
- <section id="contact" class="section contact-section">
+ <section id="contact" class="section contact-section" data-scrub="Book Now">
         <div class="container">
             <div class="section-header">
                 <h2 class="section-title">Book The Band</h2>
@@ -3143,7 +3160,26 @@
         </div>
     </footer>
 
-    <script src="script.js"></script>
+    <!-- Section scrubber: the scroll progress rail on the right edge. Hover it
+         (or touch and hold on a phone) to open an index of the sections and
+         scrub through the page. script.js builds the segments and names from the
+         data-scrub attributes on the sections above, so a new section only
+         needs that attribute. It sits last in the body so its one tab stop
+         comes after the page rather than ahead of the main navigation, and
+         starts hidden so a failed script never leaves a dead rail behind. -->
+    <div class="scrubber" id="scrubber" hidden>
+        <ol class="scrubber-index" aria-hidden="true"></ol>
+        <div class="scrubber-rail" role="slider" tabindex="0"
+             aria-label="Page sections" aria-orientation="vertical"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span class="scrubber-segs" aria-hidden="true"></span>
+            <span class="scrubber-thumb" aria-hidden="true"></span>
+        </div>
+        <span class="scrubber-chip" aria-hidden="true"></span>
+        <span class="scrubber-probe" aria-hidden="true"></span>
+    </div>
+
+    <script src="script.js?v=20260925e"></script>
 <!-- DESKTOP DEBUGGER: To re-enable, add this line here: <script src="desktop-debugger.js"></script> -->
 </body>
 </html>

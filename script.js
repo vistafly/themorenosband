@@ -1193,8 +1193,13 @@ window.addEventListener('load', function() {
         }
     }
 
-    // Video autoplay functionality - with visibility-based loading/unloading
-    const allVideos = document.querySelectorAll('.autoplay-video, .hero-video');
+    // Video autoplay functionality - with visibility-based loading/unloading.
+    //
+    // .hero-video is deliberately NOT in this list any more. The hero is a
+    // two-clip sequence now and its own controller owns play/pause, preload
+    // and muting; letting this handler "play every video" would run both hero
+    // clips at once and undo the cross-fade.
+    const allVideos = document.querySelectorAll('.autoplay-video');
 
     // On mobile, only play videos that are visible on screen
     const isMobileDevice = window.innerWidth <= 768;
@@ -2640,6 +2645,21 @@ class ImmersiveNav {
         // Don't hide navbar if mobile menu is open
         if (this.mobileMenuOpen) return;
 
+        // A scrub (SectionScrubber) sweeps up and down the page far faster
+        // than anyone scrolls, and following it would flap the bar in and out.
+        // Hold it where it is, keep the bookkeeping current, and let it come
+        // back on stop as usual.
+        if (document.documentElement.classList.contains('is-scrubbing')) {
+            const atTop = window.scrollY < 10;
+            this.navbar.classList.toggle('at-top', atTop);
+            this.navbar.classList.toggle('scrolled', !atTop);
+            this.lastScrollY = window.scrollY;
+            this.travel = 0;
+            clearTimeout(this.stopTimer);
+            this.stopTimer = setTimeout(() => this.pin(0), this.showOnStop);
+            return;
+        }
+
         this.scrollDelta = window.scrollY - this.lastScrollY;
         const direction = Math.sign(this.scrollDelta);
         // Accumulate distance while direction holds; reset when it flips
@@ -2778,347 +2798,961 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-// VELVET SMOOTH SCROLL HANDLER - IMPROVED VERSION
-class ProgressBar {
-  constructor() {
-    this.progressTarget = 0;
-    this.currentProgress = 0;
-    this.animationSpeed = 0.15;
-    this.ribbon = document.querySelector('.luxe-progress-ribbon');
-    this.isAnimating = false;
-    this.scrollHeight = 0;
-    this.resizeObserver = null;
-    
-    this.init();
-  }
-  
-  init() {
-    if (!this.ribbon) {
-      console.error('Progress ribbon element not found');
-      return;
-    }
-    
-    // Start animation loop
-    this.startAnimation();
-    
-    // Set up scroll listener
-    window.addEventListener('scroll', this.handleScroll.bind(this), { passive: true });
-    
-    // Set up resize observer to handle dynamic content changes
-    this.setupResizeObserver();
-    
-    // Initial update
-    this.updateScrollMetrics();
-    this.handleScroll();
-  }
-  
-  startAnimation() {
-    if (this.isAnimating) return;
-    
-    this.isAnimating = true;
-    const animate = () => {
-      // Smooth interpolation with minimum change threshold
-      const diff = this.progressTarget - this.currentProgress;
-      if (Math.abs(diff) > 0.01) {
-        this.currentProgress += diff * this.animationSpeed;
+// =============================================
+// SECTION SCRUBBER
+// =============================================
+// The scroll progress rail on the right edge, grown into a way to move through
+// the page. The rail is cut into one segment per section - chapters, like a
+// video timeline - each as long as its section and filling as it is read.
+// Hover it, or touch and hold it on a phone, and it grows taller and a name
+// pill appears beside each segment, so the rail reads as a map of the page.
+// Drag to scrub; click a pill, or a point on the rail, to go there; let go
+// close to where a section starts and it settles onto its heading.
+//
+// Sections opt in with data-scrub="Label" in index.html. This replaced the old
+// ProgressBar, which only drew the fill and ran its animation loop on every
+// frame forever to do it - this loop sleeps whenever nothing is moving.
+//
+// The input model, because it is the part that is easy to get wrong:
+//   mouse / pen  Pointer Events with capture. The thumb sits under the
+//                pointer (absolute), until the pointer wanders left into fine
+//                mode, where movement goes relative at half or quarter speed.
+//   touch        Touch Events, because only a non-passive touchmove can stop
+//                the page panning once the scrub owns the gesture. A finger
+//                must be held still for HOLD_MS before it scrubs; move sooner
+//                and it is an ordinary scroll, left entirely alone. Touch
+//                scrubs are relative: the finger covers the rail, and the rail
+//                grows under it as it opens, so absolute would jump the page.
+//   keyboard     The rail is a focusable slider. Arrows and Page keys step
+//                section to section; Home and End go to the ends.
+const SCRUB = {
+    HOLD_MS: 280,             // touch-and-hold before a finger scrubs instead of scrolling
+    SLOP: 8,                  // px a finger may drift during the hold and still count as held
+    DRAG_AFTER: 4,            // px a mouse must move with the button down to be a drag, not a click
+    OPEN_DELAY: 70,           // hover intent: brushing the edge on the way elsewhere does not open it
+    CLOSE_AFTER: 450,         // linger after the pointer leaves
+    CLOSE_AFTER_TOUCH: 1200,  // longer after a touch scrub, so a name can still be tapped
+    FOLLOW_MS: 55,            // time constant of the page catching up with a drag
+    FILL_MS: 70,              // time constant of the fill catching up with ordinary scrolling
+    SNAP_PX: 12,              // let go within this many px of a segment's top and it settles on its heading
+    SNAP_PX_TOUCH: 18,
+    FINE: [110, 220],         // px left of the rail where a drag drops to half, then quarter speed
+    FINE_TOUCH: [80, 160],
+    PILL_GAP: 8,              // minimum px of air between two pills on the open rail
+    PILL_GAP_TOUCH: 10,
+    PILL_EDGE: 12,            // px from the rail to the pills' edge: right of it scrubs, left of it picks a pill
+    KNOB_MS: 40,              // time constant of the knob gliding to a new place
+    MAG: 0.1,                 // dock magnification: extra scale right at the thumb ...
+    MAG_TOUCH: 0.14,
+    MAG_R: 70,                // ... falling away to nothing this many px from it
+    MAG_R_TOUCH: 90
+};
 
-        // The rail is vertical and revealed with clip-path (see styles.css), so
-        // this writes a percentage rather than setting a width. --glow-intensity
-        // is gone with the blur layers it used to drive.
-        const p = Math.min(100, Math.max(0, this.currentProgress));
-        this.ribbon.style.setProperty('--p', `${p}%`);
-      }
-      
-      if (this.isAnimating) {
-        requestAnimationFrame(animate);
-      }
-    };
-    
-    requestAnimationFrame(animate);
-  }
-  
-  stopAnimation() {
-    this.isAnimating = false;
-  }
-  
-  handleScroll() {
-    this.updateScrollMetrics();
-    if (this.scrollHeight > 0) {
-      this.progressTarget = (window.scrollY / this.scrollHeight) * 100;
-    } else {
-      this.progressTarget = 0;
+const clamp01 = v => Math.min(1, Math.max(0, v));
+
+class SectionScrubber {
+    constructor(root) {
+        this.root = root;
+        this.rail = root.querySelector('.scrubber-rail');
+        this.segs = root.querySelector('.scrubber-segs');
+        this.thumb = root.querySelector('.scrubber-thumb');
+        this.index = root.querySelector('.scrubber-index');
+        this.chip = root.querySelector('.scrubber-chip');
+        this.probe = root.querySelector('.scrubber-probe');
+        this.html = document.documentElement;
+        this.reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+        this.coarse = window.matchMedia('(pointer: coarse)');
+
+        this.sections = [];      // { el, label, start, enter, end, frac, at, seg, track, item, name, scale, fill }
+        this.maxScroll = 0;
+        this.rect = null;        // the rail's box, re-read each frame while it can be moving
+
+        this.open = false;
+        this.pointer = null;     // a hovering mouse / pen, or the scrubbing finger: { x, y }
+        this.picking = false;    // the pointer is over the pills rather than the rail
+        this.press = null;       // a mouse / pen button held down on the scrubber
+        this.touch = null;       // a finger on the scrubber, arming or armed
+
+        this.mode = 'idle';      // 'idle' | 'drag' | 'glide'
+        this.byTouch = false;    // the current (or last) drag is a finger's
+        this.at = 0;             // drag: where the page has been eased to (px)
+        this.to = 0;             // drag: where it is headed (px)
+        this.frac = 0;           // drag: the thumb, 0..1 down the rail
+        this.anchor = null;      // drag: origin of relative scrubbing
+        this.speed = 1;          // drag: 1, 0.5 or 0.25
+        this.glide = null;       // { from, to, t0, dur }
+
+        this.shown = 0;          // the fill as drawn, eased toward the page
+        this.cur = -1;           // the section the page is in
+        this.tgt = -1;           // the section the knob points at
+        this.pointing = false;
+        this.knobY = 0;          // where the knob is drawn, px down the rail
+        this.knobOn = false;     // it was showing last frame (else it appears in place, no glide)
+        this.aria = '';
+
+        this.raf = 0;
+        this.last = 0;
+        this.openTimer = 0;
+        this.closeTimer = 0;
+        this.holdTimer = 0;
+        this.morphUntil = 0;     // keep painting until then: the rail is changing size
+        this.measureQueued = false;
+        this.frame = this.frame.bind(this);
+
+        root.style.setProperty('--hold', SCRUB.HOLD_MS + 'ms');
+        this.build();
+        if (!this.sections.length) return;
+        this.bind();
+        this.measure();
     }
-  }  
-  
-  updateScrollMetrics() {
-    this.scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-  }
-  
-  setupResizeObserver() {
-    if (typeof ResizeObserver !== 'undefined') {
-      this.resizeObserver = new ResizeObserver(() => {
-        this.updateScrollMetrics();
-        this.handleScroll();
-      });
-      
-      this.resizeObserver.observe(document.body);
-    } else {
-      // Fallback for browsers without ResizeObserver
-      window.addEventListener('resize', () => {
-        this.updateScrollMetrics();
-        this.handleScroll();
-      }, { passive: true });
+
+    // ---- structure ------------------------------------------------------------
+
+    build() {
+        const segs = document.createDocumentFragment();
+        const names = document.createDocumentFragment();
+        document.querySelectorAll('[data-scrub]').forEach((el, i) => {
+            const seg = document.createElement('span');
+            seg.className = 'scrubber-seg';
+            const track = document.createElement('span');
+            track.className = 'scrubber-track';
+            const fill = document.createElement('span');
+            fill.className = 'scrubber-fill';
+            track.append(fill);
+            seg.append(track);
+
+            const item = document.createElement('li');
+            item.className = 'scrubber-label';
+            item.dataset.i = i;
+            item.style.setProperty('--i', i);
+            const name = document.createElement('span');
+            name.className = 'scrubber-name';
+            name.textContent = el.dataset.scrub;
+            item.append(name);
+
+            segs.append(seg);
+            names.append(item);
+            this.sections.push({ el, label: el.dataset.scrub, start: 0, enter: 0, end: 0, frac: 0, at: 0,
+                                 seg, track, item, name, scale: 1, fill: -1 });
+        });
+        this.segs.replaceChildren(segs);
+        this.index.replaceChildren(names);
     }
-  }
-  
-  destroy() {
-    this.stopAnimation();
-    window.removeEventListener('scroll', this.handleScroll);
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
+
+    // Two scroll positions per section:
+    //   start  where it LANDS: its top just clear of the navbar, by the same
+    //          clearance the nav links use (--nav-offset, kept live by
+    //          syncNavOffset). Clicks, keys and snaps go here.
+    //   enter  where it becomes the section you are IN: its top crossing the
+    //          middle of the visible page. The segments, their fills and
+    //          "which section" all follow this. Using start for that as well
+    //          said "Merch" while Follow Us already filled most of the screen
+    //          and only its heading had yet to reach the navbar.
+    measure() {
+        this.measureQueued = false;
+        const html = this.html;
+        const max = this.maxScroll = Math.max(0, html.scrollHeight - window.innerHeight);
+        const clearance = parseFloat(getComputedStyle(html).getPropertyValue('--nav-offset')) || 80;
+        const lead = Math.max(0, (window.innerHeight - clearance) / 2);
+        const within = v => Math.min(max, Math.max(0, v));
+        const y = window.scrollY;
+        let prevStart = 0, prevEnter = 0;
+        for (const s of this.sections) {
+            const land = s.el.getBoundingClientRect().top + y - clearance;
+            // Clamped into the scrollable range and kept in page order, so the
+            // last sections - which can start below the final scroll position -
+            // sit at the bottom of the rail rather than off the end of it.
+            s.start = prevStart = Math.max(prevStart, within(land));
+            s.enter = prevEnter = Math.max(prevEnter, within(land - lead));
+        }
+        this.root.hidden = this.maxScroll < 1;
+        this.layout();
+        this.wake();
     }
-  }
+
+    remeasure() {
+        if (this.measureQueued) return;
+        this.measureQueued = true;
+        requestAnimationFrame(() => this.measure());
+    }
+
+    // Each segment runs from where its section becomes current (enter) to
+    // where the next one does, so it covers exactly the stretch of scrolling
+    // during which that section is the one on screen. Each pill sits beside
+    // the MIDDLE of its segment - which spaces them far more evenly than the
+    // boundaries would - nudged apart only if two would touch on the OPEN
+    // rail: pushed down clear of the pill above, then pulled back up from the
+    // bottom.
+    layout() {
+        const secs = this.sections, n = secs.length;
+        const max = this.maxScroll || 1;
+        secs.forEach((s, i) => {
+            s.end = i + 1 < n ? secs[i + 1].enter : this.maxScroll;
+            s.frac = s.enter / max;
+            s.seg.style.setProperty('--a', (s.frac * 100).toFixed(3) + '%');
+            s.seg.style.setProperty('--len', ((s.end - s.enter) / max * 100).toFixed(3) + '%');
+            s.fill = -1;                          // repaint the fills against the new lengths
+        });
+
+        const h = this.probe.offsetHeight || 400;
+        const pill = secs[0].item.offsetHeight || 26;
+        const step = pill + (this.coarse.matches ? SCRUB.PILL_GAP_TOUCH : SCRUB.PILL_GAP);
+        const lo = pill / 2, hi = h - pill / 2;   // keep whole pills within the rail's height
+        const ys = secs.map(s => (s.enter + s.end) / 2 / max * h);
+        ys[0] = Math.max(ys[0], lo);
+        for (let i = 1; i < n; i++) ys[i] = Math.max(ys[i], ys[i - 1] + step);
+        ys[n - 1] = Math.min(ys[n - 1], hi);
+        for (let i = n - 2; i >= 0; i--) ys[i] = Math.min(ys[i], ys[i + 1] - step);
+        // More pills than the rail has room for at that spacing: share it out
+        if (ys[0] < lo) for (let i = 0; i < n; i++) ys[i] = n > 1 ? lo + (hi - lo) * i / (n - 1) : h / 2;
+        secs.forEach((s, i) => {
+            s.at = ys[i] / h;
+            s.item.style.setProperty('--y', (s.at * 100).toFixed(3) + '%');
+        });
+    }
+
+    bind() {
+        const root = this.root;
+        window.addEventListener('scroll', () => this.wake(), { passive: true });
+        window.addEventListener('resize', () => this.remeasure(), { passive: true });
+        window.addEventListener('load', () => this.remeasure());
+        // Videos, maps, fonts and the gig list all change the page's height late
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(() => this.remeasure()).observe(document.body);
+        }
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this.remeasure());
+
+        // Mouse and pen
+        root.addEventListener('pointerenter', e => {
+            if (e.pointerType === 'touch') return;
+            this.pointer = { x: e.clientX, y: e.clientY };
+            this.openSoon();
+            this.wake();
+        });
+        root.addEventListener('pointermove', e => {
+            if (e.pointerType === 'touch') return;
+            this.pointer = { x: e.clientX, y: e.clientY };
+            const p = this.press;
+            if (p && !p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) > SCRUB.DRAG_AFTER) {
+                p.moved = true;
+                this.startDrag(false);
+            }
+            this.wake();
+        });
+        root.addEventListener('pointerleave', e => {
+            if (e.pointerType === 'touch' || this.press) return;
+            this.pointer = null;
+            this.closeSoon();
+            this.wake();
+        });
+        root.addEventListener('pointerdown', e => this.pointerDown(e));
+        root.addEventListener('pointerup', e => this.pointerUp(e, false));
+        root.addEventListener('pointercancel', e => this.pointerUp(e, true));
+        root.addEventListener('lostpointercapture', e => this.pointerUp(e, true));
+
+        // Touch
+        root.addEventListener('touchstart', e => this.touchStart(e), { passive: true });
+        root.addEventListener('touchmove', e => this.touchMove(e), { passive: false });
+        root.addEventListener('touchend', e => this.touchEnd(e, false));
+        root.addEventListener('touchcancel', e => this.touchEnd(e, true));
+        // A long press would otherwise raise the context menu or the callout
+        root.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Keyboard
+        this.rail.addEventListener('keydown', e => this.key(e));
+        this.rail.addEventListener('focus', () => {
+            if (this.rail.matches(':focus-visible')) this.openNow();
+        });
+        this.rail.addEventListener('blur', () => {
+            if (!this.pointer) this.closeSoon();
+        });
+
+        // Any other attempt to scroll takes the page back from a glide in flight
+        const takeBack = e => {
+            if (this.mode === 'glide' && !root.contains(e.target)) this.stopGlide();
+        };
+        window.addEventListener('wheel', takeBack, { passive: true });
+        window.addEventListener('touchstart', takeBack, { passive: true });
+        window.addEventListener('pointerdown', takeBack, { passive: true });
+        window.addEventListener('keydown', takeBack);
+    }
+
+    // The mobile menu and the cart both freeze the page, and so does this
+    blocked() {
+        const b = document.body;
+        return b.classList.contains('body-no-scroll') || b.style.overflow === 'hidden';
+    }
+
+    // ---- open / close -----------------------------------------------------------
+
+    openNow() {
+        clearTimeout(this.openTimer);
+        clearTimeout(this.closeTimer);
+        if (this.open) return;
+        this.open = true;
+        this.root.classList.add('is-open');
+        this.morphing();
+    }
+
+    // The rail grows and shrinks over .55s (styles.css). Everything laid out
+    // in px against it - the thumb, the magnification - has to be repainted
+    // through that, even with the pointer holding still, or it stays placed
+    // for the size the rail was when the animation began.
+    morphing() {
+        this.morphUntil = performance.now() + 650;
+        this.wake();
+    }
+
+    openSoon() {
+        clearTimeout(this.closeTimer);
+        if (this.open) return;
+        clearTimeout(this.openTimer);
+        this.openTimer = setTimeout(() => this.openNow(), SCRUB.OPEN_DELAY);
+    }
+
+    closeSoon(ms = SCRUB.CLOSE_AFTER) {
+        clearTimeout(this.openTimer);
+        clearTimeout(this.closeTimer);
+        this.closeTimer = setTimeout(() => this.close(), ms);
+    }
+
+    close() {
+        // Never out from under a drag, a finger, a hovering pointer or keyboard focus
+        if (this.mode === 'drag' || this.touch || this.press || this.pointer ||
+            this.rail.matches(':focus-visible')) return;
+        this.open = false;
+        this.root.classList.remove('is-open');
+        this.morphing();
+    }
+
+    // ---- mouse and pen ------------------------------------------------------------
+
+    pointerDown(e) {
+        if (e.pointerType === 'touch' || e.button !== 0 || this.blocked()) return;
+        e.preventDefault();                   // no text selection, and no focus ring for a click
+        this.stopGlide();
+        this.byTouch = false;
+        this.pointer = { x: e.clientX, y: e.clientY };
+        this.press = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, name: this.pickAt(e.clientX, e.clientY) };
+        try { this.root.setPointerCapture(e.pointerId); } catch (_) { /* pointer already gone */ }
+        this.openNow();
+    }
+
+    pointerUp(e, cancelled) {
+        const p = this.press;
+        if (!p || p.id !== e.pointerId) return;
+        this.press = null;
+        if (this.root.hasPointerCapture(e.pointerId)) this.root.releasePointerCapture(e.pointerId);
+        if (p.moved) {
+            this.endDrag();
+        } else if (!cancelled) {
+            // A click: a name goes to its section, the rail to that point in the page
+            if (p.name >= 0) this.glideTo(this.sections[p.name].start);
+            else this.glideTo(this.snap(this.fracAt(e.clientY) * this.maxScroll));
+        }
+        // Let go somewhere else: nothing is hovering the scrubber any more
+        const over = document.elementFromPoint(e.clientX, e.clientY);
+        if (!over || !this.root.contains(over)) {
+            this.pointer = null;
+            this.closeSoon();
+        }
+        this.wake();
+    }
+
+    fracAt(clientY) {
+        const r = this.rail.getBoundingClientRect();
+        return r.height ? clamp01((clientY - r.top) / r.height) : 0;
+    }
+
+    // Which pill a point is picking, if any. Decided purely by WHERE the point
+    // is, never by which element is under it: the pills grow as the pointer
+    // nears them, and hit-testing their moving edges flipped the choice - and
+    // the knob with it - back and forth under a pointer that was barely
+    // moving. Right of the pills' edge is the rail, which scrubs to a
+    // position; left of it, the nearest pill by height is the one picked.
+    pickAt(x, y) {
+        if (!this.open) return -1;
+        const r = this.rect || this.rail.getBoundingClientRect();
+        if (!r.height || x > r.left - SCRUB.PILL_EDGE) return -1;
+        const f = (y - r.top) / r.height;
+        let best = -1, bestD = Infinity;
+        this.sections.forEach((s, i) => {
+            const d = Math.abs(f - s.at);
+            if (d < bestD) { bestD = d; best = i; }
+        });
+        return best;
+    }
+
+    // ---- touch --------------------------------------------------------------------
+
+    touchStart(e) {
+        if (this.touch || e.touches.length !== 1 || this.blocked()) return;
+        const t = e.changedTouches[0];
+        this.stopGlide();
+        this.touch = { id: t.identifier, x: t.clientX, y: t.clientY, armed: false, name: this.pickAt(t.clientX, t.clientY) };
+        this.root.classList.add('is-arming');
+        clearTimeout(this.holdTimer);
+        this.holdTimer = setTimeout(() => this.arm(), SCRUB.HOLD_MS);
+    }
+
+    touchOf(e) {
+        if (!this.touch) return null;
+        for (const t of e.changedTouches) if (t.identifier === this.touch.id) return t;
+        return null;
+    }
+
+    touchMove(e) {
+        const T = this.touch, t = this.touchOf(e);
+        if (!t) return;
+        if (!T.armed) {
+            // Moved before the hold completed: this is a scroll. Hands off.
+            if (Math.hypot(t.clientX - T.x, t.clientY - T.y) > SCRUB.SLOP) this.disarm();
+            return;
+        }
+        // The browser has already started panning - not ours to stop any more
+        if (!e.cancelable) { this.touchEnd(e, true); return; }
+        e.preventDefault();
+        this.pointer = { x: t.clientX, y: t.clientY };
+        this.wake();
+    }
+
+    touchEnd(e, cancelled) {
+        const T = this.touch;
+        if (!T || !this.touchOf(e)) return;
+        clearTimeout(this.holdTimer);
+        this.touch = null;
+        this.root.classList.remove('is-arming');
+        if (T.armed) {
+            this.pointer = null;
+            this.endDrag();
+            this.closeSoon(SCRUB.CLOSE_AFTER_TOUCH);
+        } else if (!cancelled && T.name >= 0) {
+            // A tap on a name while the index is still up after a scrub
+            if (e.cancelable) e.preventDefault();   // and no ghost click on the page beneath
+            this.glideTo(this.sections[T.name].start);
+            this.closeSoon(SCRUB.CLOSE_AFTER_TOUCH);
+        }
+    }
+
+    arm() {
+        const T = this.touch;
+        if (!T || T.armed) return;
+        T.armed = true;
+        this.root.classList.remove('is-arming');
+        this.pointer = { x: T.x, y: T.y };
+        this.openNow();
+        this.startDrag(true);
+        this.buzz(12);
+    }
+
+    disarm() {
+        clearTimeout(this.holdTimer);
+        this.touch = null;
+        this.root.classList.remove('is-arming');
+    }
+
+    // Android only: iOS has no vibration API for the web. Skipped until the
+    // visitor has tapped the page, since Chrome refuses it before then and
+    // logs an intervention warning each time.
+    buzz(ms) {
+        const ua = navigator.userActivation;
+        if (!navigator.vibrate || (ua && !ua.hasBeenActive)) return;
+        try { navigator.vibrate(ms); } catch (_) { /* not allowed here */ }
+    }
+
+    // ---- keyboard -----------------------------------------------------------------
+
+    // Down goes to the next section heading below where the page is, up to
+    // the nearest one above - by landing position, not by which section is
+    // current, so a heading still on its way up the screen is not skipped.
+    key(e) {
+        const secs = this.sections;
+        const base = this.mode === 'glide' ? this.glide.to : window.scrollY;
+        let to;
+        switch (e.key) {
+            case 'ArrowDown': case 'ArrowRight': case 'PageDown': {
+                const next = secs.find(s => s.start > base + 2);
+                to = next ? next.start : this.maxScroll;
+                break;
+            }
+            case 'ArrowUp': case 'ArrowLeft': case 'PageUp': {
+                let prev = null;
+                for (const s of secs) if (s.start < base - 2) prev = s;
+                to = prev ? prev.start : 0;
+                break;
+            }
+            case 'Home': to = 0; break;
+            case 'End': to = this.maxScroll; break;
+            default: return;
+        }
+        e.preventDefault();
+        this.openNow();
+        this.glideTo(to);
+    }
+
+    // ---- moving the page ------------------------------------------------------------
+
+    startDrag(byTouch) {
+        this.stopGlide();
+        this.mode = 'drag';
+        this.byTouch = byTouch;
+        this.at = this.to = window.scrollY;
+        this.frac = this.maxScroll ? this.at / this.maxScroll : 0;
+        this.anchor = null;
+        this.speed = 1;
+        this.root.classList.add('is-dragging');
+        this.html.classList.add('is-scrubbing', 'is-scrub-drag');
+        this.wake();
+    }
+
+    // The pointer, turned into a place in the page. Absolute for a mouse near
+    // the rail: the thumb is wherever the pointer is. Relative for a finger,
+    // and for either once it wanders left into fine mode, where each px of
+    // movement is worth only half or a quarter of what it is on the rail.
+    steer(r) {
+        const { x, y } = this.pointer;
+        const [half, quarter] = this.byTouch ? SCRUB.FINE_TOUCH : SCRUB.FINE;
+        const away = r.left - x;
+        const speed = away > quarter ? 0.25 : away > half ? 0.5 : 1;
+        if (speed === 1 && !this.byTouch) {
+            this.anchor = null;
+            this.frac = clamp01((y - r.top) / r.height);
+        } else {
+            if (!this.anchor || this.anchor.speed !== speed) this.anchor = { y, frac: this.frac, speed };
+            const raw = this.anchor.frac + (y - this.anchor.y) / r.height * speed;
+            this.frac = clamp01(raw);
+            // Pinned against an end: re-anchor there, so turning back moves it at once
+            if (raw !== this.frac) this.anchor = { y, frac: this.frac, speed };
+        }
+        if (speed !== this.speed) {
+            this.speed = speed;
+            this.root.classList.toggle('is-fine', speed < 1);
+            if (speed < 1) this.chip.textContent = speed === 0.5 ? 'Half-speed scrub' : 'Quarter-speed scrub';
+        }
+        this.to = this.frac * this.maxScroll;
+    }
+
+    endDrag() {
+        if (this.mode !== 'drag') return;
+        this.mode = 'idle';
+        this.speed = 1;
+        this.anchor = null;
+        this.root.classList.remove('is-dragging', 'is-fine');
+        this.html.classList.remove('is-scrub-drag');
+        this.glideTo(this.snap(this.to));
+    }
+
+    // Let go at the top of a segment - anywhere from just above it down to
+    // where its heading lands, a little way inside it - and the page settles
+    // with that heading just under the navbar. Anywhere else, it stays
+    // exactly where it was let go.
+    snap(y) {
+        const h = this.rect ? this.rect.height : this.rail.getBoundingClientRect().height;
+        if (!h) return y;
+        const tol = (this.byTouch ? SCRUB.SNAP_PX_TOUCH : SCRUB.SNAP_PX) / h * this.maxScroll;
+        for (const s of this.sections) {
+            if (y >= s.enter - tol && y <= s.start + tol) return s.start;
+        }
+        return y;
+    }
+
+    // Clicks, keys and snaps glide rather than jump: an ease-out that covers
+    // most of the distance at once and then lands softly, longer for further.
+    glideTo(y) {
+        y = Math.min(this.maxScroll, Math.max(0, y));
+        const from = window.scrollY, d = Math.abs(y - from);
+        if (d < 1 || this.reduced.matches) {
+            window.scrollTo(0, y);
+            this.mode = 'idle';
+            this.glide = null;
+            this.settle();
+            return;
+        }
+        this.html.classList.add('is-scrubbing');
+        this.glide = { from, to: y, t0: performance.now(), dur: Math.min(900, 360 + d * 0.045) };
+        this.mode = 'glide';
+        this.wake();
+    }
+
+    stopGlide() {
+        if (this.mode !== 'glide') return;
+        this.mode = 'idle';
+        this.glide = null;
+        this.settle();
+    }
+
+    // Scrub over: the page goes back to ordinary scrolling
+    settle() {
+        if (this.mode !== 'idle') return;
+        this.html.classList.remove('is-scrubbing', 'is-scrub-drag');
+        this.wake();
+    }
+
+    sectionAt(y) {
+        const secs = this.sections;
+        let i = 0;
+        while (i + 1 < secs.length && secs[i + 1].enter <= y + 1) i++;
+        return i;
+    }
+
+    // ---- the frame ------------------------------------------------------------------
+
+    wake() {
+        if (this.raf) return;
+        this.last = performance.now();
+        this.raf = requestAnimationFrame(this.frame);
+    }
+
+    frame(now) {
+        this.raf = 0;
+        const dt = Math.min(50, Math.max(0, now - this.last));
+        this.last = now;
+        const instant = this.reduced.matches;
+        let busy = now < this.morphUntil;
+
+        // The rail's box moves while it opens and closes. One read per frame,
+        // before anything below writes, so it never forces a second layout.
+        if (this.open || this.mode !== 'idle' || busy) this.rect = this.rail.getBoundingClientRect();
+
+        if (this.mode === 'drag') {
+            if (this.pointer) this.steer(this.rect);
+            // Eased rather than 1:1. A long page over a short rail turns one px
+            // of pointer into ten or more of page, and jumping that far on every
+            // event reads as judder; 55ms is too short to be felt as lag.
+            const k = instant ? 1 : 1 - Math.exp(-dt / SCRUB.FOLLOW_MS);
+            this.at += (this.to - this.at) * k;
+            if (Math.abs(this.to - this.at) < 0.5) this.at = this.to; else busy = true;
+            window.scrollTo(0, this.at);
+        } else if (this.mode === 'glide') {
+            const g = this.glide;
+            const t = clamp01((now - g.t0) / g.dur);
+            const e = t === 1 ? 1 : 1 - Math.pow(2, -10 * t);   // ease-out expo
+            window.scrollTo(0, g.from + (g.to - g.from) * e);
+            if (t < 1) busy = true;
+            else { this.mode = 'idle'; this.glide = null; this.settle(); }
+        }
+
+        const y = this.mode === 'drag' ? this.at : window.scrollY;
+        const p = this.maxScroll ? clamp01(y / this.maxScroll) : 0;
+        const k = instant || this.mode !== 'idle' ? 1 : 1 - Math.exp(-dt / SCRUB.FILL_MS);
+        this.shown += (p - this.shown) * k;
+        if (Math.abs(p - this.shown) < 0.0005) this.shown = p; else busy = true;
+
+        // Each chapter's fill: how far through it the (eased) page is. Only the
+        // one being read is ever part-way; the rest sit at 0 or 1 and are left
+        // alone once written.
+        const ys = this.shown * this.maxScroll;
+        for (const s of this.sections) {
+            const f = s.end > s.enter ? clamp01((ys - s.enter) / (s.end - s.enter)) : (ys >= s.enter ? 1 : 0);
+            if (Math.abs(f - s.fill) > 0.0005) {
+                s.fill = f;
+                s.seg.style.setProperty('--f', f.toFixed(4));
+            }
+        }
+
+        if (this.paint(y, p, dt)) busy = true;
+        if (busy) this.wake();
+    }
+
+    // Everything the rail shows, from where the page is (y) and, when there is
+    // one, where the knob is. Only touches the DOM where something changed.
+    // Returns true while the knob is still gliding.
+    paint(y, p, dt) {
+        const secs = this.sections, max = this.maxScroll, r = this.rect;
+        const cur = this.sectionAt(y);
+
+        // The knob: the scrub's target while dragging. Otherwise, with the
+        // index open: under the pointer on the rail, or - over the pills -
+        // level with the picked pill, where its hairline meets the rail. Not
+        // at its section's start, even though that is where a click lands:
+        // the pill sits beside the MIDDLE of its segment, so a knob at the
+        // start floated above the very pill it was pointing out. The lit
+        // segment already shows which chapter a click goes to. (The pick is
+        // by index, not position, because sections squeezed together at the
+        // bottom of the page share a position.)
+        let tf = -1, tgt = -1, pick = -1;
+        if (this.mode === 'drag') {
+            tf = this.frac;
+            tgt = this.sectionAt(tf * max);
+        } else if (this.pointer && this.open && r && r.height) {
+            pick = this.pickAt(this.pointer.x, this.pointer.y);
+            if (pick >= 0) { tgt = pick; tf = secs[pick].at; }
+            else { tf = clamp01((this.pointer.y - r.top) / r.height); tgt = this.sectionAt(tf * max); }
+        }
+        const pointing = tf >= 0;
+        if ((pick >= 0) !== this.picking) {
+            this.picking = pick >= 0;
+            this.root.classList.toggle('is-picking', this.picking);
+        }
+
+        if (cur !== this.cur) {
+            if (this.cur >= 0) secs[this.cur].item.classList.remove('is-current');
+            secs[cur].item.classList.add('is-current');
+            this.cur = cur;
+        }
+        if (tgt !== this.tgt) {
+            if (this.tgt >= 0) {
+                secs[this.tgt].item.classList.remove('is-target');
+                secs[this.tgt].seg.classList.remove('is-target');
+            }
+            if (tgt >= 0) {
+                secs[tgt].item.classList.add('is-target');
+                secs[tgt].seg.classList.add('is-target');
+                if (this.mode === 'drag' && this.tgt >= 0) this.crossed(secs[tgt]);
+            }
+            this.tgt = tgt;
+        }
+        if (pointing !== this.pointing) {
+            this.pointing = pointing;
+            this.root.classList.toggle('is-pointing', pointing);
+        }
+
+        let gliding = false;
+        const h = r ? r.height : 0;
+        if (pointing && h) {
+            // The knob glides to a new place rather than jumping - from the
+            // pointer to a section's start as the pointer crosses onto the
+            // pills, and along with the rail as it grows. Held in a drag it is
+            // the thing in the hand, so 1:1; and it appears where it belongs
+            // rather than sliding in from wherever it was last seen.
+            const want = tf * h;
+            if (!this.knobOn || this.mode === 'drag' || this.reduced.matches) this.knobY = want;
+            else {
+                this.knobY += (want - this.knobY) * (1 - Math.exp(-dt / SCRUB.KNOB_MS));
+                if (Math.abs(want - this.knobY) < 0.3) this.knobY = want; else gliding = true;
+            }
+            this.knobOn = true;
+            this.thumb.style.transform = `translate3d(0, ${this.knobY.toFixed(1)}px, 0)`;
+
+            // Dock magnification, smoothstep falloff. Centred on the POINTER
+            // while hovering: centring it on the knob moved the pills under a
+            // pointer that was standing still. Centred on the knob while
+            // dragging, where the pointer can be off in fine mode or under a
+            // finger.
+            const cy = this.mode === 'drag' || !this.pointer ? want : this.pointer.y - r.top;
+            const touch = this.byTouch && this.mode === 'drag';
+            const mag = touch ? SCRUB.MAG_TOUCH : SCRUB.MAG;
+            const reach = touch ? SCRUB.MAG_R_TOUCH : SCRUB.MAG_R;
+            for (const sec of secs) {
+                const k = Math.max(0, 1 - Math.abs(cy - sec.at * h) / reach);
+                this.scaleTo(sec, 1 + mag * k * k * (3 - 2 * k));
+            }
+        } else {
+            this.knobOn = false;
+            for (const sec of secs) this.scaleTo(sec, 1);
+        }
+
+        // The fine-scrub chip rides just above the pointer
+        if (this.speed < 1 && this.pointer) {
+            this.chip.style.transform =
+                `translate3d(${Math.round(this.pointer.x)}px, ${Math.round(this.pointer.y)}px, 0) translate(-50%, -190%)`;
+        }
+
+        const pct = Math.round(p * 100);
+        const text = `${secs[cur].label}, ${pct}%`;
+        if (text !== this.aria) {
+            this.aria = text;
+            this.rail.setAttribute('aria-valuenow', pct);
+            this.rail.setAttribute('aria-valuetext', text);
+        }
+        return gliding;
+    }
+
+    scaleTo(sec, s) {
+        if (Math.abs(s - sec.scale) < 0.002) return;
+        sec.scale = s;
+        sec.item.style.setProperty('--s', s.toFixed(3));
+    }
+
+    // Scrubbing across into another section: its segment swells for a beat,
+    // its name nudges, and on Android the phone gives a tick you can feel.
+    crossed(sec) {
+        if (this.byTouch) this.buzz(6);
+        if (this.reduced.matches || !sec.track.animate) return;
+        const ease = { duration: 320, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' };
+        sec.track.animate([{ transform: 'scaleX(2)' }, { transform: 'none' }], ease);
+        sec.name.animate([{ transform: 'translateX(-4px)' }, { transform: 'none' }], ease);
+    }
 }
 
-// Initialize the progress bar
 document.addEventListener('DOMContentLoaded', () => {
-  new ProgressBar();
+    const root = document.getElementById('scrubber');
+    if (root) new SectionScrubber(root);
 });
 
-// Initialize testimonials carousel - Fixed version
+// Initialize testimonials carousel
+// The track is a native scroll-snap scroller (see styles.css), so touch
+// swiping is handled by the browser. This wires up arrows, dots, keyboard,
+// the active-card highlight and a gentle autoplay.
 function initTestimonialsCarousel() {
-    console.log('Initializing testimonials carousel...');
-    
+    const carousel = document.querySelector('.testimonials-carousel');
     const track = document.getElementById('testimonials-track');
     const prevBtn = document.getElementById('testimonials-prev');
     const nextBtn = document.getElementById('testimonials-next');
     const dotsContainer = document.getElementById('testimonials-dots');
-    
-    console.log('Elements found:', { track, prevBtn, nextBtn, dotsContainer });
-    
-    if (!track || !prevBtn || !nextBtn || !dotsContainer) {
-        console.error('Testimonials carousel elements not found');
-        return;
+
+    if (!carousel || !track || !prevBtn || !nextBtn || !dotsContainer) return;
+
+    const cards = Array.from(track.querySelectorAll('.testimonial-card'));
+    const dots = Array.from(dotsContainer.querySelectorAll('.dot'));
+    if (cards.length === 0) return;
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const autoPlayDelay = 7000;
+    let currentIndex = -1;
+    let autoPlayTimer = null;
+    let userInteracted = false;
+    let isHovered = false;
+    let inView = false;
+    let scrollRaf = null;
+    // While a button/autoplay scroll animates, hold the highlight on its target
+    // so the dots don't flicker through every card it passes on the way
+    let targetIndex = null;
+    let targetTimer = null;
+
+    function releaseTarget() {
+        targetIndex = null;
+        clearTimeout(targetTimer);
     }
-    
-    const cards = track.querySelectorAll('.testimonial-card');
-    const dots = dotsContainer.querySelectorAll('.dot');
-    
-    console.log('Cards found:', cards.length);
-    console.log('Dots found:', dots.length);
-    
-    if (cards.length === 0) {
-        console.error('No testimonial cards found');
-        return;
-    }
-    
-    let currentIndex = 0;
-    let isTransitioning = false;
-    let autoPlayInterval;
-    let touchStartX = 0;
-    let touchEndX = 0;
-    let isDragging = false;
-    
-    // Auto-play settings
-    const autoPlayDelay = 8000; // 8 seconds
-    const transitionDuration = 800; // 0.8 seconds
-    
-    function updateCarousel(index, animate = true) {
-        console.log('Updating carousel to index:', index);
-        
-        if (isTransitioning || index < 0 || index >= cards.length) {
-            console.log('Transition blocked or invalid index');
-            return;
-        }
-        
+
+    function setActive(index) {
+        if (index === currentIndex) return;
         currentIndex = index;
-        
-        if (animate) {
-            isTransitioning = true;
-            track.style.transition = 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-        } else {
-            track.style.transition = 'none';
-        }
-        
-        const translateX = -currentIndex * 100;
-        track.style.transform = `translateX(${translateX}%)`;
-        
-        console.log('Applied transform:', `translateX(${translateX}%)`);
-        
-        // Update dots
-        dots.forEach((dot, i) => {
-            dot.classList.toggle('active', i === currentIndex);
+        cards.forEach((card, i) => {
+            const active = i === index;
+            card.classList.toggle('is-active', active);
+            card.setAttribute('aria-hidden', active ? 'false' : 'true');
         });
-        
-        // Update navigation buttons
-        prevBtn.style.opacity = currentIndex === 0 ? '0.5' : '1';
-        nextBtn.style.opacity = currentIndex === cards.length - 1 ? '0.5' : '1';
-        
-        if (animate) {
-            setTimeout(() => {
-                isTransitioning = false;
-                console.log('Transition complete');
-            }, transitionDuration);
-        }
+        dots.forEach((dot, i) => {
+            const active = i === index;
+            dot.classList.toggle('active', active);
+            dot.setAttribute('aria-current', active ? 'true' : 'false');
+        });
     }
-    
-    function goToNext() {
-        console.log('Going to next slide');
-        if (currentIndex < cards.length - 1) {
-            updateCarousel(currentIndex + 1);
-        } else {
-            updateCarousel(0); // Loop to first
-        }
+
+    function goTo(index) {
+        const i = (index + cards.length) % cards.length;
+        const card = cards[i];
+        const left = card.offsetLeft - (track.clientWidth - card.offsetWidth) / 2;
+        targetIndex = i;
+        clearTimeout(targetTimer);
+        targetTimer = setTimeout(releaseTarget, 1200); // fallback if scrollend never fires
+        setActive(i);
+        track.scrollTo({ left, behavior: reduceMotion ? 'auto' : 'smooth' });
     }
-    
-    function goToPrev() {
-        console.log('Going to previous slide');
-        if (currentIndex > 0) {
-            updateCarousel(currentIndex - 1);
-        } else {
-            updateCarousel(cards.length - 1); // Loop to last
-        }
-    }
-    
-    function startAutoPlay() {
-        console.log('Starting auto-play');
-        if (autoPlayInterval) {
-            clearInterval(autoPlayInterval);
-        }
-        autoPlayInterval = setInterval(() => {
-            if (!isDragging && !isTransitioning) {
-                console.log('Auto-play: going to next');
-                goToNext();
+
+    // Work out which card is centred after any scroll (swipe, arrows, autoplay)
+    function syncFromScroll() {
+        scrollRaf = null;
+        if (targetIndex !== null) return;
+        const center = track.scrollLeft + track.clientWidth / 2;
+        let best = 0;
+        let bestDist = Infinity;
+        cards.forEach((card, i) => {
+            const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - center);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = i;
             }
+        });
+        setActive(best);
+    }
+
+    track.addEventListener('scroll', () => {
+        if (!scrollRaf) scrollRaf = requestAnimationFrame(syncFromScroll);
+    }, { passive: true });
+
+    track.addEventListener('scrollend', () => {
+        releaseTarget();
+        syncFromScroll();
+    });
+
+    // Autoplay: only while visible, not hovered, and until the visitor takes over
+    function canAutoPlay() {
+        return !reduceMotion && !userInteracted && !isHovered && inView && !document.hidden;
+    }
+
+    function scheduleAutoPlay() {
+        clearTimeout(autoPlayTimer);
+        if (!canAutoPlay()) return;
+        autoPlayTimer = setTimeout(() => {
+            if (canAutoPlay()) goTo(currentIndex + 1);
+            scheduleAutoPlay();
         }, autoPlayDelay);
     }
-    
-    function stopAutoPlay() {
-        console.log('Stopping auto-play');
-        if (autoPlayInterval) {
-            clearInterval(autoPlayInterval);
-            autoPlayInterval = null;
-        }
+
+    function takeOver() {
+        userInteracted = true;
+        clearTimeout(autoPlayTimer);
     }
-    
-    function restartAutoPlay() {
-        stopAutoPlay();
-        setTimeout(startAutoPlay, 1000); // Wait 1 second before restarting
-    }
-    
-    // Event listeners
-    nextBtn.addEventListener('click', (e) => {
-        console.log('Next button clicked');
-        e.preventDefault();
-        if (!isTransitioning) {
-            goToNext();
-            restartAutoPlay();
-        }
-    });
-    
-    prevBtn.addEventListener('click', (e) => {
-        console.log('Previous button clicked');
-        e.preventDefault();
-        if (!isTransitioning) {
-            goToPrev();
-            restartAutoPlay();
-        }
-    });
-    
-    // Dot navigation
+
+    nextBtn.addEventListener('click', () => { takeOver(); goTo(currentIndex + 1); });
+    prevBtn.addEventListener('click', () => { takeOver(); goTo(currentIndex - 1); });
+
     dots.forEach((dot, index) => {
-        dot.addEventListener('click', (e) => {
-            console.log('Dot clicked:', index);
+        dot.addEventListener('click', () => { takeOver(); goTo(index); });
+    });
+
+    // Arrow keys only when focus is inside the carousel
+    carousel.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
             e.preventDefault();
-            if (!isTransitioning && index !== currentIndex) {
-                updateCarousel(index);
-                restartAutoPlay();
-            }
-        });
-    });
-    
-    // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
-        if (e.target.closest('.testimonials-carousel') || e.target === document.body) {
-            if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                if (!isTransitioning) {
-                    goToPrev();
-                    restartAutoPlay();
-                }
-            } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                if (!isTransitioning) {
-                    goToNext();
-                    restartAutoPlay();
-                }
-            }
+            takeOver();
+            goTo(currentIndex + (e.key === 'ArrowRight' ? 1 : -1));
         }
     });
-    
-    // Touch/swipe support
+
+    // A finger or trackpad on the track takes over from any running animation
+    track.addEventListener('pointerdown', () => { takeOver(); releaseTarget(); }, { passive: true });
+    track.addEventListener('wheel', (e) => {
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) { takeOver(); releaseTarget(); }
+    }, { passive: true });
+
+    // Native scrolling stops at the last card, so a further forward swipe
+    // that starts there wraps back to the first card
+    let swipeStartX = 0;
+    let swipeStartY = 0;
+    let swipeFromLast = false;
+
     track.addEventListener('touchstart', (e) => {
-        touchStartX = e.touches[0].clientX;
-        isDragging = true;
-        stopAutoPlay();
+        swipeStartX = e.touches[0].clientX;
+        swipeStartY = e.touches[0].clientY;
+        swipeFromLast = track.scrollLeft >= track.scrollWidth - track.clientWidth - 2;
     }, { passive: true });
-    
-    track.addEventListener('touchmove', (e) => {
-        if (!isDragging) return;
-        touchEndX = e.touches[0].clientX;
+
+    track.addEventListener('touchend', (e) => {
+        if (!swipeFromLast) return;
+        swipeFromLast = false;
+        const dx = e.changedTouches[0].clientX - swipeStartX;
+        const dy = e.changedTouches[0].clientY - swipeStartY;
+        if (dx < -40 && Math.abs(dx) > Math.abs(dy)) goTo(0);
     }, { passive: true });
-    
-    track.addEventListener('touchend', () => {
-        if (!isDragging) return;
-        
-        const swipeThreshold = 75;
-        const swipeDistance = touchStartX - touchEndX;
-        
-        if (Math.abs(swipeDistance) > swipeThreshold && !isTransitioning) {
-            if (swipeDistance > 0) {
-                goToNext();
-            } else {
-                goToPrev();
-            }
-        }
-        
-        isDragging = false;
-        restartAutoPlay();
-    });
-    
-    // Mouse events for desktop
-    track.addEventListener('mouseenter', stopAutoPlay);
-    track.addEventListener('mouseleave', () => {
-        if (!isDragging) {
-            startAutoPlay();
-        }
-    });
-    
-    // Pause/resume on visibility change
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            stopAutoPlay();
-        } else if (!isDragging) {
-            startAutoPlay();
-        }
-    });
-    
-    // Initialize
-    console.log('Initializing carousel at index 0');
-    updateCarousel(0, false);
-    
-    // Start auto-play after a delay
-    setTimeout(() => {
-        console.log('Starting delayed auto-play');
-        startAutoPlay();
-    }, 3000);
-    
-    // Handle window resize
+
+    carousel.addEventListener('mouseenter', () => { isHovered = true; clearTimeout(autoPlayTimer); });
+    carousel.addEventListener('mouseleave', () => { isHovered = false; scheduleAutoPlay(); });
+    document.addEventListener('visibilitychange', scheduleAutoPlay);
+
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver((entries) => {
+            inView = entries[0].isIntersecting;
+            scheduleAutoPlay();
+        }, { threshold: 0.5 }).observe(carousel);
+    } else {
+        inView = true;
+    }
+
+    // Keep the current card centred when the layout changes
+    let resizeTimer;
     window.addEventListener('resize', () => {
-        updateCarousel(currentIndex, false);
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            const card = cards[currentIndex];
+            track.scrollTo({ left: card.offsetLeft - (track.clientWidth - card.offsetWidth) / 2, behavior: 'auto' });
+        }, 150);
     });
-    
-    console.log('Testimonials carousel initialized successfully');
+
+    setActive(0);
+    scheduleAutoPlay();
 }
 
 // Make sure to call this function when DOM is loaded
@@ -4040,6 +4674,7 @@ const SiteAudio = (function () {
 // that repaint it. The host owns what on/off actually means for its video;
 // this only knows how to show it and how to report that it was used.
 function volumeUI(root, host) {
+    if (!root) return { paint: function () {}, setAvailable: function () {} };
     const btn = root.querySelector('.vol-btn');
     const slider = root.querySelector('.vol-slider');
     if (!btn || !slider) return { paint: function () {}, setAvailable: function () {} };
@@ -4105,18 +4740,49 @@ function volumeUI(root, host) {
     // what they were asking for.
     slider.addEventListener('input', () => {
         if (!available) return;
+        // Setting the level is itself an interaction: hold it open, restart the
+        // linger. Without this it could fold away under the cursor mid-adjust.
+        openNow();
+        closeSoon();
         SiteAudio.level = slider.value / 100;
         host.level();
     });
 
+    // ---- lingering ----------------------------------------------------------
+    // The level does not snap shut the moment the pointer leaves, and it
+    // certainly does not vanish while it is being set. Any interaction opens it
+    // and resets the clock; it folds itself away a couple of seconds after the
+    // last one, and hovering brings it straight back.
+    const LINGER_MS = 2200;
+    let closeTimer = null;
+
+    function openNow() {
+        clearTimeout(closeTimer);
+        root.classList.add('is-open');
+    }
+
+    function closeSoon(ms) {
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(() => {
+            root.classList.remove('is-open');
+        }, ms === undefined ? LINGER_MS : ms);
+    }
+
+    root.addEventListener('mouseenter', openNow);
+    root.addEventListener('mouseleave', () => closeSoon());
+    slider.addEventListener('focus', openNow);
+    slider.addEventListener('blur', () => closeSoon());
+
     slider.addEventListener('pointerdown', () => {
         dragging = true;
         root.classList.add('is-dragging');
+        openNow();
     });
     const endDrag = () => {
         if (!dragging) return;
         dragging = false;
         root.classList.remove('is-dragging');
+        closeSoon();
     };
     window.addEventListener('pointerup', endDrag);
     window.addEventListener('pointercancel', endDrag);
@@ -4158,6 +4824,403 @@ function clipHasAudio(v) {
 }
 
 // =============================================
+// VIDEO DISSOLVE (WebGL) - the hero sequence and, on desktop, the reel
+//
+// The hand-over between clips. A noise field, biased outward from an origin
+// (the hero's logo, the centre of the reel), is swept by a threshold:
+// everything below it shows the incoming clip, and the seam carries a thin
+// soft-white light with a trace of heat haze.
+//
+// The canvas is TRANSPARENT and only ever draws the incoming clip. The clip
+// being watched is never re-rendered: it keeps playing as a native <video>,
+// untouched, and simply shows through wherever the burn has not reached yet.
+// An earlier version drew both clips on an opaque canvas, which meant the
+// playing clip was taken over by WebGL before anything visibly dissolved - a
+// frame behind the native path and scaled differently - and it read as the
+// video glitching just before the transition.
+//
+// Cost is confined to the transition. The canvas is display:none the rest of
+// the time and nothing is scheduled. While it runs, the incoming clip is
+// uploaded once per decoded frame (requestVideoFrameCallback: 24 uploads a
+// second for these clips, not one per display refresh), and the backing store
+// is capped (1x DPR on phones, 1.5x elsewhere, 1600px on the long side).
+//
+// Once the incoming clip covers the whole frame the real element is swapped
+// in underneath and the canvas fades off it, so the hand back to native
+// playback happens on identical pictures.
+//
+// A clip that has not decoded a frame yet (the reel fetches on demand, so a
+// click can land before the network does) is dissolved in from its poster,
+// and the live frames take over the moment the first one arrives - the same
+// thing the <video> element itself would show in that gap.
+//
+// opts: className  - for the canvas
+//       clips      - selector for the host's clips; the canvas goes after them
+//       origin     - selector for the element the burn starts from (centre if
+//                    omitted or missing)
+//       name       - console tag
+// Returns null where WebGL is missing; the caller falls back.
+// =============================================
+function createVideoDissolve(host, opts) {
+    const tag = '[' + (opts.name || 'dissolve') + ']';
+    const canvas = document.createElement('canvas');
+    canvas.className = opts.className;
+    canvas.setAttribute('aria-hidden', 'true');
+
+    let gl = null;
+    try {
+        gl = canvas.getContext('webgl', {
+            alpha: true, premultipliedAlpha: true,
+            antialias: false, depth: false, stencil: false,
+            preserveDrawingBuffer: false,
+        });
+    } catch (_) {}
+    if (!gl) return null;
+
+    const VERT =
+        'attribute vec2 aPos;varying vec2 vUv;' +
+        'void main(){vUv=aPos*0.5+0.5;gl_Position=vec4(aPos,0.0,1.0);}';
+
+    const FRAG = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec2 vUv;
+uniform sampler2D uTo;
+uniform vec2 uToFit;     // object-fit: cover
+uniform vec2 uAspect;    // (w/h, 1) - square units for the noise
+uniform vec2 uOrigin;    // where the reveal starts (the logo), in uv
+uniform float uReach;    // farthest corner from the origin, square units
+uniform float uP;        // eased progress 0..1
+uniform float uTime;
+
+// Sine-free hash: stable on mobile GPUs where sin() at large arguments is not.
+float hash(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+float noise(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+    float v = 0.0, a = 0.5;
+    mat2 r = mat2(0.8, 0.6, -0.6, 0.8);
+    for (int i = 0; i < 4; i++) { v += a * noise(p); p = r * p * 2.03 + 17.0; a *= 0.5; }
+    return v / 0.9375;
+}
+
+void main() {
+    vec2 st = vUv * uAspect;
+    vec2 rel = (vUv - uOrigin) * uAspect;
+    float d = length(rel) / uReach;
+
+    // Domain-warped fbm, drifting slowly, so the edge reads as smoke not static.
+    vec2 w = vec2(noise(st * 1.6 + uTime * 0.15), noise(st * 1.6 + 7.3 - uTime * 0.12));
+    float n = fbm(st * 2.6 + w * 1.4 + vec2(0.0, -uTime * 0.08));
+    // fbm bunches around 0.5; stretch it so the edge has real contour.
+    n = clamp((n - 0.5) * 1.5 + 0.5, 0.0, 1.0);
+    float field = mix(d, n, 0.55);
+
+    // The field lives almost entirely in [0.12, 0.8] (measured on the real
+    // clips), so the threshold sweeps that band across the duration - none of
+    // it is spent on values the field never takes. The two ramps pin the
+    // endpoints exactly: untouched at p=0, fully covered at p=1, whatever the
+    // noise did.
+    float t = mix(0.12, 0.8, uP)
+            - 0.15 * (1.0 - smoothstep(0.0, 0.15, uP))
+            + 0.15 * smoothstep(0.85, 1.0, uP);
+    float e = field - t;                                  // < 0 : revealed
+    float reveal = 1.0 - smoothstep(-0.012, 0.012, e);
+
+    // The light only exists mid-flight; at p=0 the canvas is fully clear and
+    // at p=1 it is exactly the incoming clip, which is what makes both ends
+    // invisible.
+    float env = smoothstep(0.0, 0.08, uP) * (1.0 - smoothstep(0.9, 1.0, uP));
+    float core = 1.0 - smoothstep(0.0, 0.012, abs(e));
+    float halo = 1.0 - smoothstep(0.0, 0.07, abs(e));
+    halo *= halo;
+
+    // Heat haze on the incoming side of the seam, pushed outward.
+    vec2 dir = normalize(rel + 1e-4) / uAspect;
+    vec2 haze = dir * (n - 0.5) * 0.012 * halo * env;
+
+    // The incoming clip settles to rest as it arrives.
+    float zt = 1.03 - 0.03 * uP;
+    vec3 b = texture2D(uTo, 0.5 + (vUv - haze - 0.5) * uToFit / zt).rgb;
+
+    // Premultiplied layers, back to front, over the live outgoing clip:
+    // a faint shadow just ahead of the seam (it makes the light read
+    // brighter), the incoming clip, then the light itself.
+    float sh = 0.14 * halo * env * (1.0 - reveal);
+    vec4 c = vec4(0.0, 0.0, 0.0, sh);
+    c = vec4(b * reveal, reveal) + c * (1.0 - reveal);
+    float g = clamp((core * 0.7 + halo * 0.14) * env, 0.0, 1.0);
+    c = vec4(vec3(1.0, 0.985, 0.96) * g, g) + c * (1.0 - g);
+    gl_FragColor = c;
+}`;
+
+    function shader(type, src) {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+            console.warn(tag + ' dissolve shader:', gl.getShaderInfoLog(s));
+            return null;
+        }
+        return s;
+    }
+    const vs = shader(gl.VERTEX_SHADER, VERT);
+    const fs = shader(gl.FRAGMENT_SHADER, FRAG);
+    if (!vs || !fs) return null;
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+    gl.useProgram(prog);
+
+    // One oversized triangle covers the viewport with no diagonal seam.
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(prog, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    const U = {};
+    ['uTo', 'uToFit', 'uAspect', 'uOrigin', 'uReach', 'uP', 'uTime']
+        .forEach(k => { U[k] = gl.getUniformLocation(prog, k); });
+    gl.uniform1i(U.uTo, 0);
+
+    // NPOT textures are legal in WebGL1 with clamp and no mipmaps.
+    const tex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+    let lost = false;
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
+
+    // Straight after the clips, so it wins a z-index tie with the playing one
+    // and loses one with anything the host layers on top (see the CSS).
+    const clipsInHost = host.querySelectorAll(opts.clips);
+    const lastClip = clipsInHost[clipsInHost.length - 1];
+    host.insertBefore(canvas, lastClip ? lastClip.nextSibling : host.firstChild);
+
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    let cssW = 0, cssH = 0;
+
+    function size() {
+        const w = host.clientWidth, h = host.clientHeight;
+        if (w === cssW && h === cssH) return;
+        cssW = w; cssH = h;
+        const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1 : 1.5);
+        const k = Math.min(dpr, 1600 / Math.max(w, h, 1));
+        canvas.width = Math.max(1, Math.round(w * k));
+        canvas.height = Math.max(1, Math.round(h * k));
+        gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+
+    // object-fit: cover, computed against the element's own box rather than
+    // the canvas: the reel's clips overscan their frame by a pixel each side,
+    // and ignoring that shows as a 1px shift at the hand back.
+    function fit(src, el) {
+        const bw = el.clientWidth || cssW, bh = el.clientHeight || cssH;
+        const A = bw / Math.max(bh, 1);
+        const sw = src.videoWidth || src.naturalWidth || 16;
+        const sh = src.videoHeight || src.naturalHeight || 9;
+        const a = sw / sh;
+        const f = a > A ? [A / a, 1] : [1, a / A];
+        return [f[0] * cssW / bw, f[1] * cssH / bh];
+    }
+
+    // The poster stands in until the clip has a frame of its own.
+    const posters = new Map();
+    function posterOf(v) {
+        const url = v.poster;
+        if (!url) return null;
+        let img = posters.get(url);
+        if (!img) {
+            img = new Image();
+            img.decoding = 'async';
+            img.src = url;     // already fetched for the <video>, so from cache
+            posters.set(url, img);
+        }
+        return img.complete && img.naturalWidth ? img : null;
+    }
+    const hasFrame = v => v.readyState >= 2 && !v.seeking && v.videoWidth > 0;
+    const sourceOf = v => hasFrame(v) ? v : posterOf(v);
+
+    // Where the reveal blooms from: the origin element, if there is one.
+    function origin() {
+        const logo = opts.origin ? host.querySelector(opts.origin) : null;
+        const hr = host.getBoundingClientRect();
+        let x = 0.5, y = 0.5;
+        if (logo && hr.width && hr.height) {
+            const r = logo.getBoundingClientRect();
+            x = (r.left + r.width / 2 - hr.left) / hr.width;
+            y = 1 - (r.top + r.height / 2 - hr.top) / hr.height;   // GL y is up
+        }
+        x = Math.min(Math.max(x, 0), 1);
+        y = Math.min(Math.max(y, 0), 1);
+        const A = cssW / Math.max(cssH, 1);
+        const far = Math.max(x, 1 - x) * A, farY = Math.max(y, 1 - y);
+        return { x, y, reach: Math.hypot(far, farY) };
+    }
+
+    function upload(src) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, src);
+    }
+
+    // Sine in-out: soft at both ends without the long dead start of a cubic.
+    const ease = p => 0.5 - 0.5 * Math.cos(Math.PI * p);
+    const FADE_OUT = 240;
+    const t0 = performance.now();
+    const hasRVFC = typeof HTMLVideoElement !== 'undefined' &&
+        'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+
+    function draw(src, el, p) {
+        gl.uniform2fv(U.uToFit, fit(src, el));
+        gl.uniform2f(U.uAspect, cssW / Math.max(cssH, 1), 1);
+        gl.uniform1f(U.uP, p);
+        gl.uniform1f(U.uTime, (performance.now() - t0) / 1000);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+
+    let finishRun = null;   // the running dissolve's finish(), for skip()
+    let cancelRun = null;   // ...and its abort, for cancel()
+    let runCore = 0;        // its linear progress, 0..1
+
+    // run(to, ms, { onCovered, onDone }) -> false if it could not start.
+    // onCovered fires once the canvas shows nothing but the incoming clip, so
+    // the caller can swap the real elements underneath it; onDone gets the
+    // mean frame time of the sweep, for the caller's capability check.
+    function run(to, ms, cb) {
+        if (finishRun) finishRun();
+        let src = lost ? null : sourceOf(to);
+        if (!src) return false;
+        size();
+        const o = origin();
+        gl.uniform2f(U.uOrigin, o.x, o.y);
+        gl.uniform1f(U.uReach, o.reach);
+        try {
+            // A cross-origin or file:// clip throws here - better now than
+            // halfway through with the canvas already showing.
+            upload(src);
+        } catch (err) {
+            console.warn(tag + ' dissolve unavailable, falling back:', err && err.name);
+            lost = true;
+            return false;
+        }
+        // Fully transparent at p=0, so showing it changes nothing on screen.
+        draw(src, to, 0);
+        canvas.style.opacity = '';
+        canvas.classList.add('is-live');
+
+        // Upload only when a new frame has actually been decoded. currentTime
+        // is no use for this - it changes on every read.
+        let fresh = false, live = true, frameReq = 0, lastT = to.currentTime;
+        const onVideoFrame = () => {
+            fresh = true;
+            if (live) frameReq = to.requestVideoFrameCallback(onVideoFrame);
+        };
+        if (hasRVFC) frameReq = to.requestVideoFrameCallback(onVideoFrame);
+
+        const start = performance.now();
+        let prev = start, frames = 0, spent = 0, covered = false;
+
+        function frame(now) {
+            if (!live) return;          // ended early by skip() or cancel()
+            if (lost) { finish(); return; }
+            const el = now - start;
+            const core = Math.min(Math.max(el / ms, 0), 1);
+            runCore = core;
+
+            try {
+                size();
+                const onPoster = src !== to;
+                if (onPoster ? hasFrame(to) : (hasRVFC ? fresh : to.currentTime !== lastT)) {
+                    src = to;
+                    fresh = false;
+                    lastT = to.currentTime;
+                    upload(to);
+                }
+                draw(src, to, ease(core));
+            } catch (_) { lost = true; finish(); return; }
+
+            // Skip the first few frames: they are not representative.
+            if (core < 1 && ++frames > 3) spent += now - prev;
+            prev = now;
+
+            if (core >= 1) {
+                if (!covered) { covered = true; cb.onCovered(); }
+                const out = (el - ms) / FADE_OUT;
+                if (out >= 1) { finish(); return; }
+                canvas.style.opacity = (1 - out).toFixed(3);
+            }
+            requestAnimationFrame(frame);
+        }
+
+        function stop() {
+            live = false;
+            finishRun = cancelRun = null;
+            runCore = 0;
+            if (hasRVFC && to.cancelVideoFrameCallback) to.cancelVideoFrameCallback(frameReq);
+            canvas.classList.remove('is-live');
+            canvas.style.opacity = '';
+        }
+
+        function finish() {
+            if (!live) return;
+            if (!covered) { covered = true; cb.onCovered(); }
+            stop();
+            cb.onDone(frames > 3 ? spent / (frames - 3) : 0);
+        }
+
+        finishRun = finish;
+        cancelRun = () => { if (live) stop(); };
+        runCore = 0;
+        requestAnimationFrame(frame);
+        return true;
+    }
+
+    // Jump a running dissolve straight to its end - onCovered and onDone both
+    // fire before this returns - so a new one can start from a settled state.
+    function skip() { if (finishRun) finishRun(); }
+
+    // Abandon a running dissolve with no callbacks: the canvas simply goes,
+    // leaving whatever is underneath it. For a change of mind so early that
+    // almost nothing of the incoming clip has shown.
+    function cancel() { if (cancelRun) cancelRun(); }
+
+    // One throwaway draw now, while idle. Some drivers (ANGLE on D3D) finish
+    // building the shader on its first draw rather than at link time, and that
+    // belongs here, not in the first frame of the first transition.
+    size();
+    gl.uniform1f(U.uReach, 1);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    return {
+        run,
+        skip,
+        cancel,
+        ok: () => !lost,
+        running: () => !!finishRun,
+        progress: () => runCore,
+        prime: v => { posterOf(v); },   // start decoding a poster ahead of need
+    };
+}
+
+// =============================================
 // HERO BACKGROUND SOUND
 //
 // The hero video is wallpaper, so it autoplays muted the way every background
@@ -4169,29 +5232,57 @@ function clipHasAudio(v) {
 (function () {
     const hero = document.getElementById('home');
     const root = hero && hero.querySelector('.vol--hero');
-    const video = hero && hero.querySelector('.hero-video');
-    if (!root || !video) return;
+    const clips = hero ? Array.from(hero.querySelectorAll('.hero-video')) : [];
+    // Only the clips are essential. A missing volume control used to abort the
+    // whole controller - sequence, glow and tuning panel with it - which is a
+    // lot to lose over one optional button.
+    if (!hero || !clips.length) return;
 
-    const FADE_MS = 650;
-    let on = false;        // the visitor has asked for hero sound
-    let presence = 1;      // 0..1, how much of the hero is on screen
+    const FADE_MS = 650;      // audio fades (sound on/off, scroll dimming)
+    const XFADE_MS = 1600;    // clip dissolve - matches the CSS fallback's animation
+    const FADE_XF_MS = 600;   // reduced-motion cross-fade - matches .is-fading
+    const WARM_LEAD = 10;     // seconds ahead of the switch to start fetching
+
+    let index = clips.findIndex(v => v.classList.contains('is-active'));
+    if (index < 0) index = 0;
+    let on = false;           // the visitor has asked for hero sound
+    let presence = 1;         // 0..1, how much of the hero is on screen
+    let switching = false;
+
+    const cur = () => clips[index];
+    // A single clip has nothing to hand over to, so it just loops itself.
+    clips.forEach(v => { v.loop = clips.length < 2; });
+
+    function play(v) {
+        if (!v) return;
+        const p = v.play();
+        if (p && p.catch) p.catch(() => {});
+    }
+
+    function warm(v) {
+        if (v && v.getAttribute('preload') === 'none') {
+            v.setAttribute('preload', 'auto');
+            v.load();
+        }
+    }
 
     // Everything routes through this, so scrolling away dims the sound in
     // proportion rather than switching it off at a trip-wire.
-    const levelFor = () => SiteAudio.target(video) * presence;
+    const levelFor = (v) => SiteAudio.target(v || cur()) * presence;
     const audible = () => on && presence > 0;
 
     // Come up from zero every time, so returning to the hero is never a blast.
     function liftIn(ms) {
+        const video = cur();
         SiteAudio.stopRamp(video);
         video.volume = 0;
         video.muted = false;
-        const p = video.play();
-        if (p && p.catch) p.catch(() => {});
-        SiteAudio.ramp(video, levelFor(), ms === undefined ? FADE_MS : ms);
+        play(video);
+        SiteAudio.ramp(video, levelFor(video), ms === undefined ? FADE_MS : ms);
     }
 
     function turnOff() {
+        const video = cur();
         on = false;
         SiteAudio.mute();          // the level goes to zero with it
         SiteAudio.ramp(video, 0, 320, () => { video.muted = true; video.volume = 1; });
@@ -4199,16 +5290,18 @@ function clipHasAudio(v) {
     }
 
     function turnOn() {
+        const video = cur();
         SiteAudio.claim('hero');
         on = true;
         SiteAudio.unmute();        // back to whatever the level was before
         paint(true);
+        startGlow();               // the halo only lives while the sound is on
         if (presence <= 0) return;
         SiteAudio.stopRamp(video);
         video.volume = 0;
         video.muted = false;
         const p = video.play();
-        const up = () => SiteAudio.ramp(video, levelFor(), FADE_MS);
+        const up = () => SiteAudio.ramp(video, levelFor(video), FADE_MS);
         if (p && p.then) {
             p.then(up, () => {
                 // The browser refused audible playback. Go back to muted rather
@@ -4223,6 +5316,949 @@ function clipHasAudio(v) {
         }
     }
 
+    // ---- audio-reactive logo glow ------------------------------------------
+    // Driven from a loudness track measured off each clip ahead of time rather
+    // than from a live analyser. Two reasons: a muted media element feeds
+    // silence into a Web Audio graph, so live analysis would show nothing until
+    // someone unmutes; and routing the element through a MediaElementSource
+    // would sit in front of the volume ramps this file already depends on.
+    // A precomputed track is sample-accurate against currentTime, costs one
+    // 3KB fetch, and cannot interfere with playback at all.
+    // --glow and --hit are set on the logo wrapper; both glow layers inherit.
+    const glowEl = hero.querySelector('.hero-logo');
+    let envelopes = null, envLoading = false;
+    let glowRaf = null, bodyVal = 0, hitVal = 0, gate = 0;
+    let lastHitAt = 0;
+    let rawBody = 0, rawHit = 0;   // pre-smoothing values, for the recorder
+    let lastFrame = 0;             // for frame-rate independent smoothing
+    const recent = [];   // rolling window for the extra runtime smoothing
+
+    // Filled in each frame when the tuning panel is open; stays null otherwise,
+    // so production pays one null check. Every intermediate stage is exposed
+    // because a log of only the input and the output cannot say WHICH stage
+    // flattened or delayed a response - which is exactly what went wrong before.
+    let glowProbe = null;
+
+    // The whole response in one place. The tuning panel edits this object live;
+    // whatever is in here when the site ships is what visitors get.
+    const GLOW = {
+        // Tuned against a recorded 164fps log. A slow release turns this into
+        // a peak-follower that never settles back to the envelope troughs - the
+        // glow sat in a flat 0.35-0.70 band 66% of the time and read as a
+        // lingering wash rather than a response. At 0.25 it tracks the music
+        // down as well as up. Measured live on both clips afterwards, against
+        // the source envelope put through this same floor transform:
+        //   clip 1  correlation 0.82  flat 31% (song 22%)  dark 47% (song 55%)
+        //   clip 2  correlation 0.81  flat 39% (song 31%)  dark 43% (song 50%)
+        // i.e. the light is no flatter than the music it is following.
+        //
+        // The rendered glow runs ~35ms behind currentTime: that is the group
+        // delay of the smoothing below, and correcting for it takes those
+        // correlations to 0.93 and 0.92. It is deliberately NOT compensated
+        // for. Audio reaches the ear later than currentTime too - 20-50ms on
+        // wired output - so the two delays very nearly cancel where it counts.
+        // Pulling the light 35ms earlier would fix the graph and break the
+        // sync. offsetMs is there if headphones ever need it.
+        bodyAttack: 0.34,     // how fast the bloom rises toward the signal
+        bodyRelease: 0.250,   // and how quickly it falls away
+        hitAttack: 0.80,
+        hitRelease: 0.110,
+        smoothFrames: 3,      // rolling mean over the body, kills micro-chatter
+        // Back down after a 164fps log showed the rendered glow parked in a
+        // flat 0.35-0.70 band 66% of the time while the source envelope was
+        // below 0.25 for 35% of it. The lift was filling in every gap the
+        // music actually had, which is what read as lingering.
+        floor: 0.10,          // resting glow while the sound is on
+        // Higher = reacts to more of the music, lower = only the loud moments.
+        // Applied as pow(signal, 1/sensitivity), so 1 is neutral.
+        sensitivity: 1.00,
+        bodyGain: 1.00,
+        hitGain: 1.00,
+        // Shifts where in the song the glow is read from, in milliseconds.
+        // The grid itself is accurate - measured against real note onsets it
+        // sits within 5ms - but a browser plays currentTime while the sound
+        // reaches the speakers later: ~20-50ms wired, and 150-300ms over
+        // Bluetooth. That makes the light look early even when the data is
+        // right. NEGATIVE delays the glow to meet late audio.
+        offsetMs: 0,
+        // Per-clip trim, keyed by filename. The clips are different recordings
+        // with different mixes, so one may want lifting relative to the other
+        // even after the envelopes are levelled.
+        clipGain: {},
+        hitThreshold: 0.28,   // ignore onsets weaker than this
+        hitRefractoryMs: 140, // and refuse to re-fire within this
+    };
+
+    function loadEnvelopes() {
+        if (envelopes || envLoading) return;
+        envLoading = true;
+        fetch('images/hero-audio-envelope.json')
+            .then(r => (r.ok ? r.json() : null))
+            .then(j => {
+                if (!j) return;
+                const bytes = (s) => {
+                    const raw = atob(s);
+                    const a = new Uint8Array(raw.length);
+                    for (let i = 0; i < raw.length; i++) a[i] = raw.charCodeAt(i);
+                    return a;
+                };
+                const out = {};
+                Object.keys(j).forEach(k => {
+                    out[k] = { hz: j[k].hz, beat: j[k].beat, conf: j[k].conf,
+                               body: bytes(j[k].body), hit: bytes(j[k].hit) };
+                });
+                envelopes = out;
+            })
+            .catch(() => {});
+    }
+
+    function clipKey(v) {
+        if (!v) return '';
+        const src = (v.querySelector('source') && v.querySelector('source').src) || v.currentSrc || '';
+        return src.split('/').pop().split('?')[0];
+    }
+
+    function envelopeFor(v) {
+        if (!envelopes || !v) return null;
+        return envelopes[clipKey(v)] || null;
+    }
+
+    function clipGainFor(v) {
+        const g = GLOW.clipGain[clipKey(v)];
+        return (typeof g === 'number' && isFinite(g)) ? g : 1;
+    }
+
+    function glowTick(now) {
+        glowRaf = requestAnimationFrame(glowTick);
+        if (!now) now = performance.now();
+        const want = (on && presence > 0) ? 1 : 0;
+        // The whole effect eases in and out, so turning sound on does not snap
+        // a halo into existence.
+        gate += (want - gate) * 0.055;
+
+        let bodyT = 0, hitT = 0;
+        let envIdx = -1;
+        const v = cur();
+        const env = envelopeFor(v);
+        if (env && v && !v.paused) {
+            // offsetMs slides the read head so the light can be lined up with
+            // audio that reaches the ear later than currentTime says.
+            const i = Math.round((v.currentTime + GLOW.offsetMs / 1000) * env.hz);
+            if (i >= 0 && i < env.body.length) {
+                envIdx = i;
+                bodyT = env.body[i] / 255;
+                hitT = env.hit[i] / 255;
+            }
+        }
+        // Kept for the recorder, so a log carries the raw envelope alongside
+        // the smoothed output and the two can be compared.
+        rawBody = bodyT;
+        rawHit = hitT;
+        // A rolling mean on top of the baked-in smoothing. The envelope is
+        // already averaged, but a dense passage can still chatter frame to
+        // frame, and this is the knob that takes it out without dulling the
+        // shape of the beat.
+        // Sensitivity reshapes the curve before any gain: >1 lifts the quiet
+        // parts so more of the music registers, <1 keeps only the peaks.
+        const cg = clipGainFor(v);
+        const sens = Math.max(0.05, GLOW.sensitivity);
+        bodyT = Math.min(1, Math.pow(bodyT, 1 / sens) * GLOW.bodyGain * cg);
+        // Averaged over a fixed SPAN OF TIME, not a fixed number of frames.
+        // Counting frames made this the last frame-rate-dependent stage left:
+        // three frames is 100ms at 30Hz but 18ms at 165Hz, so the same setting
+        // smeared a beat on one machine and did nothing on another. The slider
+        // still reads in frames-at-60fps; it is converted to seconds here.
+        const span = Math.max(1, Math.round(GLOW.smoothFrames)) / 60;
+        recent.push({ t: now, v: bodyT });
+        while (recent.length > 1 && (now - recent[0].t) > span * 1000) recent.shift();
+        let mean = 0;
+        for (let k = 0; k < recent.length; k++) mean += recent[k].v;
+        bodyT = mean / recent.length;
+
+        // Onsets have to clear a threshold AND a refractory gap. Without them a
+        // busy section reads as one continuous flicker instead of a pulse.
+        const bodySm = bodyT;          // post-smoothing, pre attack/release
+        hitT = Math.min(1, Math.pow(hitT, 1 / sens) * GLOW.hitGain * cg);
+        let hitFired = 0;
+        if (hitT < GLOW.hitThreshold || (now - lastHitAt) < GLOW.hitRefractoryMs) {
+            hitT = 0;
+        } else {
+            hitFired = 1;
+            lastHitAt = now;
+        }
+
+        // The two bands want different envelopes. The bloom swells and falls
+        // away musically; the core stabs almost instantly and decays fast, which
+        // is what separates "a flash on the beat" from "the halo throbbing".
+        // Frame-rate independent smoothing. These used to be applied once per
+        // frame, which meant the whole effect ran at a different speed on every
+        // display - a recorded log came back at 164fps, where every constant
+        // acted 2.7x faster per second than the 60fps they were tuned at. The
+        // slider values still read as "this much per frame at 60fps"; they are
+        // converted to a time constant and re-applied against the real frame
+        // interval, so 30Hz, 60Hz and 165Hz all behave identically.
+        const dt = Math.min(0.1, Math.max(0.001, (now - lastFrame) / 1000));
+        lastFrame = now;
+        const perFrame = (c) => {
+            const k = Math.min(0.999, Math.max(0.001, c));
+            return 1 - Math.exp(-dt / (-1 / (60 * Math.log(1 - k))));
+        };
+        bodyVal += (bodyT - bodyVal) * perFrame(bodyT > bodyVal ? GLOW.bodyAttack : GLOW.bodyRelease);
+        hitVal  += (hitT  - hitVal)  * perFrame(hitT  > hitVal  ? GLOW.hitAttack  : GLOW.hitRelease);
+
+        // Only a small resting floor, so the quiet moments really are quiet and
+        // the peaks have somewhere to travel to.
+        if (glowEl) {
+            const f = GLOW.floor;
+            glowEl.style.setProperty('--glow', (gate * (f + (1 - f) * bodyVal)).toFixed(3));
+            glowEl.style.setProperty('--hit', (gate * hitVal).toFixed(3));
+        }
+
+        if (glowProbe) {
+            const p = glowProbe;
+            p.dtMs = dt * 1000;
+            p.gate = gate;
+            p.bodySm = bodySm;
+            p.hitFired = hitFired;
+            p.sinceHitMs = now - lastHitAt;
+            p.envIdx = envIdx;
+            // Where in the stored beat we are. A pulse that fires at a
+            // consistent phase is locked to the grid; one that walks round
+            // the phase is drifting against it.
+            p.beatPhase = (env && env.beat && v)
+                ? ((v.currentTime + GLOW.offsetMs / 1000) % env.beat) / env.beat : -1;
+            p.vol = v ? v.volume : 0;
+            p.muted = v ? (v.muted ? 1 : 0) : 1;
+        }
+
+        if (want === 0 && gate < 0.004) {
+            if (glowEl) {
+                glowEl.style.setProperty('--glow', '0');
+                glowEl.style.setProperty('--hit', '0');
+            }
+            cancelAnimationFrame(glowRaf);
+            glowRaf = null;
+        }
+    }
+
+    function startGlow() {
+        if (!glowEl) return;
+        lastFrame = performance.now();
+        loadEnvelopes();
+        if (!glowRaf) glowRaf = requestAnimationFrame(glowTick);
+    }
+
+    // ---- the sequence -------------------------------------------------------
+    // One clip runs out, the next fades in over it. There is no control for
+    // this on purpose: it is a background, and a visitor skipping the scenery
+    // behind the logo is not a thing anyone wants.
+
+    // Nothing fades in until the incoming clip can actually paint. Starting the
+    // dissolve on a video that has been asked to play but has not decoded a
+    // frame yet is what makes a transition stutter or flash black - the element
+    // is there, composited, and empty. The timeout is a safety valve so a
+    // stalled fetch can never strand the sequence on one clip.
+    function whenReady(v, cb) {
+        if (v.readyState >= 3 && !v.seeking) { cb(); return; }
+        let done = false;
+        const fire = () => {
+            if (done) return;
+            done = true;
+            v.removeEventListener('canplaythrough', fire);
+            v.removeEventListener('canplay', check);
+            v.removeEventListener('seeked', check);
+            clearTimeout(timer);
+            cb();
+        };
+        const check = () => { if (v.readyState >= 3 && !v.seeking) fire(); };
+        v.addEventListener('canplaythrough', fire);
+        v.addEventListener('canplay', check);
+        v.addEventListener('seeked', check);
+        const timer = setTimeout(fire, 2500);
+    }
+
+    // Three tiers, picked per transition:
+    //   gl   - the WebGL burn-dissolve (createVideoDissolve)
+    //   css  - a soft bloom from the logo, via an animated mask on the clip
+    //   fade - a plain cross-fade, for reduced motion or no mask support
+    // A device that cannot hold the frame rate through a gl dissolve drops to
+    // css for the rest of the visit rather than stuttering every time.
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+    const canMask = !!(window.CSS && CSS.supports &&
+        (CSS.supports('mask-size', '1px') || CSS.supports('-webkit-mask-size', '1px')));
+    const conn = navigator.connection;
+    let lite = !!(conn && conn.saveData) ||
+        (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory < 4);
+    const FRAME_BUDGET_MS = 25;    // ~40fps; slower than this and gl is retired
+
+    let dissolve;                  // undefined: not tried yet, null: unavailable
+    function getDissolve() {
+        if (dissolve === undefined) {
+            try {
+                dissolve = createVideoDissolve(hero, {
+                    className: 'hero-dissolve', clips: '.hero-video',
+                    origin: '.hero-logo-img', name: 'hero',
+                });
+            } catch (_) { dissolve = null; }
+        }
+        return dissolve;
+    }
+
+    function modeNow() {
+        if (reduceMotion && reduceMotion.matches) return 'fade';
+        if (!lite) {
+            const d = getDissolve();
+            if (d && d.ok()) return 'gl';
+        }
+        return canMask ? 'css' : 'fade';
+    }
+
+    // Compile the shader while the page is idle, not in the frame the first
+    // transition needs.
+    if (clips.length > 1 && !lite && !(reduceMotion && reduceMotion.matches)) {
+        if ('requestIdleCallback' in window) requestIdleCallback(getDissolve, { timeout: 4000 });
+        else setTimeout(getDissolve, 3000);
+    }
+
+    // The real elements, put into their resting state: the incoming clip is
+    // the active one, the outgoing one is hidden with transitions off (is-cut)
+    // so it is instantly ready to be staged again next time round.
+    function settle(from, to) {
+        to.classList.remove('is-staged', 'is-revealing');
+        to.classList.add('is-active');
+        from.classList.add('is-cut');
+        from.classList.remove('is-active', 'is-below', 'is-fading');
+        SiteAudio.stopRamp(from);
+        from.pause();
+        from.muted = true;
+        from.volume = 1;
+        // If the hero was scrolled away mid-transition both clips were paused,
+        // and the visibility handler skips resuming while switching is set.
+        if (presence > 0 && !document.hidden && to.paused) play(to);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            from.classList.remove('is-cut');
+        }));
+    }
+
+    function goTo(target) {
+        if (switching || clips.length < 2) return;
+        const next = ((target % clips.length) + clips.length) % clips.length;
+        if (next === index) return;
+        switching = true;
+
+        const from = clips[index];
+        const to = clips[next];
+
+        warm(to);
+        // Staged: fully opaque and decoding, but UNDER the playing clip (the
+        // active clip sits a z-level above staged ones), so nothing on screen
+        // changes. The playing clip itself is not touched at all here - no
+        // class, no stacking change - until it is actually being replaced.
+        to.classList.add('is-staged');
+        try { to.currentTime = 0; } catch (_) {}
+        to.muted = true;
+        to.volume = 1;
+        play(to);
+
+        whenReady(to, () => {
+            index = next;
+            ui.setAvailable(clipHasAudio(to));
+
+            let mode = modeNow();
+            const rampAudio = (ms) => {
+                if (!audible()) return;
+                to.muted = false;
+                to.volume = 0;
+                SiteAudio.ramp(to, levelFor(to), ms);
+                SiteAudio.ramp(from, 0, ms);
+            };
+
+            if (mode === 'gl') {
+                // The canvas draws only the incoming clip, over the playing
+                // one, which carries on natively underneath.
+                const started = dissolve.run(to, XFADE_MS, {
+                    // Canvas is showing only the new clip: swap underneath it.
+                    onCovered: () => settle(from, to),
+                    onDone: (avgMs) => {
+                        switching = false;
+                        if (avgMs > FRAME_BUDGET_MS) {
+                            lite = true;
+                            console.info('[hero] dissolve averaged ' + avgMs.toFixed(1) +
+                                'ms/frame - using the CSS transition from now on');
+                        }
+                    },
+                });
+                if (started) { rampAudio(XFADE_MS); return; }
+                mode = canMask ? 'css' : 'fade';
+            }
+
+            if (mode === 'css') {
+                // The incoming clip goes on top behind a zero-size mask, so the
+                // change of stacking is invisible; the animation then opens it.
+                from.classList.add('is-below');
+                to.classList.add('is-revealing');
+                rampAudio(XFADE_MS);
+                setTimeout(() => { settle(from, to); switching = false; }, XFADE_MS);
+                return;
+            }
+
+            // fade: the outgoing clip, still on top (is-fading keeps its
+            // z-level), fades away to reveal the incoming one underneath.
+            from.classList.add('is-fading');
+            from.classList.remove('is-active');
+            rampAudio(FADE_XF_MS);
+            setTimeout(() => { settle(from, to); switching = false; }, FADE_XF_MS);
+        });
+    }
+
+    const advance = () => goTo(index + 1);
+
+    // timeupdate fires about four times a second, so the hand-over is started a
+    // little early - the incoming clip has to be fully covering by the time the
+    // outgoing one runs out, or it freezes on its last frame in plain sight.
+    // The extra 0.4s is headroom for whenReady on a slow connection.
+    function watch() {
+        const v = cur();
+        if (switching || !v || !isFinite(v.duration) || v.duration <= 0) return;
+        const left = v.duration - v.currentTime;
+        if (left <= WARM_LEAD) warm(clips[(index + 1) % clips.length]);
+        if (left <= (XFADE_MS + 400) / 1000 + 0.35) advance();
+    }
+
+    clips.forEach(v => {
+        v.addEventListener('timeupdate', watch);
+        // Backstop, in case timeupdate is throttled and the clip simply ends.
+        v.addEventListener('ended', () => { if (v === cur() && !switching) advance(); });
+    });
+
+    // ==================== DEBUG ONLY - DELETE BEFORE PUBLISHING =============
+    // Hero tuning panel. Only appears when the URL carries ?herodebug=1 , so a
+    // visitor can never see it even if this is still here. Nothing outside this
+    // block refers to any of it: delete from this banner down to the END DEBUG
+    // banner and it is gone completely, leaving whatever values are baked into
+    // GLOW above and the CSS fallbacks in styles.css.
+    // A version stamp, so it is obvious whether the browser is running a fresh
+    // script.js or a cached one. If you do not see this line in the console,
+    // the file is cached - hard reload (Ctrl+Shift+R).
+    console.log('[hero] controller ready · build 2026-09-23c · ' + clips.length +
+        ' clips · add ?herodebug=1 to the URL, or press Ctrl+Shift+G, for the tuning panel');
+
+    let panelMounted = false;
+
+    function mountPanel() {
+        if (panelMounted) return;
+        panelMounted = true;
+        // Visual knobs live in CSS as var(--x, fallback); the fallbacks are the
+        // shipped values, so the panel starts exactly where the site is.
+        const LOOK = {
+            '--bloom-op':    { v: 0.92, min: 0, max: 1.5,  step: 0.01,  label: 'bloom opacity' },
+            '--bloom-scale': { v: 0.11, min: 0, max: 0.30, step: 0.005, label: 'bloom scale' },
+            '--bloom-blur':  { v: 10,   min: 0, max: 40,   step: 1, unit: 'px', label: 'bloom blur' },
+            '--bloom-sat':   { v: 0.90, min: 0, max: 3,    step: 0.05,  label: 'bloom saturation pump' },
+            '--bloom-bri':   { v: 0.30, min: 0, max: 1.5,  step: 0.05,  label: 'bloom brightness pump' },
+            '--core-op':     { v: 0.80, min: 0, max: 1.5,  step: 0.01,  label: 'core opacity' },
+            '--core-scale':  { v: 0.04, min: 0, max: 0.20, step: 0.005, label: 'core scale' },
+            '--core-blur':   { v: 3,    min: 0, max: 24,   step: 1, unit: 'px', label: 'core blur' }
+        };
+        const RESPONSE = [
+            ['offsetMs',       -300,   300,  5,     'TIMING offset (ms)'],
+            ['sensitivity',     0.40,  2.5,  0.05,  'SENSITIVITY'],
+            ['smoothFrames',    1,     16,   1,     'smoothing (frames)'],
+            ['bodyAttack',      0.02,  1,    0.01,  'bloom attack'],
+            ['bodyRelease',     0.005, 0.4,  0.005, 'bloom release'],
+            ['floor',           0,     0.6,  0.01,  'resting floor'],
+            ['bodyGain',        0.2,   2.5,  0.05,  'bloom gain'],
+            ['hitThreshold',    0,     1,    0.01,  'hit threshold'],
+            ['hitRefractoryMs', 0,     600,  10,    'hit refractory (ms)'],
+            ['hitAttack',       0.05,  1,    0.01,  'hit attack'],
+            ['hitRelease',      0.01,  0.6,  0.005, 'hit release'],
+            ['hitGain',         0.2,   2.5,  0.05,  'hit gain']
+        ];
+
+        const panel = document.createElement('div');
+        panel.setAttribute('data-debug', 'hero-glow');
+        panel.style.cssText =
+            // above #site-loader, which sits at z-index 1000000 and would
+            // otherwise bury this for the whole preload
+            'position:fixed;z-index:2000000;top:84px;right:16px;width:302px;' +
+            'max-height:calc(100vh - 112px);overflow:auto;padding:14px;border-radius:14px;' +
+            'border:1px solid rgba(255,255,255,.22);background:rgba(14,11,12,.93);color:#faf7f4;' +
+            'backdrop-filter:blur(14px);font:12px/1.45 system-ui,-apple-system,sans-serif;' +
+            'box-shadow:0 18px 50px -18px #000;';
+
+        const chip = 'flex:1;padding:8px 6px;border-radius:9px;border:1px solid rgba(255,255,255,.28);' +
+            'background:rgba(255,255,255,.10);color:#fff;cursor:pointer;font:inherit;font-weight:600;';
+
+        function heading(t) {
+            const e = document.createElement('div');
+            e.textContent = t;
+            e.style.cssText = 'font-weight:700;letter-spacing:.08em;text-transform:uppercase;' +
+                'font-size:10px;opacity:.6;margin:14px 0 8px;';
+            return e;
+        }
+
+        // Live meters, so the jitter is something you can see rather than guess at
+        const meters = {};
+        function meterRow(name, colour) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;';
+            const lab = document.createElement('span');
+            lab.textContent = name;
+            lab.style.cssText = 'width:34px;opacity:.7;';
+            const track = document.createElement('div');
+            track.style.cssText = 'flex:1;height:8px;border-radius:9px;background:rgba(255,255,255,.14);overflow:hidden;';
+            const fill = document.createElement('div');
+            fill.style.cssText = 'height:100%;width:0;background:' + colour + ';';
+            const num = document.createElement('span');
+            num.style.cssText = 'width:32px;text-align:right;font-variant-numeric:tabular-nums;opacity:.85;';
+            track.appendChild(fill);
+            wrap.appendChild(lab); wrap.appendChild(track); wrap.appendChild(num);
+            meters[name] = { fill: fill, num: num };
+            return wrap;
+        }
+
+        const rate = document.createElement('div');
+        rate.style.cssText = 'opacity:.65;margin:2px 0 4px;';
+
+        // A rolling six-second trace. Numbers tell you the level; this tells you
+        // the SHAPE - whether it is pulsing on the beat or skittering between.
+        const scope = document.createElement('canvas');
+        scope.width = 548; scope.height = 108;          // 2x for crispness
+        scope.style.cssText = 'width:274px;height:54px;display:block;margin:4px 0 6px;' +
+            'border-radius:7px;background:rgba(255,255,255,.07);';
+        const sctx = scope.getContext('2d');
+        const HISTORY = 120;                             // 120 x 50ms = 6s
+        const hist = [];
+
+        function drawScope() {
+            const w = scope.width, h = scope.height;
+            sctx.clearRect(0, 0, w, h);
+            // midline
+            sctx.strokeStyle = 'rgba(255,255,255,.14)';
+            sctx.lineWidth = 2;
+            sctx.beginPath(); sctx.moveTo(0, h / 2); sctx.lineTo(w, h / 2); sctx.stroke();
+            if (hist.length < 2) return;
+            const step = w / (HISTORY - 1);
+            // hits as upright ticks, so a beat is unmistakable
+            sctx.strokeStyle = 'rgba(255,255,255,.85)';
+            sctx.lineWidth = 2;
+            hist.forEach(function (p, i) {
+                if (p.h <= 0.02) return;
+                const x = i * step;
+                sctx.beginPath(); sctx.moveTo(x, h); sctx.lineTo(x, h - p.h * h); sctx.stroke();
+            });
+            // glow as a filled trace
+            sctx.beginPath();
+            hist.forEach(function (p, i) {
+                const x = i * step, y = h - p.g * h;
+                if (i === 0) sctx.moveTo(x, y); else sctx.lineTo(x, y);
+            });
+            sctx.strokeStyle = '#e0566f';
+            sctx.lineWidth = 3;
+            sctx.stroke();
+        }
+
+        function slider(label, value, min, max, step, onInput, suffix) {
+            const row = document.createElement('div');
+            row.style.cssText = 'margin-bottom:9px;';
+            const top = document.createElement('div');
+            top.style.cssText = 'display:flex;justify-content:space-between;gap:8px;margin-bottom:3px;';
+            const l = document.createElement('span');
+            l.textContent = label;
+            l.style.opacity = '.78';
+            const val = document.createElement('span');
+            val.style.cssText = 'font-variant-numeric:tabular-nums;font-weight:600;';
+            function show(x) { val.textContent = x + (suffix || ''); }
+            show(value);
+            top.appendChild(l); top.appendChild(val);
+            const r = document.createElement('input');
+            r.type = 'range';
+            r.min = min; r.max = max; r.step = step; r.value = value;
+            r.style.cssText = 'width:100%;accent-color:#e0566f;margin:0;';
+            r.addEventListener('input', function () { show(+r.value); onInput(+r.value); });
+            row.appendChild(top); row.appendChild(r);
+            return { row: row, input: r, show: show };
+        }
+
+        const controls = [];
+
+        // Header with its own close button, so it never needs a shortcut to
+        // get rid of - some machines have those grabbed by other software.
+        const bar = document.createElement('div');
+        bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;' +
+            'margin:-2px 0 2px;';
+        const title = document.createElement('strong');
+        title.textContent = 'HERO TUNING';
+        title.style.cssText = 'letter-spacing:.09em;font-size:11px;';
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = '×';
+        close.title = 'hide (Ctrl+Shift+G brings it back)';
+        close.style.cssText = 'width:26px;height:26px;flex:none;border-radius:8px;cursor:pointer;' +
+            'border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.10);color:#fff;' +
+            'font:600 15px/1 system-ui;';
+        close.addEventListener('click', function () { panel.style.display = 'none'; });
+        bar.appendChild(title);
+        bar.appendChild(close);
+        panel.appendChild(bar);
+
+        panel.appendChild(heading('live signal'));
+        panel.appendChild(meterRow('glow', 'linear-gradient(90deg,#8a1530,#e0566f)'));
+        panel.appendChild(meterRow('hit', 'linear-gradient(90deg,#adafb0,#ffffff)'));
+        panel.appendChild(scope);
+        panel.appendChild(rate);
+
+        // ---- recorder -------------------------------------------------------
+        // Captures glow and hit against the clip's own timeline, so a log can be
+        // lined straight back up against the audio it came from.
+        const log = [];
+        let recording = false;
+
+        // Every stage of the pipeline, so a log says WHICH one is responsible.
+        glowProbe = { dtMs: 0, gate: 0, bodySm: 0, hitFired: 0, sinceHitMs: 0,
+                      envIdx: -1, beatPhase: -1, vol: 0, muted: 1 };
+
+        // ---- live audio tap -------------------------------------------------
+        // The columns above all come from the envelope, so they can only ever
+        // agree with it: a log made of them could never reveal that the
+        // envelope itself was drifting against the music, which is precisely
+        // the bug that took several passes to find. This measures the audio
+        // actually coming out, so envelope-vs-reality is visible in one file.
+        //
+        // Verified in Chrome that element volume and mute are applied BEFORE
+        // this tap (0.25 volume measures at 0.250 of full, mute measures exact
+        // silence), so it cannot disturb the volume ramps. A source node is
+        // permanent per element and may only be created once, hence the cache.
+        const taps = new WeakMap();
+        let actx = null;
+        function tapFor(v) {
+            if (!v) return null;
+            if (taps.has(v)) return taps.get(v);
+            try {
+                if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+                if (actx.state === 'suspended') actx.resume();
+                const src = actx.createMediaElementSource(v);
+                const an = actx.createAnalyser();
+                an.fftSize = 1024;
+                an.smoothingTimeConstant = 0;
+                src.connect(an);
+                an.connect(actx.destination);   // keep the sound audible
+                const t = { an, freq: new Uint8Array(an.frequencyBinCount),
+                            time: new Float32Array(an.fftSize), prev: null };
+                taps.set(v, t);
+                return t;
+            } catch (e) {
+                console.warn('[hero] audio tap unavailable: ' + e.message);
+                taps.set(v, null);
+                return null;
+            }
+        }
+        // Band edges as bin indices, matching the four bands the envelope
+        // generator uses, so the two are directly comparable.
+        function bandsOf(t) {
+            const sr = actx ? actx.sampleRate : 48000;
+            const n = t.an.frequencyBinCount;
+            const bin = hz => Math.max(0, Math.min(n - 1, Math.round(hz * t.an.fftSize / sr)));
+            const edges = [[30, 120], [120, 500], [500, 2000], [2000, 8000]];
+            return edges.map(function (e) {
+                let s = 0;
+                const a = bin(e[0]), b = Math.max(bin(e[0]) + 1, bin(e[1]));
+                for (let k = a; k < b; k++) s += t.freq[k];
+                return s / (b - a) / 255;
+            });
+        }
+        // Half-wave-rectified spectral flux: the same onset measure the
+        // generator uses offline, so a peak here should line up with a hit.
+        function fluxOf(t) {
+            if (!t.prev) { t.prev = Uint8Array.from(t.freq); return 0; }
+            let s = 0;
+            for (let k = 0; k < t.freq.length; k++) {
+                const d = t.freq[k] - t.prev[k];
+                if (d > 0) s += d;
+            }
+            t.prev.set(t.freq);
+            return s / t.freq.length / 255;
+        }
+        let tapOn = false;
+        const tapBtn = document.createElement('button');
+        tapBtn.type = 'button';
+        tapBtn.style.cssText = chip;
+        tapBtn.title = 'measure the real audio alongside the envelope';
+        function paintTap() {
+            tapBtn.textContent = tapOn ? 'audio tap ✓' : 'audio tap';
+            tapBtn.style.borderColor = tapOn ? '#7fd8a0' : 'rgba(255,255,255,.28)';
+        }
+        tapBtn.addEventListener('click', function () {
+            tapOn = !tapOn;
+            if (tapOn && !tapFor(cur())) tapOn = false;
+            paintTap();
+        });
+        paintTap();
+        const recRow = document.createElement('div');
+        recRow.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;';
+        const recBtn = document.createElement('button');
+        recBtn.type = 'button';
+        recBtn.style.cssText = chip;
+        const logBtn = document.createElement('button');
+        logBtn.type = 'button';
+        logBtn.textContent = 'download csv';
+        logBtn.style.cssText = chip;
+        function paintRec() {
+            recBtn.textContent = recording ? '■ stop (' + log.length + ')' : '● record';
+            recBtn.style.borderColor = recording ? '#e0566f' : 'rgba(255,255,255,.28)';
+        }
+        // Recording runs on its own rAF loop at the real frame rate, not on the
+        // 60ms panel timer - sampling a 60fps signal 16 times a second aliases
+        // exactly the peaks you are trying to look at.
+        let recRaf = null, recLast = 0;
+        function recTick(now) {
+            recRaf = requestAnimationFrame(recTick);
+            const v = cur();
+            if (!recording || !v) return;
+            const fps = recLast ? 1000 / Math.max(1, now - recLast) : 60;
+            recLast = now;
+            let aR = 0, aF = 0, aB = [0, 0, 0, 0];
+            if (tapOn) {
+                const t = tapFor(v);
+                if (t) {
+                    t.an.getByteFrequencyData(t.freq);
+                    t.an.getFloatTimeDomainData(t.time);
+                    let s = 0;
+                    for (let k = 0; k < t.time.length; k++) s += t.time[k] * t.time[k];
+                    aR = Math.sqrt(s / t.time.length);
+                    aB = bandsOf(t);
+                    aF = fluxOf(t);
+                }
+            }
+            const p = glowProbe;
+            log.push({ clip: clipKey(v), t: v.currentTime,
+                       g: +glowEl.style.getPropertyValue('--glow') || 0,
+                       h: +glowEl.style.getPropertyValue('--hit') || 0,
+                       rb: rawBody, rh: rawHit, off: GLOW.offsetMs, fps: fps,
+                       dt: p.dtMs, gate: p.gate, bs: p.bodySm, hf: p.hitFired,
+                       sh: p.sinceHitMs, ei: p.envIdx, bp: p.beatPhase,
+                       vol: p.vol, mu: p.muted,
+                       aR: aR, aF: aF, aB: aB });
+            if (log.length > 200000) { recording = false; stopRec(); paintRec(); }
+        }
+        function startRec() { recLast = 0; if (!recRaf) recRaf = requestAnimationFrame(recTick); }
+        function stopRec() { if (recRaf) { cancelAnimationFrame(recRaf); recRaf = null; } }
+
+        recBtn.addEventListener('click', function () {
+            recording = !recording;
+            if (recording) { log.length = 0; startRec(); } else { stopRec(); }
+            paintRec();
+            if (!recording) {
+                const secs = log.length ? (log[log.length - 1].t - log[0].t) : 0;
+                console.log('[hero] recorded ' + log.length + ' frames over ' + secs.toFixed(1) +
+                    's of clip - "download csv" to save it');
+            }
+        });
+        function logCSV() {
+            // audRms/audFlux/audLow..audHigh are MEASURED from the output; every
+            // other column is derived from the envelope. Comparing the two
+            // groups is what shows whether the envelope matches the music.
+            const head = 'clip,time,glow,hit,rawBody,rawHit,offsetMs,fps,' +
+                'dtMs,gate,bodySm,hitFired,sinceHitMs,envIdx,beatPhase,vol,muted,' +
+                'audRms,audFlux,audLow,audLowMid,audHighMid,audHigh';
+            return [head].concat(log.map(function (r) {
+                return r.clip + ',' + r.t.toFixed(3) + ',' + r.g.toFixed(4) + ',' + r.h.toFixed(4) +
+                    ',' + r.rb.toFixed(4) + ',' + r.rh.toFixed(4) + ',' + r.off + ',' + r.fps.toFixed(1) +
+                    ',' + r.dt.toFixed(2) + ',' + r.gate.toFixed(4) + ',' + r.bs.toFixed(4) +
+                    ',' + r.hf + ',' + Math.round(r.sh) + ',' + r.ei + ',' + r.bp.toFixed(4) +
+                    ',' + r.vol.toFixed(3) + ',' + r.mu +
+                    ',' + r.aR.toFixed(5) + ',' + r.aF.toFixed(5) +
+                    ',' + r.aB.map(function (x) { return x.toFixed(4); }).join(',');
+            })).join('\n');
+        }
+        logBtn.addEventListener('click', function () {
+            // A real file, not the clipboard: a full-rate recording of a whole
+            // clip is tens of thousands of rows and pasting that is miserable.
+            const text = logCSV();
+            const name = 'hero-glow-' + (log.length ? log[0].clip.replace(/\.mp4$/, '') : 'log') +
+                '-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '') + '.csv';
+            try {
+                const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+                const a = document.createElement('a');
+                a.href = url; a.download = name;
+                document.body.appendChild(a); a.click();
+                setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 2000);
+                logBtn.textContent = 'saved ✓';
+                console.log('[hero] saved ' + log.length + ' frames to ' + name);
+            } catch (e) {
+                console.log('[hero] ' + log.length + ' frames:\n' + text);
+                logBtn.textContent = 'see console';
+            }
+            setTimeout(function () { logBtn.textContent = 'download csv'; }, 1600);
+        });
+        paintRec();
+        recRow.appendChild(recBtn);
+        recRow.appendChild(logBtn);
+        recRow.appendChild(tapBtn);
+        panel.appendChild(recRow);
+
+        panel.appendChild(heading('clip'));
+        const clipRow = document.createElement('div');
+        clipRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:4px;';
+        const clipTag = document.createElement('div');
+        clipTag.style.cssText = 'text-align:center;opacity:.75;margin-bottom:8px;';
+        // Per-clip gain, rebound whenever the showing clip changes - so the
+        // slider always adjusts the video you are actually looking at.
+        const clipSlider = slider('THIS CLIP gain', 1, 0.2, 3, 0.05, function (x) {
+            GLOW.clipGain[clipKey(cur())] = x;
+        });
+
+        let labelled = false;
+
+        function relabel() {
+            const key = clipKey(cur());
+            const env = envelopes && envelopes[key];
+            clipTag.textContent = (index + 1) + '/' + clips.length + '  ' + key +
+                (env ? '  · ' + Math.round(60 / env.beat) + ' BPM (conf ' + env.conf + ')' : '');
+            const g = GLOW.clipGain[key];
+            const val = (typeof g === 'number') ? g : 1;
+            clipSlider.input.value = val;
+            clipSlider.show(val);
+        }
+        function stepBtn(text, delta) {
+            const b = document.createElement('button');
+            b.type = 'button'; b.textContent = text; b.style.cssText = chip;
+            b.addEventListener('click', function () {
+                goTo(index + delta);
+                let n = 0;
+                const p = setInterval(function () { relabel(); if (++n > 24) clearInterval(p); }, 150);
+            });
+            return b;
+        }
+        clipRow.appendChild(stepBtn('‹ prev', -1));
+        clipRow.appendChild(stepBtn('next ›', 1));
+        panel.appendChild(clipRow);
+        panel.appendChild(clipTag);
+        panel.appendChild(clipSlider.row);
+        relabel();
+
+        panel.appendChild(heading('response'));
+        RESPONSE.forEach(function (row) {
+            const key = row[0];
+            const s = slider(row[4], GLOW[key], row[1], row[2], row[3], function (x) { GLOW[key] = x; });
+            controls.push({ kind: 'js', key: key, s: s, def: GLOW[key], unit: '' });
+            panel.appendChild(s.row);
+        });
+
+        panel.appendChild(heading('look'));
+        Object.keys(LOOK).forEach(function (prop) {
+            const d = LOOK[prop];
+            const s = slider(d.label, d.v, d.min, d.max, d.step, function (x) {
+                glowEl.style.setProperty(prop, x + (d.unit || ''));
+            }, d.unit || '');
+            controls.push({ kind: 'css', key: prop, s: s, def: d.v, unit: d.unit || '' });
+            panel.appendChild(s.row);
+        });
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;gap:6px;margin-top:14px;position:sticky;bottom:0;' +
+            'padding-top:10px;background:linear-gradient(180deg,rgba(14,11,12,0),rgba(14,11,12,.95) 45%);';
+        function act(text, fn) {
+            const b = document.createElement('button');
+            b.type = 'button'; b.textContent = text;
+            b.style.cssText = chip + 'padding:10px 6px;';
+            b.addEventListener('click', fn);
+            actions.appendChild(b);
+            return b;
+        }
+
+        function snapshot() {
+            const js = {}, look = {};
+            controls.forEach(function (c) {
+                if (c.kind === 'js') js[c.key] = GLOW[c.key];
+                else look[c.key] = c.s.input.value + c.unit;
+            });
+            js.clipGain = GLOW.clipGain;   // per-video trims travel with it
+            return JSON.stringify({ response: js, look: look }, null, 2);
+        }
+
+        const copyBtn = act('copy settings', function () {
+            const text = snapshot();
+            function done() {
+                copyBtn.textContent = 'copied ✓';
+                setTimeout(function () { copyBtn.textContent = 'copy settings'; }, 1400);
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done, function () { window.prompt('Copy this:', text); });
+            } else {
+                window.prompt('Copy this:', text);
+            }
+        });
+
+        act('reset', function () {
+            controls.forEach(function (c) {
+                c.s.input.value = c.def;
+                c.s.show(c.def);
+                if (c.kind === 'js') GLOW[c.key] = c.def;
+                else glowEl.style.removeProperty(c.key);
+            });
+        });
+
+        panel.appendChild(actions);
+        document.body.appendChild(panel);
+
+        // hits/sec is the number that says whether it is pulsing or jittering
+        let hits = [];
+        setInterval(function () {
+            const gv = +glowEl.style.getPropertyValue('--glow') || 0;
+            const hv = +glowEl.style.getPropertyValue('--hit') || 0;
+            meters.glow.fill.style.width = (gv * 100).toFixed(1) + '%';
+            meters.glow.num.textContent = gv.toFixed(2);
+            meters.hit.fill.style.width = (hv * 100).toFixed(1) + '%';
+            meters.hit.num.textContent = hv.toFixed(2);
+            const t = performance.now();
+            if (hv > 0.45 && (!hits.length || t - hits[hits.length - 1] > 120)) hits.push(t);
+            hits = hits.filter(function (x) { return t - x < 5000; });
+
+            hist.push({ g: gv, h: hv });
+            while (hist.length > HISTORY) hist.shift();
+            drawScope();
+
+            // The envelopes arrive asynchronously, after the panel is built, so
+            // the first label has no tempo in it. Fill it in once they land.
+            if (!labelled && envelopes) { labelled = true; relabel(); }
+
+            const v = cur();
+            if (recording) paintRec();
+
+            const env = envelopes && envelopes[clipKey(v)];
+            rate.textContent = 'hits ' + (hits.length / 5).toFixed(1) + '/sec' +
+                (env ? '  ·  beat every ' + env.beat + 's' : '') + '  ·  needs sound ON';
+        }, 50);
+
+        console.log('[hero] tuning panel mounted (top right, above the preloader)');
+    }
+
+    // Stays out of the way now the glow is tuned: it no longer shows itself on
+    // localhost. Ask for it explicitly when you need it -
+    //   ?herodebug=1 on the URL, #herodebug, Ctrl+Shift+G, or
+    //   localStorage.setItem('herodebug','1') to have it back every reload.
+    const wantPanel =
+        /[?&]herodebug(?:[=&]|$)/.test(location.search) ||
+        /herodebug/.test(location.hash) ||
+        (function () { try { return localStorage.getItem('herodebug') === '1'; } catch (_) { return false; } })();
+
+    if (wantPanel) mountPanel();
+
+    // ...and a shortcut that always works, flag or not. Ctrl+Shift+G.
+    window.addEventListener('keydown', function (e) {
+        if (e.ctrlKey && e.shiftKey && (e.key === 'G' || e.key === 'g')) {
+            e.preventDefault();
+            if (panelMounted) {
+                const p = document.querySelector('[data-debug="hero-glow"]');
+                if (p) p.style.display = (p.style.display === 'none' ? '' : 'none');
+            } else {
+                mountPanel();
+            }
+        }
+    });
+    // ==================== END DEBUG ONLY ====================================
+
     const ui = volumeUI(root, {
         onLabel: 'Turn hero sound off',
         offLabel: 'Turn hero sound on',
@@ -4232,7 +6268,7 @@ function clipHasAudio(v) {
         // value on every input event is audible as a zip.
         level: () => {
             if (!on) turnOn();
-            else if (audible()) SiteAudio.ramp(video, levelFor(), 90);
+            else if (audible()) SiteAudio.ramp(cur(), levelFor(), 90);
         },
     });
     const paint = ui.paint;
@@ -4240,17 +6276,20 @@ function clipHasAudio(v) {
     SiteAudio.register('hero', {
         silence: () => { if (on) turnOff(); },
         apply: () => {
-            if (audible()) SiteAudio.ramp(video, levelFor(), 90);
+            if (audible()) SiteAudio.ramp(cur(), levelFor(), 90);
             paint(on);
         },
     });
 
     paint(false);
 
-    // Grey the control out if this file turns out to carry no sound.
-    const checkAudio = () => ui.setAvailable(clipHasAudio(video));
-    if (video.readyState >= 1) checkAudio();
-    video.addEventListener('loadedmetadata', checkAudio);
+    // Grey the control out if whichever clip is showing carries no sound.
+    const checkAudio = () => ui.setAvailable(clipHasAudio(cur()));
+    if (cur().readyState >= 1) checkAudio();
+    clips.forEach(v => v.addEventListener('loadedmetadata', () => {
+        if (v === cur()) checkAudio();
+    }));
+    play(cur());
 
     // Scrolling away dims the hero in proportion to how much of it is still on
     // screen, across 21 thresholds, each one easing to the next over 240ms. The
@@ -4259,17 +6298,22 @@ function clipHasAudio(v) {
         new IntersectionObserver((entries) => {
             entries.forEach(e => {
                 presence = document.hidden ? 0 : presenceOf(e);
-                if (!on) return;
-                if (presence > 0) {
-                    if (video.muted || video.paused) liftIn(240);
-                    else SiteAudio.ramp(video, levelFor(), 240);
-                } else {
-                    // Already near zero from the ramp above; this just lands it
-                    // and mutes, so nothing bleeds once the hero is gone.
-                    SiteAudio.ramp(video, 0, 200, () => {
-                        if (presence <= 0) video.muted = true;
-                    });
+                const video = cur();
+                // Off screen the sequence stops entirely - decoding video nobody
+                // can see is the kind of thing that flattens a phone battery.
+                if (presence <= 0) {
+                    if (on) {
+                        SiteAudio.ramp(video, 0, 200, () => {
+                            if (presence <= 0) video.muted = true;
+                        });
+                    }
+                    clips.forEach(v => v.pause());
+                    return;
                 }
+                if (video.paused && !switching) play(video);
+                if (!on) return;
+                if (video.muted) liftIn(240);
+                else SiteAudio.ramp(video, levelFor(video), 240);
             });
         }, { threshold: AUDIO_THRESHOLDS }).observe(hero);
     }
@@ -4280,8 +6324,9 @@ function clipHasAudio(v) {
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             presence = 0;
-            SiteAudio.stopRamp(video);
-            video.volume = 0;
+            SiteAudio.stopRamp(cur());
+            cur().volume = 0;
+            clips.forEach(v => v.pause());
         } else {
             const r = hero.getBoundingClientRect();
             const vh = window.innerHeight;
@@ -4291,7 +6336,9 @@ function clipHasAudio(v) {
                 intersectionRatio: r.height > 0 ? shown / r.height : 0,
                 rootBounds: { height: vh },
             });
-            if (on && presence > 0) liftIn();
+            if (presence > 0) {
+                if (on) liftIn(); else play(cur());
+            }
         }
     });
 })();
@@ -4299,8 +6346,8 @@ function clipHasAudio(v) {
 // =============================================
 // LIVE PERFORMANCES REEL
 //
-// Single-player showcase: one clip on screen, cross-fading on a timer, with
-// prev/next and dots. Owns its own playback - the videos use .reel-video, not
+// Single-player showcase: one clip on screen, dissolving into the next when
+// it finishes, with prev/next, swipe and dots. Owns its own playback - the videos use .reel-video, not
 // .autoplay-video, so the global "play every video" handler above never
 // touches them and two clips can never run at once.
 //
@@ -4311,8 +6358,8 @@ function clipHasAudio(v) {
 // autoplay without a user gesture, so the clips carry `muted` in the markup -
 // that is the only reason they play at all on arrival - and the only place
 // muted is ever cleared is inside the sound button's click handler. Once it is
-// on, the picture and the audio cross-fade on the same curve, and a clip runs
-// to its natural end rather than being cut off at the 9s muted dwell.
+// on, the audio fades on the same curve as the picture. Muted or not, every
+// clip runs to its natural end before the next one fades in.
 // =============================================
 (function () {
     const reel = document.getElementById('reel');
@@ -4331,7 +6378,7 @@ function clipHasAudio(v) {
     const volRoot  = reel.querySelector('.vol--reel');
 
     const DWELL = 9000;   // ms a muted clip holds before advancing
-    const FADE_MS = 650;  // matches the .reel-slide opacity transition exactly
+    const FADE_MS = 700;  // matches the .reel-slide transform transition exactly
     const reduceMotion = window.matchMedia &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -4347,6 +6394,48 @@ function clipHasAudio(v) {
     let rafId = null;
     let handoff = null;      // timeout that retires the outgoing clip
 
+    // ---- desktop dissolve ---------------------------------------------------
+    // From 769px up, clips change with the same WebGL burn-dissolve as the
+    // hero instead of the coverflow slide: the next clip is staged in place
+    // under the playing one, the canvas burns it in, and the slides are only
+    // re-placed once it covers the frame. Below 769px the coverflow stays -
+    // the side slivers are the point of it on a phone. Decided per change, so
+    // resizing across the breakpoint just works. No WebGL, a device that
+    // cannot hold the frame rate, or reduced motion: the existing behaviour.
+    const DISSOLVE_MS = 1600;
+    const FRAME_BUDGET_MS = 25;    // ~40fps; slower than this and the slide returns
+    const ABANDON_BEFORE = 0.3;    // see go(): early enough to drop, not settle
+    let burning = null;            // { from, to } of the dissolve in flight
+    const desktop = window.matchMedia && window.matchMedia('(min-width: 769px)');
+    const conn = navigator.connection;
+    let dissolveLite = !!(conn && conn.saveData) ||
+        (typeof navigator.deviceMemory === 'number' && navigator.deviceMemory < 4);
+    let dissolve;                  // undefined: not tried yet, null: unavailable
+
+    function getDissolve() {
+        if (dissolve === undefined) {
+            try {
+                dissolve = stage ? createVideoDissolve(stage, {
+                    className: 'reel-dissolve', clips: '.reel-slide', name: 'reel',
+                }) : null;
+            } catch (_) { dissolve = null; }
+            if (dissolve) slides.forEach(s => {
+                const v = s.querySelector('video');
+                if (v) dissolve.prime(v);
+            });
+        }
+        return dissolve;
+    }
+
+    const wantsDissolve = () =>
+        !reduceMotion && !dissolveLite && !!desktop && desktop.matches && dissolve !== null;
+
+    function canDissolve() {
+        if (!wantsDissolve()) return false;
+        const d = getDissolve();
+        return !!(d && d.ok());
+    }
+
     // ---- dots -----------------------------------------------------------
     const dots = slides.map((slide, i) => {
         const b = document.createElement('button');
@@ -4359,6 +6448,55 @@ function clipHasAudio(v) {
     });
 
     const videoOf = i => slides[i] && slides[i].querySelector('video');
+
+    // ---- coverflow track ---------------------------------------------------
+    // Every slide gets a data-pos: 0 in the middle, -1 / 1 either side (the
+    // slivers on mobile), "far" for the rest. The CSS turns those into places
+    // on one row, so changing clip just moves every slide one step and the
+    // side clip glides into the middle. Tapping a side clip goes to it.
+    function offsetOf(k, centre) {
+        const n = slides.length;
+        let o = ((k - centre) % n + n) % n;
+        if (o > n / 2) o -= n;
+        return o;
+    }
+
+    // instant: straight into place with no animation - first load, and the
+    // desktop dissolve, which re-places the slides under a covering canvas.
+    function place(centre, instant) {
+        slides.forEach((slide, k) => {
+            const o = offsetOf(k, centre);
+            const pos = Math.abs(o) <= 1 ? String(o) : 'far';
+            const was = slide.dataset.pos;
+            // Wrapping round from one side to the other: appear at the new
+            // spot with a fade instead of flying across the middle.
+            const jump = was !== undefined && was !== 'far' && pos !== 'far' &&
+                Math.abs(Number(was) - o) > 1;
+            if (was === undefined || instant) {
+                // Straight into position, no animation
+                slide.style.transition = 'none';
+                slide.dataset.pos = pos;
+                void slide.offsetWidth;
+                slide.style.transition = '';
+            } else if (jump) {
+                slide.style.transition = 'none';
+                slide.classList.add('is-jumping');
+                slide.dataset.pos = pos;
+                void slide.offsetWidth;   // commit the new spot, invisibly
+                slide.style.transition = '';
+                slide.classList.remove('is-jumping');
+            } else {
+                slide.dataset.pos = pos;
+            }
+        });
+    }
+
+    slides.forEach((slide) => {
+        slide.addEventListener('click', () => {
+            if (slide.dataset.pos === '1') go(index + 1, true);
+            else if (slide.dataset.pos === '-1') go(index - 1, true);
+        });
+    });
 
     function warm(i, level) {
         const v = videoOf(i);
@@ -4396,12 +6534,40 @@ function clipHasAudio(v) {
     }
 
     function go(i, manual) {
+        // A dissolve still running when the next change arrives. If it has
+        // barely begun - only the first specks of the incoming clip showing -
+        // it is dropped and this change starts from the clip still on screen,
+        // so two quick clicks read as one move. Past that, it is settled
+        // first, so this change starts from one clip fully in place rather
+        // than from half of each.
+        if (dissolve && dissolve.running()) {
+            if (burning && dissolve.progress() < ABANDON_BEFORE) {
+                const b = burning;
+                burning = null;
+                dissolve.cancel();
+                slides[b.to].classList.remove('is-staged');
+                retire(videoOf(b.to));
+                index = b.from;
+            } else {
+                dissolve.skip();
+            }
+        }
+
         const n = slides.length;
         const next = ((i % n) + n) % n;
         const from = index;
         const changing = next !== from;
-
         if (handoff) { clearTimeout(handoff); handoff = null; }
+
+        const burn = changing && canDissolve();
+        const xf = burn ? DISSOLVE_MS : FADE_MS;   // sound follows the picture
+
+        if (burn) {
+            // In place, opaque, under the playing clip. Nothing on screen moves.
+            slides[next].classList.add('is-staged');
+        } else {
+            place(next);   // every slide moves one step along the track
+        }
 
         slides.forEach((slide, k) => {
             const v = slide.querySelector('video');
@@ -4412,24 +6578,24 @@ function clipHasAudio(v) {
             if (on) {
                 warm(k, 'auto');
                 stopRamp(v);
-                // Muted, a clip loops as wallpaper. Audible, it runs once and
-                // hands over at its own ending - see tick().
-                v.loop = !soundOn;
+                // Every clip runs once and hands over at its own ending - see
+                // tick() and the 'ended' backstop.
+                v.loop = false;
                 v.muted = !soundOn;
+                if (changing) { try { v.currentTime = 0; } catch (_) {} }
                 if (soundOn) {
-                    if (changing) { try { v.currentTime = 0; } catch (_) {} }
                     v.volume = 0;
                     play(v);
-                    rampVolume(v, levelFor(v), FADE_MS);
+                    rampVolume(v, levelFor(v), xf);
                 } else {
                     v.volume = 1;
                     play(v);
                 }
             } else if (k === from && changing) {
-                // Leave the outgoing clip running underneath the dissolve so the
-                // picture stays live and the sound tails off; retire() below
-                // stops it once the cross-fade has finished.
-                rampVolume(v, 0, FADE_MS);
+                // Leave the outgoing clip running while it slides aside (or is
+                // burned away) so the picture stays live and the sound tails
+                // off; it is retired once it can no longer be seen.
+                rampVolume(v, 0, xf);
             } else {
                 retire(v);
             }
@@ -4437,7 +6603,34 @@ function clipHasAudio(v) {
 
         if (changing) {
             const outgoing = videoOf(from);
-            handoff = setTimeout(() => { handoff = null; retire(outgoing); }, FADE_MS);
+            const incoming = videoOf(next);
+            // Runs after the loop above, so the incoming clip is already
+            // rewound and playing; until it has a frame the poster stands in.
+            const started = burn && incoming && dissolve.run(incoming, DISSOLVE_MS, {
+                // The canvas is showing only the new clip: re-place the real
+                // slides underneath it, where the move cannot be seen.
+                onCovered: () => {
+                    place(next, true);
+                    slides[next].classList.remove('is-staged');
+                    retire(outgoing);
+                },
+                onDone: (avgMs) => {
+                    burning = null;
+                    if (avgMs > FRAME_BUDGET_MS) {
+                        dissolveLite = true;
+                        console.info('[reel] dissolve averaged ' + avgMs.toFixed(1) +
+                            'ms/frame - using the slide from now on');
+                    }
+                },
+            });
+            if (started) burning = { from, to: next };
+            if (!started) {
+                if (burn) {
+                    slides[next].classList.remove('is-staged');
+                    place(next);
+                }
+                handoff = setTimeout(() => { handoff = null; retire(outgoing); }, FADE_MS);
+            }
         }
 
         index = next;
@@ -4467,13 +6660,11 @@ function clipHasAudio(v) {
 
         if (!offscreen) {
             const v = videoOf(index);
-            // With sound on the clip itself is the timeline: the bar tracks real
-            // playback and the hand-over starts one fade-length before the end,
-            // so the next clip is already coming up as this one finishes rather
-            // than the song being chopped off at nine seconds.
-            // A silent clip has no performance to sit through, so it keeps the
-            // 9s showcase dwell even when sound is on.
-            const byClip = soundOn && v && clipHasAudio(v) && isFinite(v.duration) && v.duration > 2;
+            // The clip itself is the timeline, muted or not: the bar tracks real
+            // playback and the hand-over starts one slide-length before the end,
+            // so the next clip is already coming in as this one finishes.
+            // The 9s dwell is only a fallback while the duration is unknown.
+            const byClip = v && isFinite(v.duration) && v.duration > 2;
 
             if (byClip) {
                 // Note this runs even while held: the clip is genuinely still
@@ -4481,7 +6672,11 @@ function clipHasAudio(v) {
                 // snapping it forward on mouseleave would just be a lie. Only
                 // the hand-over waits for the hold to end.
                 if (fill) fill.style.width = Math.min(100, (v.currentTime / v.duration) * 100) + '%';
-                if (!paused && (v.ended || v.duration - v.currentTime <= FADE_MS / 1000)) {
+                // A dissolve needs the whole of its length (plus a little for
+                // the next clip to start) before the end, or the outgoing clip
+                // freezes on its last frame while it is still on show.
+                const lead = (wantsDissolve() ? DISSOLVE_MS + 300 : FADE_MS) / 1000;
+                if (!paused && (v.ended || v.duration - v.currentTime <= lead)) {
                     go(index + 1, false);
                     rafId = requestAnimationFrame(tick);
                     return;
@@ -4523,7 +6718,6 @@ function clipHasAudio(v) {
         paintVol(soundOn);
         if (!v) return;
 
-        v.loop = !on;
         if (on) {
             stopRamp(v);
             v.volume = 0;
@@ -4535,7 +6729,6 @@ function clipHasAudio(v) {
                     soundOn = false;
                     v.muted = true;
                     v.volume = 1;
-                    v.loop = true;
                     paintVol(false);
                 });
             } else {
@@ -4594,10 +6787,10 @@ function clipHasAudio(v) {
         const v = slide.querySelector('video');
         if (!v) return;
         v.addEventListener('ended', () => {
-            if (k !== index || !soundOn || offscreen) return;
+            if (k !== index || offscreen) return;
             // Being held (hover, or keyboard focus) means "stay on this one", so
             // run it again rather than either advancing or freezing on the last
-            // frame. loop is off while audible, so this is the only way back.
+            // frame. loop is always off, so this is the only way back.
             if (paused) { try { v.currentTime = 0; } catch (_) {} play(v); return; }
             go(index + 1, false);
         });
@@ -4635,6 +6828,30 @@ function clipHasAudio(v) {
         if (e.key === 'ArrowRight') { e.preventDefault(); go(index + 1, true); }
     });
 
+    // Swipe on the stage to change clips (the arrows are hidden on mobile).
+    // Mostly-horizontal swipes only, so scrolling the page past it still works,
+    // and touches on the volume control are left alone.
+    if (stage) {
+        let swipeX = 0;
+        let swipeY = 0;
+        let swiping = false;
+
+        stage.addEventListener('touchstart', (e) => {
+            swiping = !(e.target.closest && e.target.closest('.vol'));
+            swipeX = e.touches[0].clientX;
+            swipeY = e.touches[0].clientY;
+        }, { passive: true });
+
+        stage.addEventListener('touchend', (e) => {
+            if (!swiping) return;
+            swiping = false;
+            const dx = e.changedTouches[0].clientX - swipeX;
+            const dy = e.changedTouches[0].clientY - swipeY;
+            if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+            go(index + (dx < 0 ? 1 : -1), true);
+        }, { passive: true });
+    }
+
     // ---- only run while it is actually on screen --------------------------
     // 21 thresholds, so the sound dims in proportion to how much of the stage
     // is still showing instead of cutting out at a single trip-wire. Each step
@@ -4669,8 +6886,23 @@ function clipHasAudio(v) {
         }
     });
 
+    // Crossing the breakpoint mid-dissolve: finish it, so the slides are in
+    // their proper places for whichever layout is taking over.
+    if (desktop) {
+        const onBreakpoint = () => { if (dissolve && dissolve.running()) dissolve.skip(); };
+        if (desktop.addEventListener) desktop.addEventListener('change', onBreakpoint);
+        else if (desktop.addListener) desktop.addListener(onBreakpoint);
+    }
+
     // ---- start ------------------------------------------------------------
     paintVol(false);
     go(index, false);
     if (!reduceMotion) rafId = requestAnimationFrame(tick);
+
+    // Build the shader and decode the posters while the page is idle, not in
+    // the frame the first change needs.
+    if (wantsDissolve()) {
+        if ('requestIdleCallback' in window) requestIdleCallback(getDissolve, { timeout: 5000 });
+        else setTimeout(getDissolve, 3000);
+    }
 })();

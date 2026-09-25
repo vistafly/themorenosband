@@ -76,6 +76,7 @@
     --chrome-rgb: 173, 175, 176;    /* --chrome-300 — structural tints on dark */
     --paper-rgb:  250, 247, 244;    /* --paper — warm highlights/glints on dark */
     --leaf-rgb:   50, 109, 68;      /* --leaf-600 */
+    --rose-300-rgb: 224, 86, 111;   /* --rose-300 */
     --error-rgb:  179, 38, 30;      /* --error */
 
     /* --error (#b3261e) is only 2.82:1 on --ink-900 — fails AA. Dark surfaces
@@ -95,6 +96,41 @@
        ~94px at 1440, ~72px at 1100, floor of 64px below ~985px. Sections used
        to run 48 / 60 / 70 / 100px depending on which rule won. */
     --section-padding: clamp(64px, 6.5vw, 100px);
+
+    /* ---- Glass ----------------------------------------------------------
+       Every outlined control is a frosted pane rather than a drawn ring. Two
+       recipes, chosen by what is BEHIND the control, not by the section's
+       nominal colour:
+
+         smoke  - a dark pane. Used over video and on light sections. A light
+                  frost cannot hold 4.5:1 for its icon against a bright video
+                  frame or against paper, so anything on those gets smoked.
+         frost  - a light pane. Used only on solid dark sections, where it
+                  reads as lit glass and still clears 3:1 at its edge.
+
+       Both carry an inset top highlight, which is what actually sells glass -
+       it reads as light catching a bevel rather than a flat translucent box. */
+    --glass-blur: blur(14px) saturate(150%);
+
+    --glass-smoke: linear-gradient(180deg,
+        rgba(var(--ink-rgb), 0.74) 0%, rgba(var(--ink-rgb), 0.62) 100%);
+    --glass-smoke-edge: rgba(var(--paper-rgb), 0.40);
+    --glass-smoke-lift: inset 0 1px 0 rgba(var(--paper-rgb), 0.22),
+                        0 10px 26px -14px rgba(var(--ink-rgb), 0.70);
+
+    --glass-frost: linear-gradient(180deg,
+        rgba(var(--paper-rgb), 0.20) 0%, rgba(var(--paper-rgb), 0.08) 100%);
+    --glass-frost-edge: rgba(var(--paper-rgb), 0.40);
+    --glass-frost-lift: inset 0 1px 0 rgba(var(--paper-rgb), 0.30),
+                        0 10px 26px -14px rgba(var(--ink-rgb), 0.80);
+
+    /* The same pane lit from within by the accent, for hover and active. Kept
+       near-opaque so white on it stays at 7.8:1 whatever is behind. */
+    --glass-hot: linear-gradient(180deg,
+        rgba(var(--accent-rgb), 0.94) 0%, rgba(var(--accent-rgb), 0.80) 100%);
+    --glass-hot-edge: rgba(var(--rose-300-rgb), 0.75);
+    --glass-hot-lift: inset 0 1px 0 rgba(var(--paper-rgb), 0.28),
+                      0 12px 30px -12px rgba(var(--accent-rgb), 0.55);
 
     /* Clearance for the fixed navbar when a section is scrolled to. Written by
        script.js from the navbar's real scrolled height, so it follows any
@@ -361,12 +397,23 @@
     border: 0;
 }
 
+/* Pin the two ends of the page. Without this, dragging past the top on a phone
+   rubber-bands the hero down and springs it back, and doing the same at the
+   bottom lifts the footer and drops it again - which reads as the containers
+   themselves moving. `none`, not `contain`: contain only stops the scroll
+   chaining to a parent, it leaves the bounce in place.
+   Trade-off: on Android Chrome this also turns off pull-to-refresh. */
+html {
+    overscroll-behavior-y: none;
+}
+
 body {
     font-family: var(--font-main);
     color: var(--text-on-dark);
     background-color: var(--ink-900);
     line-height: 1.6;
     overflow-x: hidden;
+    overscroll-behavior-y: none;
 }
 
 /* Typography */
@@ -476,65 +523,404 @@ a {
 }
 
 /* ==========================================================================
-   SCROLL PROGRESS RAIL
+   SECTION SCRUBBER  (the scroll progress rail on the right edge)
 
-   A hairline rail on the right edge, vertically centred, filling downward.
+   The rail is cut into one segment per section - chapters, the way a video
+   timeline marks them - each as long as its section is tall and filling as
+   you read through it. Hover it (or touch and hold on a phone) and it grows
+   taller and a name pill appears beside each segment, joined to it by a
+   hairline; the segment and pill you would land in light up. Drag to scrub,
+   click a pill or a point on the rail to go there. The behaviour lives in
+   SectionScrubber in script.js; this is only how each state looks.
 
-   The old version was a 4px bar across the top of the window, and its
-   colours were broken by construction: the rose -> chrome -> rose gradient
-   was painted on the RIBBON, and the ribbon is the thing that grows. At 10%
-   scroll the entire eight-stop gradient was squashed into a 10%-wide sliver,
-   so the bar showed a different smear of colour at every scroll position
-   instead of reading as progress. It also sat at z-index 9999 directly under
-   the fixed navbar, and stacked three blurred layers with a soft-light blend
-   and a looping feather animation on top of each other.
+   History worth keeping. The rail used to be a 4px bar across the top of the
+   window with its gradient painted on the part that GROWS, so the colour
+   smeared differently at every scroll position. And the first cut of this
+   index put every name on one tall glass slab, each at its section's exact
+   start: the uneven gaps and the big empty slab read as unfinished. Pills at
+   segment MIDPOINTS space out evenly by construction and need no backdrop.
 
-   Here the gradient lives on a full-height element and is revealed with
-   clip-path, so the colour is anchored to the rail and never distorts - the
-   rose simply deepens as you go down the page. No blurs, no blend modes, no
-   idle animation.
+   Geometry is all in custom properties on .scrubber, so the phone override
+   at the bottom only restates numbers.
    ========================================================================== */
-.luxe-scroll-track {
-  position: fixed;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: clamp(120px, 26vh, 280px);
-  border-radius: 999px;
-  /* Chrome at this alpha is the one neutral that holds on both tones: it
-     resolves to roughly #dcdcdc over --paper and #4f4f4f over --ink-900, so
-     the empty part of the rail stays visible as the page alternates light
-     and dark sections. At 0.2 it disappeared completely on the light ones. */
-  background: rgba(var(--chrome-rgb), 0.38);
-  overflow: hidden;
-  pointer-events: none;
-  /* Under the navbar (1000), the cart (999) and the mobile menu overlay, so
-     an open menu covers it rather than the rail floating over the top. */
-  z-index: 900;
+.scrubber {
+    --line: 3px;                           /* rail thickness */
+    --gap: 3px;                            /* space between two segments */
+    --inset: 16px;                         /* rail's distance from the right edge */
+    --zone: 44px;                          /* grab area, measured from the right edge */
+    --pill-h: 26px;
+    --rest-h: clamp(120px, 26vh, 280px);
+    --open-h: clamp(260px, 50vh, 480px);   /* taller when open = finer control */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    /* Near-opaque ink behind small type. A pill can open over the white
+       sections: at .86 over white the grey names still measure 4.9:1 and the
+       white ones 13:1. The site's --glass-smoke (.62) is built to carry an
+       icon, and let the grey fall to 2.6:1. */
+    --pill-bg: rgba(var(--ink-rgb), 0.86);
+    /* Centred with auto margins rather than translateY(-50%): a transform
+       here would make the fixed-position chip inside it position against
+       this box instead of the viewport. */
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    margin: auto 0;
+    width: var(--zone);
+    height: var(--rest-h);
+    /* Under the navbar (1000), the cart (999) and the mobile menu overlay, so
+       an open menu covers it rather than the rail floating over the top. */
+    z-index: 900;
+    cursor: grab;
+    /* A vertical pan that starts here is still an ordinary page scroll; only
+       a finger that is held still first becomes a scrub (see script.js). */
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: height 0.55s var(--ease-out);
 }
 
-.luxe-progress-ribbon {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(180deg,
-    var(--rose-300) 0%,
-    var(--rose-500) 55%,
-    var(--rose-700) 100%);
-  /* Revealed top-down. clip-path rather than height, so the gradient stays
-     anchored to the full rail instead of being compressed into the filled
-     portion. --p is written by ProgressBar in script.js. */
-  clip-path: inset(0 0 calc(100% - var(--p, 0%)) 0);
-  will-change: clip-path;
+/* The grab area runs a little past both ends, so the very top and bottom of
+   the page can be reached without landing exactly on the rail's tip. */
+.scrubber::before {
+    content: '';
+    position: absolute;
+    inset: -14px 0;
+}
+
+.scrubber.is-open {
+    --line: 4px;
+    --gap: 4px;
+    height: var(--open-h);
+}
+
+.scrubber-rail {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: var(--inset);
+    width: var(--line);
+    border-radius: 999px;
+    transition: width 0.3s var(--ease-out);
+}
+
+.scrubber-rail:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.45);
+}
+
+/* Touch-and-hold feedback: the rail thickens over exactly the hold time, so
+   the finger can feel the scrub arm rather than it happening by surprise.
+   --hold is written by script.js from the same constant the timer uses. */
+.scrubber.is-arming .scrubber-rail {
+    width: 6px;
+    transition: width var(--hold, 280ms) linear;
+}
+
+/* --- segments: one per section, as long as the section is tall ---------- */
+.scrubber-segs {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.scrubber-seg {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: var(--a, 0%);
+    height: var(--len, 0%);
+    box-sizing: border-box;
+    padding: calc(var(--gap) / 2) 0;
+}
+
+.scrubber-seg:first-child { padding-top: 0; }
+.scrubber-seg:last-child  { padding-bottom: 0; }
+
+.scrubber-track {
+    position: relative;
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    overflow: hidden;
+    /* Chrome at this alpha is the one neutral that holds on both tones: it
+       resolves to roughly #dcdcdc over --paper and #4f4f4f over --ink-900, so
+       the empty rail stays visible as the page alternates light and dark
+       sections. At 0.2 it disappeared completely on the light ones. */
+    background-color: rgba(var(--chrome-rgb), 0.38);
+    transition: background-color 0.25s ease;
+}
+
+.scrubber.is-open .scrubber-track { background-color: rgba(var(--chrome-rgb), 0.5); }
+
+/* The chapter under the pointer brightens: that is the one a click lands in */
+.scrubber-seg.is-target .scrubber-track { background-color: rgba(var(--chrome-rgb), 0.9); }
+
+/* Each chapter fills top-down as it is read. --f (0..1) is written per
+   segment by script.js; scaleY keeps it on the compositor. */
+.scrubber-fill {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, var(--rose-300), var(--rose-500));
+    transform: scaleY(var(--f, 0));
+    transform-origin: 50% 0;
+}
+
+/* --- the knob: where a click would land / where the scrub has got to ---- */
+/* The element only carries the position (script.js moves it); the visible
+   knob is the ::before, so its size can change without fighting that. */
+.scrubber-thumb {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.scrubber-thumb::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: -6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--white);
+    box-shadow: 0 0 0 1px rgba(var(--ink-rgb), 0.3),
+                0 2px 6px rgba(var(--ink-rgb), 0.4);
+    opacity: 0;
+    transform: scale(0.4);
+    transition: opacity 0.2s ease, transform 0.25s var(--ease-out), box-shadow 0.2s ease;
+}
+
+.scrubber.is-pointing .scrubber-thumb::before {
+    opacity: 0.9;
+    transform: scale(0.7);
+}
+
+/* Held: full size, with a rose ring - a keyline, not a glow */
+.scrubber.is-dragging .scrubber-thumb::before {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 2px var(--rose-500),
+                0 3px 10px rgba(var(--ink-rgb), 0.45);
+}
+
+/* --- the index: a pill per section, beside the middle of its segment ---- */
+/* One grid cell that every pill shares: the column is as wide as the widest
+   pill, which makes the whole column a hit area (moving between two pills
+   never counts as leaving), and each pill is moved down to its segment with
+   a percentage `top` - of the cell's height, so they ride the open/close
+   animation together with the rail. */
+.scrubber-index {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: calc(var(--inset) + var(--line) + 12px);
+    display: grid;
+    grid-template: 100% / auto;
+    margin: 0;
+    padding: 0 0 0 20px;                 /* room for the magnification */
+    list-style: none;
+    visibility: hidden;
+    pointer-events: none;
+    transition: visibility 0s linear 0.35s;
+}
+
+.scrubber.is-open .scrubber-index {
+    visibility: visible;
+    pointer-events: auto;
+    transition: visibility 0s;
+}
+
+/* Left of the pills' edge picks a section (script.js decides by position,
+   gaps between pills included), so the cursor says "click" there and "grab"
+   only over the rail itself */
+.scrubber.is-picking,
+.scrubber.is-picking * {
+    cursor: pointer;
+}
+
+.scrubber-label {
+    grid-area: 1 / 1;
+    align-self: start;
+    justify-self: end;
+    position: relative;
+    top: var(--y, 0%);
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    box-sizing: border-box;
+    height: var(--pill-h);
+    margin-top: calc(var(--pill-h) / -2);
+    /* letter-spacing leaves a gap after the last letter; the right padding
+       is short by the same amount so the name sits optically centred */
+    padding: 0 calc(12px - 0.14em) 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(var(--paper-rgb), 0.14);
+    background-color: var(--pill-bg);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    box-shadow: 0 8px 20px -10px rgba(var(--ink-rgb), 0.6);
+    font-family: var(--font-main);
+    font-size: 0.66rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--muted-on-dark);
+    cursor: pointer;
+    opacity: 0;
+    /* translate and scale as separate properties, so the entrance slide can
+       be staggered while the magnification (--s, written per frame by
+       script.js) stays instant */
+    translate: 12px 0;
+    scale: var(--s, 1);
+    transform-origin: 100% 50%;
+    transition: opacity 0.2s ease,
+                translate 0.45s var(--ease-out),
+                scale 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+                background-color 0.2s ease,
+                border-color 0.2s ease,
+                color 0.2s ease;
+}
+
+/* Pills cascade in top to bottom as the rail opens */
+.scrubber.is-open .scrubber-label {
+    opacity: 1;
+    translate: 0 0;
+    transition-delay: calc(var(--i, 0) * 22ms), calc(var(--i, 0) * 22ms), 0s, 0s, 0s, 0s;
+}
+
+/* The hairline joining a pill to its segment */
+.scrubber-label::after {
+    content: '';
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    width: 13px;
+    height: 1px;
+    background-color: rgba(var(--chrome-rgb), 0.55);
+    transition: background-color 0.2s ease;
+}
+
+/* The section you are in: full-strength name and a rose dot. A dot rather
+   than rose type - rose-300 text is 3.7:1 where a pill is over white, fine
+   for a mark (3:1) but not for small text. */
+.scrubber-label.is-current { color: var(--text-on-dark); }
+
+.scrubber-label.is-current::before {
+    content: '';
+    flex: none;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--rose-300);
+}
+
+/* The section under the pointer or the scrub. White on rose-500 is 7.8:1. */
+.scrubber-label.is-target {
+    background-color: var(--rose-500);
+    border-color: rgba(var(--rose-300-rgb), 0.55);
+    color: var(--white);
+}
+
+.scrubber-label.is-target::after { background-color: var(--rose-300); }
+.scrubber-label.is-target.is-current::before { background: var(--white); }
+
+/* --- fine scrubbing ------------------------------------------------------
+   Drag away from the rail and the scrub drops to half, then quarter speed -
+   the video-scrubber trick - and this chip rides above the pointer to say
+   so. Positioned per frame by script.js; fixed, so it is placed in plain
+   viewport coordinates. */
+.scrubber-chip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(var(--paper-rgb), 0.14);
+    background-color: var(--pill-bg);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    color: var(--text-on-dark);
+    font-family: var(--font-main);
+    font-size: 0.62rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+}
+
+.scrubber.is-fine .scrubber-chip { opacity: 1; }
+
+/* Measures --open-h in pixels for script.js, which lays the pills out for
+   the open height before the rail has grown to it */
+.scrubber-probe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: var(--open-h);
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* While a drag is in progress, nothing else on the page should select text
+   or show its own cursor */
+html.is-scrub-drag,
+html.is-scrub-drag * {
+    cursor: grabbing !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
 }
 
 @media (max-width: 768px) {
-  .luxe-scroll-track {
-    right: 10px;
-    width: 2px;
-    height: clamp(90px, 20vh, 180px);
-  }
+    .scrubber {
+        --line: 2px;
+        --gap: 2px;
+        --inset: 10px;
+        --zone: 30px;
+        --pill-h: 30px;
+        --rest-h: clamp(90px, 20vh, 180px);
+        --open-h: clamp(260px, 56vh, 480px);
+    }
+
+    /* 4px open, as on desktop, not 3: an odd width puts the rail's centre on
+       a half pixel, and the 12px knob centred on it then renders a half pixel
+       off to one side */
+    .scrubber.is-open {
+        --line: 4px;
+        --gap: 3px;
+    }
+
+    .scrubber-label { font-size: 0.7rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .scrubber,
+    .scrubber-rail,
+    .scrubber-track,
+    .scrubber-thumb::before,
+    .scrubber-index,
+    .scrubber-label,
+    .scrubber.is-open .scrubber-label {
+        transition: none;
+    }
+}
+
+@media print {
+    .scrubber { display: none; }
 }
 
 /* Navigation - Fixed Issues */
@@ -764,6 +1150,7 @@ a {
         max-width: 300px;
         height: 100vh; /* fallback for older browsers */
         height: calc(var(--stable-vh, 1vh) * 100);
+        height: 100svh;   /* stable against the mobile address bar */
         background: var(--ink-900);
         flex-direction: column;
         align-items: center;
@@ -815,10 +1202,70 @@ a {
     }
 }
 
+/* --- audio-reactive logo glow -------------------------------------------
+   A blurred copy of the artwork behind the real one, so the halo carries the
+   logo's own colours instead of a flat tint. No mix-blend-mode: .logo-shimmer
+   sets isolation:isolate, so a blend would only composite against its own
+   transparent group and come out as a plain blurred logo. Behind the crisp
+   artwork on dark footage it reads as a glow without any of that.
+
+   z-index -1 keeps it under the logo AND under the shimmer sweep without
+   giving the image a z-index, which would reorder the sweep's two passes. */
+.hero-logo-glow {
+    position: absolute;
+    inset: -22%;
+    z-index: -1;
+    pointer-events: none;
+    background-image: url('images/morenos-logo.png');
+    background-size: 69.44% 69.44%;   /* 1/1.44, so it lands at the logo's size */
+    background-position: center;
+    background-repeat: no-repeat;
+    /* Blur scales with the viewport: a fixed radius that flatters a 600px logo
+       is a smudge at 300px. Saturation and brightness are pumped by the signal
+       too, so a peak is not just a bigger halo but a hotter one.
+
+       Every number here is a var with a fallback, so the tuning panel can set
+       them live on .hero-logo and they inherit down. The fallbacks ARE the
+       shipped values - nothing has to be set for this to work. */
+    filter: blur(calc(var(--bloom-blur, 10px) + 1.05vw))
+            saturate(calc(1.7 + var(--glow, 0) * var(--bloom-sat, 0.9)))
+            brightness(calc(1.05 + var(--glow, 0) * var(--bloom-bri, 0.3)));
+    opacity: calc(var(--glow, 0) * var(--bloom-op, 0.92));
+    transform: scale(calc(1 + var(--glow, 0) * var(--bloom-scale, 0.11)));
+    will-change: opacity, transform, filter;
+}
+
+/* The core: a tight, hot copy that stabs on percussive hits. Short blur and
+   almost no scale, so it registers as a flash of light off the artwork rather
+   than as the whole halo breathing again. */
+.hero-logo-glow--core {
+    inset: -12%;
+    background-size: 80.65% 80.65%;   /* 1/1.24 */
+    filter: blur(calc(var(--core-blur, 3px) + 0.4vw)) saturate(2.4) brightness(1.35);
+    opacity: calc(var(--hit, 0) * var(--core-op, 0.8));
+    transform: scale(calc(1 + var(--hit, 0) * var(--core-scale, 0.04)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* Hold a steady soft halo, and drop the transient flashes entirely */
+    .hero-logo-glow {
+        opacity: calc(var(--glow, 0) * 0.35);
+        transform: none;
+        filter: blur(calc(10px + 1.05vw)) saturate(1.7) brightness(1.05);
+    }
+    .hero-logo-glow--core { display: none; }
+}
+
 /* Hero Section */
 .hero {
     height: 100vh; /* fallback for older browsers */
     height: calc(var(--stable-vh, 1vh) * 100);
+    /* svh, not vh or dvh. On a phone 100vh is the LARGE viewport - the height
+       with the address bar retracted - so at load the hero is taller than what
+       is actually on screen and everything settles as the bar slides away.
+       dvh is worse: it tracks the bar live, so the hero resizes the whole time
+       you scroll. svh is the small viewport: it always fits and never changes. */
+    height: 100svh;
     min-height: 700px;
     display: flex;
     align-items: center;
@@ -836,11 +1283,84 @@ a {
     height: 100%;
     object-fit: cover;
     z-index: 0;
+    opacity: 0;
+    /* The hand-over between clips is a WebGL dissolve drawn on
+       .hero-dissolve (script.js, createVideoDissolve). The clips themselves
+       never move; these classes only decide which one is painted where:
+         is-active    the playing clip - one level above everything staged,
+                      so staging the next clip never has to touch it
+         is-staged    the incoming clip, opaque and decoding, waiting under
+                      the playing one
+         is-revealing CSS fallback - the incoming clip blooming open on top
+         is-below     CSS fallback - the outgoing clip stepping under it
+         is-fading    reduced motion - the outgoing clip fading off the top
+         is-cut       one frame with transitions off, to retire a clip */
+}
+
+.hero-video.is-active,
+.hero-video.is-staged { opacity: 1; }
+
+.hero-video.is-active { z-index: 1; }
+
+/* After is-active so it wins when both are set */
+.hero-video.is-below { z-index: 0; }
+
+.hero-video.is-fading {
+    opacity: 0;
+    z-index: 1;
+    transition: opacity 0.6s ease;     /* FADE_XF_MS in script.js */
+}
+
+.hero-video.is-cut { transition: none; }
+
+/* The dissolve canvas: transparent, drawing only the incoming clip over the
+   playing one. Same z band as the playing clip but later in the DOM, so it
+   wins the tie; the ink overlay (z 2) and the logo stay above it.
+   display:none between transitions so it costs nothing while a clip plays. */
+.hero-dissolve {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    display: none;
+    pointer-events: none;
+}
+.hero-dissolve.is-live { display: block; }
+
+/* CSS fallback, for devices without WebGL or that cannot hold the frame rate:
+   the incoming clip opens as a soft-edged bloom from the logo. The mask tile
+   grows from nothing to three times the hero, so at the end the opaque part of
+   the gradient covers every corner and removing the mask changes nothing. */
+.hero-video.is-revealing {
+    opacity: 1;
+    z-index: 1;
+    -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
+            mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+    -webkit-mask-position: 50% 45%;
+            mask-position: 50% 45%;
+    animation: hero-bloom 1.6s cubic-bezier(0.65, 0, 0.35, 1) both;   /* XFADE_MS */
+}
+
+@keyframes hero-bloom {
+    from { -webkit-mask-size: 0% 0%;     mask-size: 0% 0%; }
+    to   { -webkit-mask-size: 300% 300%; mask-size: 300% 300%; }
 }
 
 /* Video overlay — ink gradient so the logo's white outline reads.
    The rose radial that used to sit behind the wordmark is gone; the logo is
    lit by the shimmer sweep instead. */
+/* Hero stacking order, in one place so it stays coherent:
+     0  the next clip, staged and decoding
+     1  the playing clip, then the dissolve canvas over it (DOM order)
+     2  this ink overlay
+     3  logo, socials, scroll cue
+     4  the volume control
+   The overlay used to be z-index 1, which tied with the arriving clip - and a
+   tie is broken by paint order, so the video came out on top of the overlay
+   for the whole transition and the hero visibly lost its darkening. */
 .hero::before {
     content: '';
     position: absolute;
@@ -849,18 +1369,20 @@ a {
     width: 100%;
     height: 100%;
     background: var(--grad-hero);
-    z-index: 1;
+    z-index: 2;
+    pointer-events: none;
 }
 
 
 .hero-content {
     position: relative;
-    z-index: 1;
+    z-index: 3;
     padding: 0 20px;
 }
 
 .scroll-indicator {
     position: absolute;
+    z-index: 3;
     bottom: 40px;
     left: 50%;
     transform: translateX(-50%);
@@ -963,25 +1485,95 @@ a {
     isolation: isolate;
 }
 
+/* Coverflow track: every clip sits on one row, and data-pos (set by
+   script.js) says where - 0 in the middle, -1 / 1 either side, "far" behind.
+   Changing clip moves every slide one place, so the side clip glides into
+   the middle while the current one slides out to the other side. On mobile
+   the side clips stay visible as the slivers (see the media query below).
+   The 0.7s timing must match FADE_MS in script.js. */
 .reel-slide {
     position: absolute;
     inset: 0;
     margin: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    /* No backdrop colour: while a slide is scaled and moving, the edge
+       anti-aliasing let a dark hairline of it flicker round bright footage
+       (the Fourth of July sky). The video overscans instead - see below. */
+    background: transparent;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.65s ease, visibility 0s linear 0.65s;
+    pointer-events: none;
+    transform: scale(0.8);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    transition: transform 0.7s cubic-bezier(0.25, 0.8, 0.25, 1),
+                opacity 0.7s cubic-bezier(0.25, 0.8, 0.25, 1),
+                visibility 0s linear 0.7s;
 }
 
-.reel-slide.is-active {
+.reel-slide[data-pos="0"] {
     opacity: 1;
     visibility: visible;
-    transition: opacity 0.65s ease, visibility 0s;
+    pointer-events: auto;
+    transform: none;
+    z-index: 2;
+    transition: transform 0.7s cubic-bezier(0.25, 0.8, 0.25, 1),
+                opacity 0.7s cubic-bezier(0.25, 0.8, 0.25, 1),
+                visibility 0s;
 }
+
+/* Scaled about the centre, so 94% + the gap puts the inner edge exactly one
+   gap away from the stage */
+.reel-slide[data-pos="1"] {
+    transform: translateX(calc(94% + var(--reel-peek-gap, 10px))) scale(0.88);
+    z-index: 1;
+}
+
+.reel-slide[data-pos="-1"] {
+    transform: translateX(calc(-94% - var(--reel-peek-gap, 10px))) scale(0.88);
+    z-index: 1;
+}
+
+/* A clip wrapping round from one side to the other fades in at its new spot
+   instead of flying across the middle */
+.reel .reel-slide.is-jumping {
+    opacity: 0;
+}
+
+/* Desktop dissolve (script.js, createVideoDissolve): the next clip waits in
+   the middle, opaque and playing, one level under the current one, while the
+   canvas burns it in over the top. It is jumped here, never animated. */
+.reel .reel-slide.is-staged {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    z-index: 1;
+    transition: none;
+}
+
+/* The dissolve canvas: transparent, drawing only the incoming clip. Same z as
+   the playing slide but after it in the DOM, so it is painted over it; the
+   timer (z 2, later) and the volume control (z 3) stay above it. The stage's
+   rounded clip applies to it like any other child. */
+.reel-dissolve {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    display: none;
+    pointer-events: none;
+}
+.reel-dissolve.is-live { display: block; }
 
 .reel-video {
     display: block;
-    width: 100%;
-    height: 100%;
+    /* 1px overscan on every side, so sub-pixel positions mid-move can never
+       open a gap between the picture and the slide's rounded edge */
+    width: calc(100% + 2px);
+    height: calc(100% + 2px);
+    margin: -1px;
     /* Every clip fills the stage edge to edge. Two of the three are already
        16:9; the FresYes footage is 960x404 (2.38:1) so it is cropped about an
        eighth off each side to reach 16:9. Centred, because that clip's subject
@@ -1005,23 +1597,27 @@ a {
     display: grid;
     place-items: center;
     border-radius: 50%;
-    border: 1px solid var(--rose-600);
-    background: var(--white);
-    color: var(--rose-600);
+    /* Smoked, not frosted: these sit on the paper section, where a light pane
+       would be invisible and could not carry its icon. */
+    border: 1px solid var(--glass-smoke-edge);
+    background: var(--glass-smoke);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-smoke-lift);
+    color: var(--paper);
     font-size: 1.05rem;
     cursor: pointer;
-    box-shadow: var(--shadow-sm);
-    transition: background 0.25s ease, color 0.25s ease,
-                border-color 0.25s ease, transform 0.25s ease,
-                box-shadow 0.25s ease;
+    transition: background 0.3s ease, color 0.3s ease,
+                border-color 0.3s ease, transform 0.3s cubic-bezier(0.2, 0.7, 0.3, 1),
+                box-shadow 0.3s ease;
 }
 
 .reel-nav:hover {
-    background: var(--rose-600);
-    border-color: var(--rose-600);
+    background: var(--glass-hot);
+    border-color: var(--glass-hot-edge);
     color: var(--white);
     transform: scale(1.08);
-    box-shadow: var(--lift);
+    box-shadow: var(--glass-hot-lift);
 }
 
 .reel-nav:active {
@@ -1081,33 +1677,36 @@ a {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     margin-top: 6px;
     /* Tall enough to seat the volume control on the same line */
     min-height: 42px;
 }
 
+/* Same pill as the testimonial dots: the active one grows wider and taller */
 .reel-dot {
     width: 10px;
     height: 10px;
     padding: 0;
     border: none;
-    border-radius: 50%;
+    border-radius: 999px;
     /* chrome-700, not chrome-300: these sit on --paper and indicate state, so
        they need 3:1. chrome-300 would be 2.1:1. */
     background: var(--chrome-700);
     cursor: pointer;
-    transition: background 0.25s ease, transform 0.25s ease;
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                height 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                background-color 0.3s ease;
 }
 
 .reel-dot:hover {
     background: var(--rose-600);
-    transform: scale(1.2);
 }
 
 .reel-dot[aria-current="true"] {
+    width: 32px;
+    height: 14px;
     background: var(--rose-500);
-    transform: scale(1.3);
 }
 
 .reel-dot:focus-visible {
@@ -1116,20 +1715,51 @@ a {
 }
 
 @media (max-width: 768px) {
-    /* The stage takes the full width and the arrows move down beside the dots.
-       Flanking them here would cost the video ~90px of its ~330px. */
-    .reel {
-        grid-template-areas:
-            "stage stage stage"
-            "meta  meta  meta"
-            "prev  dots  next";
-        --reel-side: 40px;
-        --reel-gap: 10px;
+    /* Full-bleed so the side clips peek in from the screen edges as slivers;
+       clips change by swiping or tapping a sliver, so the arrows are hidden
+       here (the dots still work). */
+    .videos-section {
+        overflow-x: hidden;   /* fallback */
+        overflow-x: clip;     /* the slivers run past the screen edge */
     }
 
-    .reel-stage { border-radius: 12px; }
+    .reel {
+        max-width: none;
+        margin-inline: calc(50% - 50vw);
+        grid-template-columns: minmax(0, 1fr) 80vw minmax(0, 1fr);
+        grid-template-areas:
+            ".    stage ."
+            "meta meta  meta"
+            "dots dots  dots";
+        --reel-side: 40px;
+        --reel-gap: 8px;
+    }
 
-    .reel-nav { font-size: 0.9rem; }
+    /* The stage stops clipping so the neighbouring clips can show; each
+       slide carries its own rounded corners and the shadow instead */
+    .reel-stage {
+        border-radius: 12px;
+        overflow: visible;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .reel-slide[data-pos="0"] { box-shadow: var(--shadow-card); }
+
+    .reel-slide[data-pos="1"],
+    .reel-slide[data-pos="-1"] {
+        opacity: 0.5;
+        visibility: visible;
+        pointer-events: auto;
+        cursor: pointer;
+        transition: transform 0.7s cubic-bezier(0.25, 0.8, 0.25, 1),
+                    opacity 0.7s cubic-bezier(0.25, 0.8, 0.25, 1),
+                    visibility 0s;
+    }
+
+    .reel-timer { left: 12px; right: 12px; }
+
+    .reel-nav { display: none; }
 
     .reel-dots { min-height: 0; }
 
@@ -1138,7 +1768,7 @@ a {
 
 @media (prefers-reduced-motion: reduce) {
     .reel-slide,
-    .reel-slide.is-active { transition: none; }
+    .reel-slide[data-pos] { transition: none; }
     .reel-timer { display: none; }
 }
 
@@ -1187,8 +1817,13 @@ a {
     border-radius: 50%;
     background: transparent;
     cursor: pointer;
-    transition: background 0.25s ease, color 0.25s ease, transform 0.2s ease;
+    transition: background-color 0.25s ease, color 0.25s ease, transform 0.2s ease;
 }
+
+/* Every state of the button below is a flat background-color - no gradients.
+   A gradient is a background-IMAGE, which cannot be faded to or from a flat
+   colour: it used to vanish instantly on hover while the colour faded in
+   underneath, so the lit button blinked dark before turning red again. */
 
 /* --- the speaker ---------------------------------------------------------
    Drawn rather than swapped between icons. Each arc has its own opacity, fed
@@ -1264,9 +1899,29 @@ a {
                 opacity 0.22s ease;
 }
 
+/* Open on hover, on keyboard focus, and while being dragged - but NOT just
+   because sound is on. Once the level has been set the control folds back to
+   the icon and gets out of the way; hovering brings it back. is-dragging is
+   what keeps it open when the pointer slides off the pill mid-drag. */
+/* is-open is held by script.js: it goes on the moment the control is touched
+   and comes off a couple of seconds after the last interaction, so the level
+   lingers instead of snapping shut the instant the pointer leaves or the
+   moment you finish dragging it. :hover is kept alongside so it still opens
+   instantly even before the script has had a chance to run. */
 .vol:not(.vol--vertical):hover .vol-slider,
-.vol:not(.vol--vertical):focus-within .vol-slider,
-.vol:not(.vol--vertical).is-on .vol-slider {
+.vol:not(.vol--vertical).is-open .vol-slider,
+.vol:not(.vol--vertical).is-dragging .vol-slider {
+    width: 88px;
+    opacity: 1;
+    margin: 0 10px 0 8px;
+}
+
+/* Keyboard focus holds it open for as long as the level is focused. Plain
+   :focus would too, but a mouse drag leaves the slider focused, so the level
+   would then stay open until the visitor clicked somewhere else instead of
+   folding away on the linger. A rule of its own so a browser without
+   :focus-visible drops only this and not the hover/open rule above. */
+.vol:not(.vol--vertical) .vol-slider:focus-visible {
     width: 88px;
     opacity: 1;
     margin: 0 10px 0 8px;
@@ -1308,8 +1963,18 @@ a {
 }
 
 .vol--vertical:hover .vol-slider-wrap,
-.vol--vertical:focus-within .vol-slider-wrap,
-.vol--vertical.is-on .vol-slider-wrap {
+.vol--vertical.is-open .vol-slider-wrap,
+.vol--vertical.is-dragging .vol-slider-wrap {
+    height: 92px;
+    margin-bottom: 6px;
+}
+
+/* Keyed to the SLIDER's keyboard focus, not the pill's: tabbing to the level
+   opens it, while clicking the mute button - which leaves that button focused -
+   does not pin the level open, and neither does a mouse drag, which leaves the
+   slider focused (see the horizontal rule above). Its own rule for the same
+   reason: a browser without :has() drops only this. */
+.vol--vertical .vol-slider-wrap:has(.vol-slider:focus-visible) {
     height: 92px;
     margin-bottom: 6px;
 }
@@ -1410,9 +2075,11 @@ a {
     right: 16px;
     bottom: 16px;
     padding: 4px;
-    border: 1px solid var(--rose-600);
-    background: rgba(var(--paper-rgb), 0.92);
-    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--glass-smoke-edge);
+    background: var(--glass-smoke);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-smoke-lift);
     /* The unfilled groove has to be DARKER than this near-white plate or the
        level is unreadable, and the two contrasts pull against each other: no
        alpha clears 3:1 both against the plate and against the rose fill. .30
@@ -1420,26 +2087,30 @@ a {
        which is the pairing that actually conveys the value, and 2.0:1 against
        the plate. (The plate is translucent over footage, so it sits darker
        than a solid white one and this has to be lighter than it would be on
-       paper.) The control's own boundary comes from the thumb, 3.7:1 against
-       the groove, and the pill's rose border at 9.4:1 over any frame. */
-    --vol-track: rgba(var(--ink-rgb), 0.30);
+       paper.) Now the pane is smoked rather than near-white, so the groove has
+       to be the light one: a near-white track on dark glass, with the crimson
+       fill reading against it at 4.7:1 and the track against the pane at
+       11.4:1. */
+    --vol-track: rgba(var(--paper-rgb), 0.8);
 }
 
 .vol--reel .vol-btn {
     width: 32px;
     height: 32px;
-    color: var(--rose-600);
+    color: var(--text-on-dark);
 }
 
-.vol--reel:hover { background: var(--paper); box-shadow: var(--lift); }
-.vol--reel .vol-btn:hover { background: rgba(var(--accent-rgb), 0.12); }
+.vol--reel:hover { box-shadow: var(--glass-hot-lift); border-color: var(--glass-hot-edge); }
+.vol--reel .vol-btn:hover { background: rgba(var(--accent-rgb), 0.35); color: var(--rose-300); }
 
+/* Lit when on; hovering it darkens to the site's accent hover, reading as
+   "click to turn this off". White is 7.8:1 on the one and 9.4:1 on the other. */
 .vol--reel.is-on .vol-btn {
-    background: var(--rose-600);
+    background: var(--accent);
     color: var(--white);
 }
 
-.vol--reel.is-on .vol-btn:hover { background: var(--rose-500); }
+.vol--reel.is-on .vol-btn:hover { background: var(--accent-hover); color: var(--white); }
 
 /* --- hero: the same glass plate as the social icons ----------------------
    Top left of the hero, tucked under the navbar. --nav-offset is the measured
@@ -1448,19 +2119,20 @@ a {
    the cart button is fixed there at 60x60 with z-index 999.) */
 .vol--hero {
     position: absolute;
+    z-index: 4;   /* above the hero's ink overlay - see the note on .hero::before */
     left: 30px;
     top: calc(var(--nav-offset, 80px) + 16px);
     padding: 6px;
-    border: 1px solid var(--chrome-300);
-    /* .35 like the social icons is not enough up HERE. They sit at the bottom
-       of the hero where the ink gradient is already at .81; this is near the
-       top where it is only ~.40, so against a bright frame the plate measured
-       4.3:1 behind the icon and the outline all but vanished at 1.2:1. At .7
-       the icon is 9.6:1 and the plate itself carries the edge at 4.4:1, while
-       the chrome outline still carries it against dark frames. */
-    background: rgba(var(--ink-rgb), 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    /* Smoked rather than frosted for the same reason as the reel's: this sits
+       near the TOP of the hero where the ink gradient is only ~.40, so against
+       a bright frame a light pane measured 4.3:1 behind its icon and its edge
+       all but vanished at 1.2:1. The smoked pane puts the icon at 9.6:1 and
+       carries its own edge at 4.4:1 on the brightest frame. */
+    border: 1px solid var(--glass-smoke-edge);
+    background: var(--glass-smoke);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-smoke-lift);
     /* And here the opposite: a near-white groove on the dark glass, so the
        crimson fill reads against it (4.7:1) and the groove reads against the
        plate (11.4:1). A half-transparent version of it measured 1.8:1 against
@@ -1476,20 +2148,23 @@ a {
 
 .vol--hero .vol-icon { width: 20px; height: 20px; }
 
-.vol--hero:hover { border-color: var(--rose-300); }
-.vol--hero .vol-btn:hover { background: rgba(var(--accent-rgb), 0.3); color: var(--rose-300); }
+.vol--hero:hover { border-color: var(--glass-hot-edge); box-shadow: var(--glass-hot-lift); }
+.vol--hero .vol-btn:hover { background: rgba(var(--accent-rgb), 0.35); color: var(--rose-300); }
 
 .vol--hero.is-on .vol-btn {
-    background: var(--rose-600);
+    background: var(--accent);
     color: var(--white);
 }
 
-.vol--hero.is-on .vol-btn:hover { background: var(--rose-500); color: var(--white); }
+.vol--hero.is-on .vol-btn:hover { background: var(--accent-hover); color: var(--white); }
 
 @media (max-width: 768px) {
-    .vol:hover .vol-slider,
-    .vol:focus-within .vol-slider,
-    .vol.is-on .vol-slider { width: 74px; }
+    /* No level on touch. A range input is a poor touch target at this size -
+       a rotated one doubly so - so the control here is mute/unmute only.
+       display:none also takes it out of the tab order, which is right: there
+       is nothing to reach. */
+    .vol-slider,
+    .vol-slider-wrap { display: none; }
 
     /* Shorter throw: the stage is only ~180px tall here, so a 92px slider plus
        the button would fill more than half of it. */
@@ -1502,15 +2177,6 @@ a {
     .vol--reel .vol-btn {
         width: 30px;
         height: 30px;
-    }
-
-    .vol--vertical .vol-slider { width: 62px; }
-
-    .vol--vertical:hover .vol-slider-wrap,
-    .vol--vertical:focus-within .vol-slider-wrap,
-    .vol--vertical.is-on .vol-slider-wrap {
-        height: 62px;
-        margin-bottom: 4px;
     }
 
     .vol-icon { width: 16px; height: 16px; }
@@ -1588,7 +2254,7 @@ a {
     margin-top: 30px;
 }
 
-.logo-morenos img {
+.logo-person img {
     transform: scale(2);
     filter: drop-shadow(0 1px 1px rgba(var(--ink-rgb), 0.1));
     margin-top: 30px;
@@ -1606,7 +2272,7 @@ a {
         margin-top: 20px;
     }
     
-    .logo-morenos img {
+    .logo-person img {
         transform: scale(1.4);
         margin-top: 20px;
     }
@@ -1618,7 +2284,7 @@ a {
     .testimonial-card:hover .logo-cru img {
         transform: scale(1.7);
     }
-    .testimonial-card:hover .logo-morenos img {
+    .testimonial-card:hover .logo-person img {
         transform: scale(1.6);
     }
 }
@@ -1635,7 +2301,7 @@ a {
         margin-top: 15px;
     }
     
-    .logo-morenos img {
+    .logo-person img {
         transform: scale(1.2);
         margin-top: 15px;
     }
@@ -1647,7 +2313,7 @@ a {
     .testimonial-card:hover .logo-cru img {
         transform: scale(1.5);
     }
-    .testimonial-card:hover .logo-morenos img {
+    .testimonial-card:hover .logo-person img {
         transform: scale(1.4);
     }
 }
@@ -1663,7 +2329,7 @@ a {
     .testimonial-card:hover .logo-cru img {
         transform: scale(2.4);
     }
-    .testimonial-card:hover .logo-morenos img {
+    .testimonial-card:hover .logo-person img {
         transform: scale(2.2);
     }
 }
@@ -1897,32 +2563,47 @@ a {
 }
 
 /* Highlight styles — the "next show" card, rose-tinted on the light section.
+   It stands apart from the row three ways without changing its size: a rose
+   ring in place of the paper-coloured border, a raised resting shadow (the
+   others only get this on hover), and the accent stripe down the left. */
+.tour-date.highlight {
+    --stripe: 5px;
+    background: linear-gradient(90deg,
+        var(--rose-100) 0%,
+        var(--white) 38%
+    );
+    border-color: rgba(var(--accent-rgb), 0.45);
+    box-shadow: var(--lift);
+    position: relative;
+    z-index: 1;
+}
 
-   The accent stripe is an INSET SHADOW, not a border. A 5px left border
+.tour-date.highlight:hover {
+    box-shadow: var(--lift-lg);
+}
+
+/* The accent stripe is an INSET SHADOW, not a border. A 5px left border
    against the 1px the other cards carry kept the outer box at 420px but
    shrank this card's CONTENT box by 4px and pushed it 2px right, so the date
    plate, the pills, the address and the map all sat slightly out of line with
    every other card in the row. An inset shadow paints the same stripe without
    touching layout, and it follows the 14px corner radius instead of running
-   dead straight past it. */
-.tour-date.highlight {
-    background: linear-gradient(90deg,
-        var(--rose-100) 0%,
-        var(--white) 38%
-    );
-    box-shadow: inset 5px 0 0 0 var(--rose-500), var(--shadow-card);
-    position: relative;
-    z-index: 1;
-}
+   dead straight past it.
 
+   It lives on this overlay rather than on the card itself for two reasons.
+   On the card it was painted UNDER the card's children, so the date plate hid
+   the top of it and it only started below the plate. And it shared the card's
+   box-shadow, so .tour-date:hover - which replaces box-shadow - wiped it out
+   on hover. Here it sits above the content, runs the full height, and hover
+   never touches it. inset:-1px lays it over the border so it meets the edge. */
 .tour-date.highlight::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: var(--grad-chrome);
+    inset: -1px;
+    border-radius: inherit;
+    box-shadow: inset var(--stripe) 0 0 0 var(--rose-500);
+    pointer-events: none;
+    z-index: 3;
 }
 
 .tour-date.highlight::after {
@@ -2299,9 +2980,9 @@ a {
 /* Tablet highlight adjustments */
 @media (max-width: 768px) {
     .tour-date.highlight {
-        box-shadow: inset 4px 0 0 0 var(--rose-500), var(--shadow-card);
+        --stripe: 4px;
     }
-    
+
     .tour-date.highlight::after {
         top: 1.25rem;
         right: 1.25rem;
@@ -2314,9 +2995,9 @@ a {
 /* Mobile highlight adjustments */
 @media (max-width: 480px) {
     .tour-date.highlight {
-        box-shadow: inset 3px 0 0 0 var(--rose-500), var(--shadow-sm);
+        --stripe: 3px;
     }
-    
+
     .tour-date.highlight::after {
         top: 1rem;
         right: 1rem;
@@ -2466,11 +3147,14 @@ a {
     align-items: center;
     gap: 0.5rem;
     padding: 0.75rem 1.5rem;
-    /* Secondary button on light: outlined rose */
-    background: transparent;
-    border: 2px solid var(--rose-600);
+    /* Smoked glass: on the light gigs section a frosted pane would vanish */
     border-radius: 8px;
-    color: var(--rose-600);
+    border: 1px solid var(--glass-smoke-edge);
+    background: var(--glass-smoke);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-smoke-lift);
+    color: var(--paper);
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
@@ -2482,7 +3166,10 @@ a {
 }
 
 .view-toggle-btn:hover {
-    background: var(--rose-100);
+    background: var(--glass-hot);
+    border-color: var(--glass-hot-edge);
+    color: var(--white);
+    box-shadow: var(--glass-hot-lift);
     transform: translateY(-2px);
 }
 
@@ -2531,15 +3218,18 @@ a {
 }
 
 .calendar-nav-btn {
-    background: transparent;
-    border: 2px solid var(--rose-600);
     border-radius: 50%;
+    border: 1px solid var(--glass-smoke-edge);
+    background: var(--glass-smoke);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-smoke-lift);
+    color: var(--paper);
     width: 45px;
     height: 45px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--rose-600);
     cursor: pointer;
     transition: all 0.25s ease;
     font-size: 1.2rem;
@@ -2550,8 +3240,10 @@ a {
 }
 
 .calendar-nav-btn:hover {
-    background: var(--rose-600);
+    background: var(--glass-hot);
+    border-color: var(--glass-hot-edge);
     color: var(--white);
+    box-shadow: var(--glass-hot-lift);
     transform: scale(1.1);
 }
 
@@ -2711,10 +3403,13 @@ a {
     align-items: center;
     gap: 0.4rem;
     padding: 0.3rem 0.85rem;
-    border: 1px solid var(--rose-600);
     border-radius: 999px;
-    background: transparent;
-    color: var(--rose-600);
+    border: 1px solid var(--glass-smoke-edge);
+    background: var(--glass-smoke);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-smoke-lift);
+    color: var(--paper);
     font-family: var(--font-main);
     font-size: 0.72rem;
     font-weight: 700;
@@ -2731,12 +3426,14 @@ a {
 }
 
 .calendar-today-btn:hover:not(:disabled) {
-    background: var(--rose-100);
-    border-color: var(--rose-500);
+    background: var(--glass-hot);
+    border-color: var(--glass-hot-edge);
+    color: var(--white);
+    box-shadow: var(--glass-hot-lift);
 }
 
 .calendar-today-btn:hover:not(:disabled) i {
-    color: var(--rose-600);
+    color: var(--white);
 }
 
 .calendar-today-btn:focus-visible {
@@ -3412,7 +4109,6 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     background: var(--paper);
     border-radius: 10px;
     border: 1px solid var(--paper-2);
-    transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
     position: relative;
     overflow: hidden;
     justify-content: center;
@@ -3423,13 +4119,6 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     flex-shrink: 0;
     font-size: 1.1rem;
     filter: drop-shadow(0 1px 2px rgba(var(--ink-rgb), 0.3));
-}
-
-.venue-address:hover {
-    background: var(--rose-100);
-    border-color: rgba(var(--accent-rgb), 0.25);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(var(--ink-rgb), 0.12);
 }
 
 /* Enhanced Map Container */
@@ -3552,11 +4241,6 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
     background: var(--ink-800);
     border-color: var(--ink-700);
     color: var(--muted-on-dark);
-}
-
-.tour-date.currently-playing .venue-address:hover {
-    background: rgba(var(--accent-rgb), 0.18);
-    border-color: rgba(var(--accent-rgb), 0.4);
 }
 
 .tour-date.currently-playing .venue-map-container {
@@ -3906,6 +4590,7 @@ animation: subtleGlow 8s ease-in-out infinite alternate;
         max-width: 300px;
         height: 100vh; /* fallback for older browsers */
         height: calc(var(--stable-vh, 1vh) * 100);
+        height: 100svh;   /* stable against the mobile address bar */
         background: var(--ink-900);
         flex-direction: column;
         align-items: center;
@@ -4618,8 +5303,11 @@ body {
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: var(--ink-700);
-    border: 1px solid var(--border-on-dark);
+    border: 1px solid var(--glass-frost-edge);
+    background: var(--glass-frost);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-frost-lift);
     color: var(--text-on-dark);
     font-size: 1rem;
     cursor: pointer;
@@ -4630,9 +5318,10 @@ body {
 }
 
 .quantity-btn:hover {
-    background: var(--rose-500);
-    border-color: var(--rose-500);
+    background: var(--glass-hot);
+    border-color: var(--glass-hot-edge);
     color: var(--white);
+    box-shadow: var(--glass-hot-lift);
 }
 
 .quantity-btn:focus-visible {
@@ -5574,15 +6263,20 @@ border-bottom: 2px solid var(--ink-700);
 
 /* Secondary button on dark: outlined chrome, rose on hover */
 .credit-card-form .btn-secondary {
-    background: transparent;
-    border: 1px solid var(--chrome-300);
+    /* Frosted - the checkout card it sits on is dark */
+    border: 1px solid var(--glass-frost-edge);
+    background: var(--glass-frost);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-frost-lift);
     color: var(--text-on-dark);
 }
 
 .credit-card-form .btn-secondary:hover {
-    background: transparent;
-    border-color: var(--rose-300);
-    color: var(--rose-300);
+    background: var(--glass-hot);
+    border-color: var(--glass-hot-edge);
+    color: var(--white);
+    box-shadow: var(--glass-hot-lift);
     transform: translateY(-2px);
 }
 
@@ -6272,77 +6966,136 @@ border-bottom: 2px solid var(--ink-700);
         margin-left: auto;
     }
 }
-/* Testimonials Section - Carousel Version (DARK) */
+/* Testimonials Section - Carousel Version (DARK)
+   The track is a native horizontal scroller with scroll-snap, so swiping
+   follows the finger on touch devices. JS only drives the arrows, dots,
+   gentle autoplay and the .is-active highlight. */
 .testimonials-section {
     background: var(--ink-900);
 }
 
-/* Testimonials Carousel Container */
 .testimonials-carousel {
+    --t-card-width: 100%;
+    --t-gap: 24px;
     position: relative;
-    max-width: 900px;
+    max-width: 860px;
     margin: 0 auto;
-    padding: 0 120px; /* Add padding for navigation buttons */
+    padding: 0 72px; /* room for the arrows */
 }
 
 .testimonials-wrapper {
     position: relative;
-    overflow: hidden;
-    border-radius: 16px;
-    margin: 0 -95px; /* Negative margin to counteract card margins */
 }
 
 .testimonials-track {
+    position: relative; /* offsetParent for the cards */
     display: flex;
-    transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Slower transition */
-    will-change: transform;
-    touch-action: pan-y;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+    gap: var(--t-gap);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 12px calc((100% - var(--t-card-width)) / 2) 24px;
+    touch-action: pan-x pan-y;
+}
+
+.testimonials-track::-webkit-scrollbar {
+    display: none;
 }
 
 .testimonials-carousel .testimonial-card {
-    flex: 0 0 calc(100% - 40px); /* Each card takes full width minus margin space */
-    min-height: 400px; /* Ensure consistent height */
-    height: 500px;
-    background: var(--ink-800);
-    color: var(--text-on-dark);
-    padding: 40px;
-    border-radius: 16px;
-    margin: 0 20px; /* Add margins for spacing between cards */
-    transition: all 0.3s ease;
-    position: relative;
-    border: 1px solid var(--ink-700);
+    flex: 0 0 var(--t-card-width);
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    align-items: center;
     box-sizing: border-box;
-    margin-bottom: 20px;
+    padding: 40px 56px 32px;
+    margin: 0;
+    border-radius: 18px;
+    background: linear-gradient(180deg, var(--ink-800), var(--ink-900));
+    color: var(--text-on-dark);
+    border: 1px solid var(--ink-700);
+    text-align: center;
+    opacity: 0.45;
+    transform: scale(0.96);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+                border-color 0.5s ease, box-shadow 0.5s ease;
+}
+
+.testimonials-carousel .testimonial-card.is-active {
+    opacity: 1;
+    transform: none;
+    border-color: rgba(var(--accent-rgb), 0.35);
+    box-shadow: var(--lift-dark);
 }
 
 .testimonials-carousel .testimonial-card:hover {
     box-shadow: var(--lift-dark);
 }
 
-/* Ensure proper spacing for testimonial content */
+/* Logos: sized boxes instead of the old scale() hacks, and no hover zoom.
+   Every logo file is cropped tight to its artwork (Cru-cropped.png exists
+   for this - the original Cru.png is a 500px square with the logo floating
+   in it), so one height and one centring put all three at the same scale and
+   on the same line, with no per-logo fudge factors. Keep it that way: a new
+   logo with padding baked in will sit small and off-centre next to these. */
+.testimonials-carousel .testimonial-logo {
+    --logo-h: 110px;
+    height: var(--logo-h);
+    width: 100%;
+    display: grid;
+    place-items: center;
+    margin-bottom: 24px;
+}
+
+.testimonials-carousel .testimonial-logo img,
+.testimonials-carousel .testimonial-card:hover .testimonial-logo img {
+    transform: none;
+    margin: 0;
+    padding: 0;
+    width: auto;
+    height: calc(var(--logo-h) * 0.82);
+    max-width: 100%;
+    object-fit: contain;
+    opacity: 1;
+}
+
+/* The person icon is a black silhouette, lifted to --chrome-300 (#adafb0):
+   black would vanish on the ink card. invert(68%) on pure black lands on
+   #adadad. */
+.testimonials-carousel .logo-person img {
+    filter: invert(68%);
+}
+
 .testimonials-carousel .testimonial-text {
     flex-grow: 1;
-    margin: 55px 80px 0px ;
+    max-width: 52ch;
+    margin: 12px auto 28px;
+    font-size: 1.1rem;
     font-style: italic;
-    line-height: 2;
+    line-height: 1.8;
     text-align: center;
 }
 
-.testimonials-carousel .testimonial-logo {
-    margin-bottom: 20px;
+.testimonials-carousel .testimonial-text::before {
+    position: static;
+    display: block;
+    height: 0.55em;
+    margin-bottom: 0.1em;
+    font-size: 3.6rem;
 }
 
 .testimonials-carousel .client-info {
-    margin-top: 20px;
+    width: 100%;
+    max-width: 320px;
+    margin-top: auto;
     border-top: 1px solid var(--ink-700);
-    padding-top: 15px;
+    padding-top: 16px;
 }
 
 /* Carousel Navigation */
@@ -6350,27 +7103,30 @@ border-bottom: 2px solid var(--ink-700);
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    /* Secondary button on dark: outlined chrome, rose on hover */
-    background: transparent;
-    border: 1px solid var(--chrome-300);
+    /* Frosted glass - this sits on the solid dark merch section */
+    border: 1px solid var(--glass-frost-edge);
+    background: var(--glass-frost);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-frost-lift);
     color: var(--text-on-dark);
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
-    transition: all 0.25s ease;
+    font-size: 1.1rem;
+    transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
     z-index: 10;
 }
 
 .carousel-nav:hover {
-    background: rgba(var(--accent-rgb), 0.18);
-    border-color: var(--rose-300);
-    color: var(--rose-300);
-    transform: translateY(-50%) scale(1.1);
+    background: var(--glass-hot);
+    border-color: var(--glass-hot-edge);
+    color: var(--white);
+    box-shadow: var(--glass-hot-lift);
 }
 
 .carousel-nav:focus-visible {
@@ -6379,40 +7135,43 @@ border-bottom: 2px solid var(--ink-700);
 }
 
 .carousel-nav:active {
-    transform: translateY(-50%) scale(0.95);
+    background: rgba(var(--accent-rgb), 0.28);
 }
 
 .carousel-nav.prev {
-    left: -60px; /* Adjusted for padding */
+    left: 0;
 }
 
 .carousel-nav.next {
-    right: -60px; /* Adjusted for padding */
+    right: 0;
 }
 
-/* Carousel Dots */
+/* Carousel Dots — the active one grows into a wider, taller pill */
 .carousel-dots {
     display: flex;
     justify-content: center;
-    gap: 18px;
-    margin-top: 30px;
+    align-items: center;
+    gap: 10px;
+    height: 14px;
+    margin-top: 16px;
 }
 
 .carousel-dots .dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border-radius: 999px;
     /* On --ink-900 these need 3:1 as state indicators: chrome-500 is 5.8:1 */
     background: var(--chrome-500);
     border: none;
     cursor: pointer;
-    transition: all 0.3s ease;
-    position: relative;
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                height 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                background-color 0.3s ease;
 }
 
 .carousel-dots .dot:hover {
-    background: var(--rose-300);
-    transform: scale(1.2);
+    background: var(--chrome-300);
 }
 
 .carousel-dots .dot:focus-visible {
@@ -6421,97 +7180,65 @@ border-bottom: 2px solid var(--ink-700);
 }
 
 .carousel-dots .dot.active {
+    width: 32px;
+    height: 14px;
     background: var(--rose-300);   /* rose-500 is only 2.4:1 on --ink-900 */
-    transform: scale(1.3);
-    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3);
 }
 
-.carousel-dots .dot.active::after {
-    content: '';
-    position: absolute;
-    top: -3px;
-    left: -3px;
-    right: -3px;
-    bottom: -3px;
-    border-radius: 50%;
-    border: 1px solid var(--rose-300);
-    animation: dotPulse 2s infinite;
-    opacity: 0;
-}
-
-@keyframes dotPulse {
-    0% {
-        transform: scale(0.8);
-        opacity: 0.7;
-    }
-    70% {
-        transform: scale(1.4);
-        opacity: 0;
-    }
-    100% {
-        opacity: 0;
-    }
-}
-
-/* Responsive Design */
+/* Tablet / mobile: swipe-first, neighbours peek in from the sides */
 @media (max-width: 768px) {
     .testimonials-carousel {
-        padding: 0 50px;
+        --t-card-width: 86%;
+        --t-gap: 14px;
+        max-width: none;
+        padding: 0;
+        margin-inline: calc(50% - 50vw); /* full-bleed so neighbours peek from the screen edge */
     }
-    
-    .testimonials-wrapper {
-        margin: 0 -15px; /* Match card margins on mobile */
+
+    .testimonials-carousel .carousel-nav {
+        display: none;
     }
-    
+
     .testimonials-carousel .testimonial-card {
-        flex: 0 0 calc(100% - 30px); /* Adjust for smaller margins */
-        margin: 0 15px; /* Smaller margins on mobile */
-        padding: 30px 25px;
-        min-height: 320px;
+        padding: 28px 22px 24px;
     }
-    
-    .carousel-nav {
-        width: 45px;
-        height: 45px;
+
+    .testimonials-carousel .testimonial-logo {
+        --logo-h: 80px;
+        margin-bottom: 16px;
+    }
+
+    .testimonials-carousel .testimonial-text {
+        margin: 8px auto 20px;
         font-size: 1rem;
+        line-height: 1.65;
     }
-    
-    .carousel-dots {
-        margin-top: 25px;
-        gap: 10px;
-    }
-    
-    .carousel-dots .dot {
-        width: 10px;
-        height: 10px;
+
+    .testimonials-carousel .testimonial-text::before {
+        font-size: 3rem;
     }
 }
 
 @media (max-width: 480px) {
     .testimonials-carousel {
-        padding: 0 40px;
+        --t-card-width: 88%;
+        --t-gap: 10px;
     }
-    
-    .testimonials-wrapper {
-        margin: 0 -20px; /* Match card margins on small mobile */
-    }
-    
-    .testimonials-carousel .testimonial-card {
-        flex: 0 0 calc(100% - 20px); /* Adjust for even smaller margins */
-        margin: 0 10px; /* Even smaller margins on small mobile */
-        padding: 25px 20px;
-        min-height: 300px;
-    }
-    
-    .carousel-nav {
-        width: 40px;
-        height: 40px;
-        font-size: 0.9rem;
+
+    .testimonials-carousel .testimonial-text {
+        font-size: 0.95rem;
     }
 }
 
-.testimonials-track.transitioning {
-    transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+@media (prefers-reduced-motion: reduce) {
+    .testimonials-track {
+        scroll-behavior: auto;
+    }
+
+    .testimonials-carousel .testimonial-card,
+    .carousel-dots .dot {
+        transition: none;
+    }
 }
 .merch-section .container {
     width: 95%;
@@ -6533,39 +7260,6 @@ border-bottom: 2px solid var(--ink-700);
         padding: 0 10px;
     }
 }
-/* Mobile carousel fixes */
-@media (max-width: 768px) {
-    .testimonials-carousel {
-        padding: 0 15px;
-    }
-
-    .testimonials-carousel .carousel-nav {
-        display: none;
-    }
-
-    .testimonials-carousel .testimonial-card {
-        min-height: 200px; /* Taller for mobile content */
-        height: 450px;
-    }
-    
-    .testimonials-carousel .testimonial-text {
-        margin: 30px 0;
-        line-height: 1.6;
-        font-size: 0.95rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .testimonials-carousel {
-        padding: 0 10px;
-    }
-
-    .testimonials-carousel .testimonial-text {
-        margin: 20px 0;
-        font-size: 0.9rem;
-    }
-}
-
 /* Hero Social Buttons - Glass Style */
 .hero-socials {
     position: absolute;
@@ -6573,7 +7267,7 @@ border-bottom: 2px solid var(--ink-700);
     left: 30px;
     display: flex;
     gap: 18px;
-    z-index: 2;
+    z-index: 3;
 }
 
 .hero-socials a {
@@ -6584,11 +7278,12 @@ border-bottom: 2px solid var(--ink-700);
     height: 48px;
     border-radius: 50%;
     /* Secondary on dark: chrome outline over the hero video, rose on hover */
-    background: rgba(var(--ink-rgb), 0.35);
-    border: 1px solid var(--chrome-300);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    color: var(--text-on-dark);
+    border: 1px solid var(--glass-smoke-edge);
+    background: var(--glass-smoke);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-smoke-lift);
+    color: var(--paper);
     font-size: 1.2rem;
     text-decoration: none;
     transition: all 0.25s ease;
@@ -6596,11 +7291,11 @@ border-bottom: 2px solid var(--ink-700);
 }
 
 .hero-socials a:hover {
-    background: rgba(var(--accent-rgb), 0.25);
-    border-color: var(--rose-300);
-    color: var(--rose-300);
+    background: var(--glass-hot);
+    border-color: var(--glass-hot-edge);
+    color: var(--white);
+    box-shadow: var(--glass-hot-lift);
     transform: translateY(-3px);
-    box-shadow: var(--lift-dark);
 }
 
 .hero-socials a:focus-visible {
@@ -6824,6 +7519,7 @@ border-bottom: 2px solid var(--ink-700);
         inset: 0;
         height: 100vh; /* fallback for older browsers */
         height: calc(var(--stable-vh, 1vh) * 100);
+        height: 100svh;   /* stable against the mobile address bar */
         padding: 104px max(28px, calc((100vw - 540px) / 2)) 32px;
         overflow-y: auto;
         overscroll-behavior: contain;
